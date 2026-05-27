@@ -10,7 +10,7 @@ export default function Home() {
   const { data: stats } = useStats()
   const { data: daily } = useDailyStats(84)
   const { data: leaders } = useLeaderboard('score', 5)
-  const { data: jobs } = useJobs({ limit: '6' })
+  const { data: jobs } = useJobs({ limit: '20' })
 
   return (
     <div className="page-enter">

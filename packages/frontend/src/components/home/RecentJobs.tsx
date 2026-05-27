@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default function RecentJobs({ jobs }: Props) {
-  const withBudget = jobs.filter((job) => job.budget && Number(job.budget) > 0)
+  const withBudget = jobs.filter((job) => job.budget && Number(job.budget) > 0).slice(0, 6)
 
   if (withBudget.length === 0) {
     return <div style={{ color: 'var(--dim)', fontSize: 12 }}>No funded jobs yet</div>
