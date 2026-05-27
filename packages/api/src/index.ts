@@ -28,6 +28,18 @@ app.route('/api/agents', agents)
 app.route('/api/jobs', jobs)
 app.route('/api/stats', stats)
 
+// Proxy indexer health
+app.get('/api/health', async (c) => {
+  try {
+    const res = await fetch('http://localhost:3001/health')
+    const data = await res.json()
+    const syncing = data.historicalProgress?.some((p: any) => p.progress !== '100%') || false
+    return c.json({ syncing, liveSync: data.liveSync, block: data.contracts?.[0]?.last_synced_block })
+  } catch {
+    return c.json({ syncing: false, liveSync: false, block: null })
+  }
+})
+
 // Root
 app.get('/', (c) => c.json({
   name: 'ArcHive API',

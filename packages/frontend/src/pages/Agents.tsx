@@ -100,27 +100,44 @@ export default function Agents() {
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
-            {data?.data.map((agent) => (
+            {data?.data.map((agent, i) => (
               <Link
                 key={agent.agentId}
                 to={`/agents/${agent.agentId}`}
+                className="card-glow"
                 style={{
                   padding: 20,
-                  border: '1px solid var(--dimmer)',
+                  background: 'var(--bg)',
                   textDecoration: 'none',
                   color: 'inherit',
-                  transition: 'border-color 0.2s',
+                  animationDelay: `${i * 40}ms`,
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--dimmer)')}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>
-                      {agent.name || `agent-${agent.agentId}`}
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    {/* Avatar placeholder */}
+                    <div style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 2,
+                      background: `linear-gradient(135deg, var(--accent-dark), var(--accent-light))`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: 'var(--text)',
+                      flexShrink: 0,
+                    }}>
+                      {(agent.name || `A${agent.agentId}`).charAt(0).toUpperCase()}
                     </div>
-                    <div style={{ fontSize: 10, color: 'var(--dim)' }}>
-                      {truncateAddress(agent.owner)}
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>
+                        {agent.name || `agent-${agent.agentId}`}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--dim)' }}>
+                        {truncateAddress(agent.owner)}
+                      </div>
                     </div>
                   </div>
                   <ScoreRadial score={agent.score} size={36} strokeWidth={3} />

@@ -72,3 +72,15 @@ export function useJob(id: string) {
     queryFn: () => api.getJob(id),
   })
 }
+
+export function useIndexerHealth() {
+  return useQuery({
+    queryKey: ['indexer-health'],
+    queryFn: async () => {
+      const res = await api.fetchHealth()
+      return res
+    },
+    refetchInterval: 10_000,
+    retry: false,
+  })
+}

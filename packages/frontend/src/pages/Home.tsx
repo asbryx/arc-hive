@@ -35,7 +35,7 @@ export default function Home() {
         <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
           // telemetry
         </div>
-        <StatsGrid stats={stats} />
+        <StatsGrid stats={stats} daily={daily} />
       </section>
 
       {/* Heatmap */}
