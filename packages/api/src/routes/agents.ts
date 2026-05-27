@@ -142,10 +142,10 @@ agents.get('/leaderboard', async (c) => {
   const limit = Math.min(50, parseInt(c.req.query('limit') || '20'))
 
   const orderMap: Record<string, string> = {
-    score: 'COALESCE(s.avg_score, 0) DESC',
+    score: 'COALESCE(s.composite_score, 0) DESC',
     earnings: 'COALESCE(s.total_earned, 0) DESC',
     jobs: 'COALESCE(s.completed_jobs, 0) DESC',
-    reputation: 'COALESCE(s.total_feedback_count, 0) DESC',
+    reputation: 'COALESCE(s.avg_score, 0) DESC',
   }
   const orderBy = orderMap[by] || orderMap.score
 
@@ -153,10 +153,10 @@ agents.get('/leaderboard', async (c) => {
     `SELECT
        a.agent_id, a.name, a.owner_address, a.image_uri, a.capabilities,
        s.avg_score, s.trust_tier, s.completed_jobs, s.total_earned,
-       s.total_feedback_count, s.completion_rate, s.last_active_at
+       s.total_feedback_count, s.completion_rate, s.last_active_at, s.composite_score
      FROM agents a
      INNER JOIN agent_scores s ON a.agent_id = s.agent_id
-     WHERE s.avg_score IS NOT NULL
+     WHERE s.composite_score IS NOT NULL
      ORDER BY ${orderBy}
      LIMIT $1`,
     [limit]
@@ -265,14 +265,14 @@ agents.get('/:id/jobs', async (c) => {
 
   const result = await query(
     `SELECT * FROM jobs
-     WHERE provider_agent_id = $1 OR ($2 IS NOT NULL AND provider_address = $2)
+     WHERE provider_agent_id = $1 OR ($2::text IS NOT NULL AND provider_address = $2::text)
      ORDER BY created_timestamp DESC
      LIMIT $3 OFFSET $4`,
     [id, ownerAddress || null, limit, offset]
   )
 
   const countResult = await query(
-    `SELECT COUNT(*) FROM jobs WHERE provider_agent_id = $1 OR ($2 IS NOT NULL AND provider_address = $2)`,
+    `SELECT COUNT(*) FROM jobs WHERE provider_agent_id = $1 OR ($2::text IS NOT NULL AND provider_address = $2::text)`,
     [id, ownerAddress || null]
   )
 
@@ -316,7 +316,8 @@ function formatAgentListItem(row: any) {
     imageUri: row.image_uri,
     capabilities: row.capabilities || [],
     agentType: row.agent_type,
-    score: row.avg_score ? parseFloat(row.avg_score) : null,
+    score: row.composite_score ? parseFloat(row.composite_score) : (row.avg_score ? parseFloat(row.avg_score) : null),
+    reputationScore: row.avg_score ? parseFloat(row.avg_score) : null,
     trustTier: parseInt(row.trust_tier || '0'),
     completedJobs: parseInt(row.completed_jobs || '0'),
     totalEarned: formatUsdc(row.total_earned),

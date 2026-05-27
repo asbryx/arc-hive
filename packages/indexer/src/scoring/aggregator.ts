@@ -79,6 +79,32 @@ async function recomputeAgentScore(agentId: bigint): Promise<void> {
   if (completedJobs >= 10 && (avgScore || 0) >= 70 && approvedValidations >= 1) trustTier = 2
   if (completedJobs >= 50 && (avgScore || 0) >= 90 && approvedValidations >= 2) trustTier = 3
 
+  // Compute composite score (0-100 scale)
+  // Primary: jobs + earnings (70% weight)
+  // Secondary: reputation (20% weight) — only if has jobs
+  // Tertiary: unique raters diversity (10% weight)
+  const uniqueRaters = parseInt(rep.unique_raters) || 0
+  const totalEarned = parseFloat(job.total_earned) || 0
+
+  // Job score: log scale, caps at ~50 jobs
+  const jobScore = Math.min(completedJobs / 50, 1) * 100
+
+  // Earnings score: log scale (1 USDC = 1e6 units), caps at ~1000 USDC
+  const earnedUsdc = totalEarned / 1e6
+  const earningsScore = earnedUsdc > 0 ? Math.min(Math.log10(earnedUsdc + 1) / 3, 1) * 100 : 0
+
+  // Reputation score: normalized to 0-100 (raw is 0-10000)
+  const repScore = avgScore ? (avgScore / 10000) * 100 : 0
+
+  // Rater diversity: caps at 10 unique raters
+  const raterScore = Math.min(uniqueRaters / 10, 1) * 100
+
+  // Composite: jobs-heavy, reputation only counts if agent has real activity
+  const hasJobs = completedJobs > 0
+  const compositeScore = hasJobs
+    ? (jobScore * 0.35) + (earningsScore * 0.35) + (repScore * 0.20) + (raterScore * 0.10)
+    : (repScore * 0.15) + (raterScore * 0.05)  // max ~20 without jobs
+
   // Get activity timestamps
   const activityResult = await query(
     `SELECT
@@ -98,9 +124,9 @@ async function recomputeAgentScore(agentId: bigint): Promise<void> {
     `INSERT INTO agent_scores (
        agent_id, avg_score, total_feedback_count, positive_feedback_count, negative_feedback_count,
        unique_raters, total_jobs, completed_jobs, rejected_jobs, expired_jobs, completion_rate,
-       total_earned, total_validations, approved_validations, trust_tier,
+       total_earned, total_validations, approved_validations, trust_tier, composite_score,
        first_active_at, last_active_at, computed_at
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW())
      ON CONFLICT (agent_id) DO UPDATE SET
        avg_score = EXCLUDED.avg_score,
        total_feedback_count = EXCLUDED.total_feedback_count,
@@ -116,6 +142,7 @@ async function recomputeAgentScore(agentId: bigint): Promise<void> {
        total_validations = EXCLUDED.total_validations,
        approved_validations = EXCLUDED.approved_validations,
        trust_tier = EXCLUDED.trust_tier,
+       composite_score = EXCLUDED.composite_score,
        first_active_at = EXCLUDED.first_active_at,
        last_active_at = EXCLUDED.last_active_at,
        computed_at = NOW()`,
@@ -125,7 +152,7 @@ async function recomputeAgentScore(agentId: bigint): Promise<void> {
       parseInt(rep.unique_raters) || 0,
       totalJobs, completedJobs, parseInt(job.rejected) || 0, parseInt(job.expired) || 0,
       completionRate, job.total_earned || '0',
-      parseInt(val.total_validations) || 0, approvedValidations, trustTier,
+      parseInt(val.total_validations) || 0, approvedValidations, trustTier, compositeScore,
       activity?.first_active || null, activity?.last_active || null,
     ]
   )
