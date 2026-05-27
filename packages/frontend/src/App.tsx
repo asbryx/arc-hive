@@ -5,6 +5,7 @@ import Home from './pages/Home'
 import Agents from './pages/Agents'
 import AgentProfile from './pages/AgentProfile'
 import Jobs from './pages/Jobs'
+import JobDetail from './pages/JobDetail'
 import Leaderboard from './pages/Leaderboard'
 import NotFound from './pages/NotFound'
 
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="/agents" element={<Agents />} />
           <Route path="/agents/:id" element={<AgentProfile />} />
           <Route path="/jobs" element={<Jobs />} />
+          <Route path="/jobs/:id" element={<JobDetail />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

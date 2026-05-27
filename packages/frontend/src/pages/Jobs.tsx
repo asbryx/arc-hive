@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useJobs } from '@/api/hooks'
 import StatusPill from '@/components/graphics/StatusPill'
 import Skeleton from '@/components/graphics/Skeleton'
@@ -109,8 +110,9 @@ export default function Jobs() {
           )}
 
           {data?.data.map((job) => (
-            <div
+            <Link
               key={job.jobId}
+              to={`/jobs/${job.jobId}`}
               style={{
                 display: 'grid',
                 gridTemplateColumns: '70px 50px 1fr 80px',
@@ -119,6 +121,8 @@ export default function Jobs() {
                 padding: '10px 0',
                 fontSize: 12,
                 borderBottom: '1px solid var(--dimmer)',
+                textDecoration: 'none',
+                color: 'inherit',
               }}
             >
               <StatusPill status={job.status} />
@@ -139,7 +143,7 @@ export default function Jobs() {
               <span style={{ textAlign: 'right' }}>
                 {job.budget ? `${formatUsdc(job.budget)}` : '—'}
               </span>
-            </div>
+            </Link>
           ))}
 
           {/* Pagination */}
