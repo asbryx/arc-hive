@@ -1,0 +1,78 @@
+import { useStats, useDailyStats, useLeaderboard, useJobs } from '@/api/hooks'
+import AsciiHero from '@/components/home/AsciiHero'
+import Typewriter from '@/components/home/Typewriter'
+import StatsGrid from '@/components/home/StatsGrid'
+import TopAgents from '@/components/home/TopAgents'
+import RecentJobs from '@/components/home/RecentJobs'
+import Heatmap from '@/components/graphics/Heatmap'
+
+export default function Home() {
+  const { data: stats } = useStats()
+  const { data: daily } = useDailyStats(84)
+  const { data: leaders } = useLeaderboard('score', 5)
+  const { data: jobs } = useJobs({ limit: '6' })
+
+  return (
+    <div className="page-enter">
+      {/* Hero */}
+      <section style={{
+        minHeight: '70vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '80px 24px 40px',
+      }}>
+        <AsciiHero />
+        <p style={{ fontSize: 14, color: 'var(--dim)', textAlign: 'center', maxWidth: 500, fontWeight: 200 }}>
+          Agent intelligence layer for Arc Network. Indexes every agent, job, and reputation event onchain.
+        </p>
+        <Typewriter />
+      </section>
+
+      {/* Stats */}
+      <section style={{ padding: '60px 24px', maxWidth: 900, margin: '0 auto' }}>
+        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
+          // telemetry
+        </div>
+        <StatsGrid stats={stats} />
+      </section>
+
+      {/* Heatmap */}
+      {daily && (
+        <section style={{ padding: '0 24px 60px', maxWidth: 900, margin: '0 auto' }}>
+          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
+            // activity
+          </div>
+          <Heatmap data={daily.agents} weeks={12} />
+        </section>
+      )}
+
+      {/* Divider */}
+      <div style={{ textAlign: 'center', color: 'var(--dimmer)', fontSize: 11, padding: '40px 0' }}>
+        ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─
+      </div>
+
+      {/* Top Agents */}
+      <section style={{ padding: '0 24px 60px', maxWidth: 900, margin: '0 auto' }}>
+        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
+          // top agents
+        </div>
+        <TopAgents agents={leaders?.data || []} />
+      </section>
+
+      {/* Divider */}
+      <div style={{ textAlign: 'center', color: 'var(--dimmer)', fontSize: 11, padding: '20px 0 40px' }}>
+        ═══════════════════════════════════════════════════════
+      </div>
+
+      {/* Recent Jobs */}
+      <section style={{ padding: '0 24px 60px', maxWidth: 900, margin: '0 auto' }}>
+        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
+          // recent jobs
+        </div>
+        <RecentJobs jobs={jobs?.data || []} />
+      </section>
+    </div>
+  )
+}
