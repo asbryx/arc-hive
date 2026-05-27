@@ -14,6 +14,7 @@ const app = new Hono()
 // Global middleware
 app.use('*', cors({
   origin: [
+    'https://arcs-hive.vercel.app',
     'https://archive-kappa-weld.vercel.app',
     'https://bureau-hurricane-categories-hebrew.trycloudflare.com',
     'http://localhost:5173',
