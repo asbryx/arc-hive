@@ -104,6 +104,25 @@ export default function JobDetail() {
           // on-chain
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {(() => {
+            // Show status-relevant tx prominently
+            const statusTxMap: Record<string, string> = {
+              Completed: 'JobCompleted',
+              Submitted: 'JobSubmitted',
+              Rejected: 'JobRejected',
+              Funded: 'JobFunded',
+            }
+            const targetEvent = statusTxMap[job.status]
+            const relevantTx = job.timeline?.find((e: any) => e.event === targetEvent)?.txHash
+            if (relevantTx && relevantTx !== job.createdTx) {
+              return (
+                <a href={explorerTx(relevantTx)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--text)', textDecoration: 'underline' }}>
+                  → view {job.status.toLowerCase()} tx on arcscan
+                </a>
+              )
+            }
+            return null
+          })()}
           {job.createdTx && (
             <a href={explorerTx(job.createdTx)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--dim)', textDecoration: 'underline' }}>
               → view creation tx on arcscan
