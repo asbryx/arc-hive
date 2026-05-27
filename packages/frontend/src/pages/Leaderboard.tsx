@@ -103,7 +103,7 @@ export default function Leaderboard() {
                   </span>
                 </div>
                 <span style={{ textAlign: 'right', fontWeight: 700 }}>
-                  {agent.score !== null ? Math.min(agent.score, 100).toFixed(1) : '—'}
+                  {agent.score !== null ? agent.score.toFixed(1) : '—'}
                 </span>
                 <span style={{ textAlign: 'right', fontSize: 11, color: 'var(--dim)' }}>
                   {agent.completedJobs}

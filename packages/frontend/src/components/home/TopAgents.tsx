@@ -41,7 +41,7 @@ export default function TopAgents({ agents }: Props) {
             </div>
           </div>
           <div style={{ textAlign: 'right', fontWeight: 700 }}>
-            {agent.score !== null ? Math.min(agent.score, 100).toFixed(1) : '—'}
+            {agent.score !== null ? agent.score.toFixed(1) : '—'}
             <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>
               {scoreToBar(agent.score !== null ? Math.min(agent.score, 100) : null)}
             </div>
