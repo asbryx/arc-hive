@@ -15,6 +15,7 @@ const app = new Hono()
 app.use('*', cors({
   origin: [
     'https://archive-kappa-weld.vercel.app',
+    'https://bureau-hurricane-categories-hebrew.trycloudflare.com',
     'http://localhost:5173',
   ],
 }))
