@@ -32,6 +32,6 @@ export function timeAgo(dateStr: string): string {
 
 export function scoreToBar(score: number | null, width = 10): string {
   if (score === null) return '░'.repeat(width)
-  const filled = Math.round((score / 100) * width)
+  const filled = Math.max(0, Math.min(width, Math.round((score / 100) * width)))
   return '█'.repeat(filled) + '░'.repeat(width - filled)
 }
