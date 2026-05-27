@@ -259,17 +259,21 @@ agents.get('/:id/jobs', async (c) => {
   const id = c.req.param('id')
   const { page, limit, offset } = paginate(c)
 
+  // Get agent's owner address for matching
+  const agentResult = await query(`SELECT owner_address FROM agents WHERE agent_id = $1`, [id])
+  const ownerAddress = agentResult.rows[0]?.owner_address
+
   const result = await query(
     `SELECT * FROM jobs
-     WHERE provider_agent_id = $1
+     WHERE provider_agent_id = $1 OR ($2 IS NOT NULL AND provider_address = $2)
      ORDER BY created_timestamp DESC
-     LIMIT $2 OFFSET $3`,
-    [id, limit, offset]
+     LIMIT $3 OFFSET $4`,
+    [id, ownerAddress || null, limit, offset]
   )
 
   const countResult = await query(
-    `SELECT COUNT(*) FROM jobs WHERE provider_agent_id = $1`,
-    [id]
+    `SELECT COUNT(*) FROM jobs WHERE provider_agent_id = $1 OR ($2 IS NOT NULL AND provider_address = $2)`,
+    [id, ownerAddress || null]
   )
 
   return c.json({

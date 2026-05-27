@@ -36,7 +36,13 @@ async function recomputeAgentScore(agentId: bigint): Promise<void> {
     [agentId.toString()]
   )
 
-  // Get job stats
+  // Get job stats (match by agent_id OR owner address)
+  const agentOwnerResult = await query(
+    `SELECT owner_address FROM agents WHERE agent_id = $1`,
+    [agentId.toString()]
+  )
+  const ownerAddress = agentOwnerResult.rows[0]?.owner_address
+
   const jobResult = await query(
     `SELECT
        COUNT(*) as total_jobs,
@@ -44,8 +50,8 @@ async function recomputeAgentScore(agentId: bigint): Promise<void> {
        COUNT(*) FILTER (WHERE status = 4) as rejected,
        COUNT(*) FILTER (WHERE status = 5) as expired,
        COALESCE(SUM(payment_released::numeric), 0) as total_earned
-     FROM jobs WHERE provider_agent_id = $1`,
-    [agentId.toString()]
+     FROM jobs WHERE provider_agent_id = $1 OR ($2 IS NOT NULL AND provider_address = $2)`,
+    [agentId.toString(), ownerAddress || null]
   )
 
   // Get validation stats
@@ -81,9 +87,9 @@ async function recomputeAgentScore(agentId: bigint): Promise<void> {
      FROM (
        SELECT block_timestamp FROM reputation_events WHERE agent_id = $1
        UNION ALL
-       SELECT created_timestamp as block_timestamp FROM jobs WHERE provider_agent_id = $1
+       SELECT created_timestamp as block_timestamp FROM jobs WHERE provider_agent_id = $1 OR ($2 IS NOT NULL AND provider_address = $2)
      ) combined`,
-    [agentId.toString()]
+    [agentId.toString(), ownerAddress || null]
   )
   const activity = activityResult.rows[0]
 
