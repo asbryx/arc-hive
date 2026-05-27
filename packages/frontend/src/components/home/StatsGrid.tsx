@@ -37,11 +37,8 @@ export default function StatsGrid({ stats }: Props) {
           <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
             {item.label}
           </div>
-          <div style={{ fontSize: 28, fontWeight: 800, fontVariantNumeric: 'tabular-nums', marginBottom: 10 }}>
+          <div style={{ fontSize: 28, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
             <AnimatedCounter target={item.value} />
-          </div>
-          <div style={{ width: '100%', height: 3, background: 'var(--dimmer)', borderRadius: 1 }}>
-            <div className="stat-bar-fill" style={{ width: `${Math.min(100, (item.value / maxValue) * 100)}%` }} />
           </div>
         </div>
       ))}
