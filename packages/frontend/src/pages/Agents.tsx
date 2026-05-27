@@ -9,7 +9,7 @@ import { explorerAddress } from '@/utils/explorer'
 
 export default function Agents() {
   const [query, setQuery] = useState('')
-  const [sort, setSort] = useState('score_desc')
+  const [sort, setSort] = useState('jobs_desc')
   const [page, setPage] = useState(1)
 
   const searchResult = useAgentSearch(query, page)
