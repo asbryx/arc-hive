@@ -112,7 +112,7 @@ export default function Leaderboard() {
                   {agent.totalEarned ? formatUsdc(agent.totalEarned) : '0'}
                 </span>
                 <span style={{ textAlign: 'right' }}>
-                  <AsciiBar value={agent.score || 0} width={14} />
+                  <AsciiBar value={Math.min(agent.score || 0, 100)} width={14} />
                 </span>
               </Link>
             )

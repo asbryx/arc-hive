@@ -7,7 +7,8 @@ interface Props {
 export default function ScoreRadial({ score, size = 48, strokeWidth = 4 }: Props) {
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
-  const progress = score !== null ? (score / 100) * circumference : 0
+  const clampedScore = score !== null ? Math.max(0, Math.min(100, score)) : 0
+  const progress = score !== null ? (clampedScore / 100) * circumference : 0
 
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
