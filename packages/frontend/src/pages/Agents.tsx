@@ -5,6 +5,7 @@ import ScoreRadial from '@/components/graphics/ScoreRadial'
 import TrustBadge from '@/components/graphics/TrustBadge'
 import Skeleton from '@/components/graphics/Skeleton'
 import { truncateAddress } from '@/utils/format'
+import { explorerAddress } from '@/utils/explorer'
 
 export default function Agents() {
   const [query, setQuery] = useState('')

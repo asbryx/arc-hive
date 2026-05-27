@@ -4,6 +4,7 @@ import StatusPill from '@/components/graphics/StatusPill'
 import Skeleton from '@/components/graphics/Skeleton'
 import { truncateAddress, timeAgo, formatUsdc } from '@/utils/format'
 import { JOB_STATUSES } from '@/utils/constants'
+import { explorerAddress } from '@/utils/explorer'
 
 export default function Jobs() {
   const [status, setStatus] = useState('')
@@ -124,9 +125,15 @@ export default function Jobs() {
             >
               <StatusPill status={job.status} />
               <span style={{ color: 'var(--dim)' }}>#{job.jobId}</span>
-              <span>{truncateAddress(job.client)}</span>
+              <a href={explorerAddress(job.client)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text)', textDecoration: 'underline' }}>
+                {truncateAddress(job.client)}
+              </a>
               <span style={{ color: 'var(--dim)' }}>
-                {job.provider ? truncateAddress(job.provider) : '—'}
+                {job.provider ? (
+                  <a href={explorerAddress(job.provider)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
+                    {truncateAddress(job.provider)}
+                  </a>
+                ) : '—'}
               </span>
               <span style={{ textAlign: 'right' }}>
                 {job.budget ? `${formatUsdc(job.budget)}` : '—'}

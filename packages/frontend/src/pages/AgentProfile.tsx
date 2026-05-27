@@ -7,6 +7,7 @@ import AsciiBar from '@/components/graphics/AsciiBar'
 import Skeleton from '@/components/graphics/Skeleton'
 import { truncateAddress, timeAgo, formatUsdc } from '@/utils/format'
 import { TRUST_TIERS } from '@/utils/constants'
+import { explorerAddress, explorerTx } from '@/utils/explorer'
 
 export default function AgentProfile() {
   const { id } = useParams<{ id: string }>()
@@ -34,7 +35,9 @@ export default function AgentProfile() {
             {agent.name || `agent-${agent.agentId}`}
           </h1>
           <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8 }}>
-            {truncateAddress(agent.owner, 6)} · registered {timeAgo(agent.registeredAt)}
+            <a href={explorerAddress(agent.owner)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
+              {truncateAddress(agent.owner, 6)}
+            </a> · registered {timeAgo(agent.registeredAt)}
           </div>
           {agent.description && (
             <p style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 12 }}>{agent.description}</p>
@@ -151,12 +154,16 @@ export default function AgentProfile() {
                 alignItems: 'center',
               }}>
                 <div>
-                  <span style={{ color: 'var(--dim)' }}>{truncateAddress(event.clientAddress)}</span>
+                  <a href={explorerAddress(event.clientAddress)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
+                    {truncateAddress(event.clientAddress)}
+                  </a>
                   <span style={{ margin: '0 8px' }}>→</span>
                   <span style={{ fontWeight: 700 }}>{event.value > 0 ? '+' : ''}{event.value}</span>
                   {event.tag1 && <span style={{ color: 'var(--dim)', marginLeft: 8 }}>[{event.tag1}]</span>}
                 </div>
-                <span style={{ color: 'var(--dim)', fontSize: 11 }}>{timeAgo(event.timestamp)}</span>
+                <a href={explorerTx(event.txHash)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', fontSize: 11, textDecoration: 'underline' }}>
+                  {timeAgo(event.timestamp)}
+                </a>
               </div>
             ))}
           </div>

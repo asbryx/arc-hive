@@ -20,6 +20,6 @@ export const EXTERNAL_LINKS = {
   docs: 'https://docs.arc.io',
   explorer: 'https://testnet.arcscan.app',
   github: 'https://github.com/asbryx/arc-hive',
-  x: 'https://x.com',
+  x: 'https://x.com/Arcs_Hives',
   discord: 'https://discord.gg/arc',
 }
