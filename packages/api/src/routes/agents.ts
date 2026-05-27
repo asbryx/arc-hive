@@ -154,7 +154,7 @@ agents.get('/leaderboard', async (c) => {
        s.total_feedback_count, s.completion_rate, s.last_active_at
      FROM agents a
      INNER JOIN agent_scores s ON a.agent_id = s.agent_id
-     WHERE s.completed_jobs > 0
+     WHERE s.avg_score IS NOT NULL
      ORDER BY ${orderBy}
      LIMIT $1`,
     [limit]
