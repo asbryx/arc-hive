@@ -7,7 +7,7 @@ export default function Nav() {
 
   return (
     <nav className={styles.nav}>
-      <NavLink to="/" className={styles.logo}>ArcHive</NavLink>
+      <NavLink to="/" className={styles.logo}><span style={{ color: 'var(--accent)' }}>A</span>rc<span style={{ color: 'var(--accent)' }}>H</span>ive</NavLink>
       <ul className={styles.links}>
         <li><NavLink to="/" className={({ isActive }) => isActive ? styles.active : ''}>dashboard</NavLink></li>
         <li><NavLink to="/agents" className={({ isActive }) => isActive ? styles.active : ''}>agents</NavLink></li>
