@@ -22,11 +22,13 @@ export default function StatsGrid({ stats }: Props) {
   }
 
   const items = [
-    { label: 'Agents', value: stats.totalAgents, barValue: 80 },
-    { label: 'Jobs', value: stats.totalJobs, barValue: 50 },
-    { label: 'Rep Events', value: stats.totalReputationEvents, barValue: 90 },
-    { label: 'USDC Paid', value: stats.totalVolume ? Math.round(parseFloat(stats.totalVolume)) : 0, barValue: 20 },
+    { label: 'Agents', value: stats.totalAgents },
+    { label: 'Jobs', value: stats.totalJobs },
+    { label: 'Rep Events', value: stats.totalReputationEvents },
+    { label: 'USDC Paid', value: stats.totalVolume ? Math.round(parseFloat(stats.totalVolume)) : 0 },
   ]
+
+  const maxValue = Math.max(...items.map(i => i.value), 1)
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--dimmer)' }}>
@@ -39,7 +41,7 @@ export default function StatsGrid({ stats }: Props) {
             <AnimatedCounter target={item.value} />
           </div>
           <div style={{ marginTop: 8 }}>
-            <AsciiBar value={item.barValue} />
+            <AsciiBar value={item.value} max={maxValue} />
           </div>
         </div>
       ))}
