@@ -12,7 +12,12 @@ import { rateLimiter } from './middleware/rate-limit.js'
 const app = new Hono()
 
 // Global middleware
-app.use('*', cors())
+app.use('*', cors({
+  origin: [
+    'https://archive-kappa-weld.vercel.app',
+    'http://localhost:5173',
+  ],
+}))
 app.use('/api/*', rateLimiter())
 app.onError(errorHandler)
 
