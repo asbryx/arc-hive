@@ -114,6 +114,7 @@ export default function Jobs() {
             <Link
               key={job.jobId}
               to={`/jobs/${job.jobId}`}
+              className="row-hover"
               style={{
                 display: 'grid',
                 gridTemplateColumns: '70px 50px 1fr 80px',

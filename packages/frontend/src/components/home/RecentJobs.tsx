@@ -19,6 +19,7 @@ export default function RecentJobs({ jobs }: Props) {
         <Link
           key={job.jobId}
           to={`/jobs/${job.jobId}`}
+          className="row-hover"
           style={{
             display: 'grid',
             gridTemplateColumns: '90px 1fr 80px',

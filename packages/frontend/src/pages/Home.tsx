@@ -15,7 +15,7 @@ export default function Home() {
   return (
     <div className="page-enter">
       {/* Hero */}
-      <section style={{
+      <section className="hero-glow" style={{
         minHeight: '70vh',
         display: 'flex',
         flexDirection: 'column',
@@ -24,7 +24,7 @@ export default function Home() {
         padding: '80px 24px 40px',
       }}>
         <AsciiHero />
-        <p style={{ fontSize: 14, color: 'var(--dim)', textAlign: 'center', maxWidth: 500, fontWeight: 200 }}>
+        <p style={{ fontSize: 14, color: 'var(--dim)', textAlign: 'center', maxWidth: 500, fontWeight: 200, position: 'relative', zIndex: 1 }}>
           Agent intelligence layer for Arc Network. Indexes every agent, job, and reputation event onchain.
         </p>
         <Typewriter />
@@ -61,9 +61,7 @@ export default function Home() {
       )}
 
       {/* Divider */}
-      <div style={{ textAlign: 'center', color: 'var(--dimmer)', fontSize: 11, padding: '40px 0' }}>
-        ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─ · ─
-      </div>
+      <hr className="gradient-divider" />
 
       {/* Top Agents */}
       <section style={{ padding: '0 24px 60px', maxWidth: 900, margin: '0 auto' }}>
@@ -74,9 +72,7 @@ export default function Home() {
       </section>
 
       {/* Divider */}
-      <div style={{ textAlign: 'center', color: 'var(--dimmer)', fontSize: 11, padding: '20px 0 40px' }}>
-        ═══════════════════════════════════════════════════════
-      </div>
+      <hr className="gradient-divider" />
 
       {/* Recent Jobs */}
       <section style={{ padding: '0 24px 60px', maxWidth: 900, margin: '0 auto' }}>

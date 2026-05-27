@@ -11,6 +11,10 @@
   --dim: #666666;
   --dimmer: #333333;
   --accent: #273F4F;
+  --accent-light: #3a5f6f;
+  --accent-dark: #1a2f3a;
+  --glow: rgba(39, 63, 79, 0.4);
+  --glow-soft: rgba(39, 63, 79, 0.15);
   --font: 'JetBrains Mono', monospace;
 }
 
@@ -58,6 +62,58 @@ input, select { font-family: var(--font); }
 
 .page-enter {
   animation: fadeIn 0.2s ease-out;
+}
+
+/* Ambient glow behind hero */
+.hero-glow {
+  position: relative;
+}
+.hero-glow::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(ellipse at center, var(--glow) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Gradient stat fills */
+.stat-bar-fill {
+  background: linear-gradient(90deg, var(--accent-dark) 0%, var(--accent) 50%, var(--accent-light) 100%);
+  border-radius: 1px;
+  height: 3px;
+  transition: width 0.6s ease-out;
+}
+
+/* Card hover glow */
+.card-glow {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  border: 1px solid var(--dimmer);
+}
+.card-glow:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--glow-soft), inset 0 0 20px rgba(39, 63, 79, 0.05);
+}
+
+/* Link row hover */
+.row-hover {
+  transition: background 0.2s ease;
+}
+.row-hover:hover {
+  background: linear-gradient(90deg, transparent 0%, var(--glow-soft) 50%, transparent 100%);
+}
+
+/* Section gradient divider */
+.gradient-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%);
+  border: none;
+  margin: 32px 0;
+  opacity: 0.5;
 }
 
 /* Mobile responsive */

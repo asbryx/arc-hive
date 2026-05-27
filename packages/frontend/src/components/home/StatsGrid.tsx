@@ -31,14 +31,17 @@ export default function StatsGrid({ stats }: Props) {
   const maxValue = Math.max(...items.map(i => i.value), 1)
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--dimmer)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
       {items.map((item) => (
-        <div key={item.label} style={{ padding: 20, background: 'var(--bg)' }}>
+        <div key={item.label} className="card-glow" style={{ padding: 20, background: 'var(--bg)' }}>
           <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
             {item.label}
           </div>
-          <div style={{ fontSize: 28, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ fontSize: 28, fontWeight: 800, fontVariantNumeric: 'tabular-nums', marginBottom: 10 }}>
             <AnimatedCounter target={item.value} />
+          </div>
+          <div style={{ width: '100%', height: 3, background: 'var(--dimmer)', borderRadius: 1 }}>
+            <div className="stat-bar-fill" style={{ width: `${Math.min(100, (item.value / maxValue) * 100)}%` }} />
           </div>
         </div>
       ))}

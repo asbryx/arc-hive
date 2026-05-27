@@ -17,6 +17,7 @@ export default function TopAgents({ agents }: Props) {
         <Link
           key={agent.agentId}
           to={`/agents/${agent.agentId}`}
+          className="row-hover"
           style={{
             display: 'grid',
             gridTemplateColumns: '50px 1fr 80px 80px',
