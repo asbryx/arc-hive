@@ -37,9 +37,7 @@ CREATE TABLE IF NOT EXISTS agent_scores (
     last_active_at TIMESTAMPTZ,
     
     -- Timestamps
-    computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    
-    CONSTRAINT fk_agent FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE
+    computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_scores_avg ON agent_scores(avg_score DESC);
