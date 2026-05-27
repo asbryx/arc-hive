@@ -200,6 +200,7 @@ function formatJob(row: any) {
     client: row.client_address,
     provider: row.provider_address,
     providerAgentId: row.provider_agent_id ? parseInt(row.provider_agent_id) : null,
+    description: row.description || null,
     status: statusNames[row.status] || 'Unknown',
     budget: formatUsdc(row.budget),
     createdAt: row.created_timestamp,

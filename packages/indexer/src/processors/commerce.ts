@@ -1,6 +1,38 @@
-import { type Log, decodeEventLog, type AbiEvent } from 'viem'
+import { type Log, decodeEventLog, decodeFunctionData, type AbiEvent, type Hex } from 'viem'
 import { CONTRACTS, COMMERCE_EVENTS } from '@arc-hive/shared'
 import * as db from '../db/queries.js'
+import { getHttpClient } from '../clients/chain.js'
+
+const CREATE_JOB_ABI = [{
+  inputs: [
+    { name: 'provider', type: 'address' },
+    { name: 'evaluator', type: 'address' },
+    { name: 'expiredAt', type: 'uint256' },
+    { name: 'description', type: 'string' },
+    { name: 'hook', type: 'address' },
+  ],
+  name: 'createJob',
+  outputs: [{ name: '', type: 'uint256' }],
+  stateMutability: 'nonpayable',
+  type: 'function',
+}] as const
+
+const CREATE_JOB_SELECTOR = '41528812'
+
+async function extractDescription(txHash: Hex): Promise<string | null> {
+  try {
+    const client = getHttpClient()
+    const tx = await client.getTransaction({ hash: txHash })
+    const input = typeof tx.input === 'string' ? tx.input : `0x${Buffer.from(tx.input as any).toString('hex')}`
+    const idx = input.indexOf(CREATE_JOB_SELECTOR)
+    if (idx < 0) return null
+    const calldata = `0x${input.slice(idx)}` as Hex
+    const { args } = decodeFunctionData({ abi: CREATE_JOB_ABI, data: calldata })
+    return (args as any)[3] || null
+  } catch {
+    return null
+  }
+}
 
 const commerceAbi = Object.values(COMMERCE_EVENTS) as AbiEvent[]
 
@@ -37,12 +69,13 @@ export async function processCommerceLog(log: Log, blockTimestamp: Date) {
     const name = decoded.eventName as string
 
     if (name === 'JobCreated') {
+      const description = await extractDescription(log.transactionHash! as Hex)
       await db.upsertJob({
         jobId: args.jobId,
         clientAddress: args.client.toLowerCase(),
         providerAddress: isZero(args.provider) ? null : args.provider.toLowerCase(),
         evaluatorAddress: isZero(args.evaluator) ? null : args.evaluator.toLowerCase(),
-        description: null,
+        description,
         expiredAt: new Date(Number(args.expiredAt) * 1000),
         hookAddress: isZero(args.hook) ? null : args.hook.toLowerCase(),
         createdBlock: BigInt(log.blockNumber!),

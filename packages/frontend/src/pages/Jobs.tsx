@@ -104,7 +104,7 @@ export default function Jobs() {
             }}>
               <span>status</span>
               <span>id</span>
-              <span>client → provider</span>
+              <span>description</span>
               <span style={{ textAlign: 'right' }}>budget</span>
             </div>
           )}
@@ -128,16 +128,12 @@ export default function Jobs() {
               <StatusPill status={job.status} />
               <span style={{ color: 'var(--dim)' }}>#{job.jobId}</span>
               <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                <a href={explorerAddress(job.client)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text)', textDecoration: 'underline' }}>
-                  {truncateAddress(job.client)}
-                </a>
-                {job.provider && (
-                  <>
-                    <span style={{ color: 'var(--dim)', margin: '0 4px' }}>→</span>
-                    <a href={explorerAddress(job.provider)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
-                      {truncateAddress(job.provider)}
-                    </a>
-                  </>
+                {job.description ? (
+                  <span style={{ color: 'var(--text)' }}>{job.description}</span>
+                ) : (
+                  <span style={{ color: 'var(--dim)', fontStyle: 'italic' }}>
+                    {truncateAddress(job.client)} → {job.provider ? truncateAddress(job.provider) : '...'}
+                  </span>
                 )}
               </div>
               <span style={{ textAlign: 'right' }}>

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { Job } from '@/api/client'
 import StatusPill from '@/components/graphics/StatusPill'
 import { formatUsdc } from '@/utils/format'
@@ -14,8 +15,9 @@ export default function RecentJobs({ jobs }: Props) {
   return (
     <div>
       {jobs.map((job) => (
-        <div
+        <Link
           key={job.jobId}
+          to={`/jobs/${job.jobId}`}
           style={{
             display: 'grid',
             gridTemplateColumns: '90px 1fr 80px',
@@ -24,17 +26,18 @@ export default function RecentJobs({ jobs }: Props) {
             padding: '8px 0',
             fontSize: 12,
             borderBottom: '1px solid var(--dimmer)',
+            textDecoration: 'none',
+            color: 'inherit',
           }}
         >
           <StatusPill status={job.status} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            Job #{job.jobId}
-            {job.provider && ` → ${job.provider.slice(0, 8)}...`}
+            {job.description || `Job #${job.jobId}`}
           </span>
           <span style={{ textAlign: 'right' }}>
             {job.budget ? `${formatUsdc(job.budget)} USDC` : '—'}
           </span>
-        </div>
+        </Link>
       ))}
     </div>
   )

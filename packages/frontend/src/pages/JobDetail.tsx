@@ -5,12 +5,6 @@ import Skeleton from '@/components/graphics/Skeleton'
 import { truncateAddress, timeAgo, formatUsdc } from '@/utils/format'
 import { explorerAddress, explorerTx } from '@/utils/explorer'
 
-const MARKETPLACES = [
-  { name: 'Arcade', url: 'https://arcademp.xyz/' },
-  { name: 'AgentMarket', url: 'https://agentmarket.vercel.app/' },
-  { name: 'Gigawork', url: 'https://gigawork-arc.vercel.app/' },
-]
-
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>()
   const { data: job, isLoading } = useJob(id!)
@@ -28,10 +22,26 @@ export default function JobDetail() {
   return (
     <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 900, margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
         <StatusPill status={job.status} />
         <h1 style={{ fontSize: 20, fontWeight: 800 }}>Job #{job.jobId}</h1>
       </div>
+
+      {/* Description */}
+      {job.description && (
+        <div style={{
+          padding: '16px 20px',
+          background: 'var(--dimmer)',
+          borderLeft: '3px solid var(--accent)',
+          marginBottom: 32,
+          fontSize: 13,
+          lineHeight: 1.6,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}>
+          {job.description}
+        </div>
+      )}
 
       {/* Info grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 1, background: 'var(--dimmer)', marginBottom: 32 }}>
@@ -102,37 +112,35 @@ export default function JobDetail() {
           <a href={explorerAddress('0x0747EEf0706327138c69792bF28Cd525089e4583')} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--dim)', textDecoration: 'underline' }}>
             → view contract on arcscan
           </a>
+          {job.deliverableHash && (
+            <span style={{ fontSize: 12, color: 'var(--dim)' }}>
+              deliverable: {job.deliverableHash.slice(0, 16)}...
+            </span>
+          )}
         </div>
       </section>
 
-      {/* Marketplaces */}
-      <section style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
-          // find on marketplaces
-        </div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {MARKETPLACES.map((mp) => (
-            <a
-              key={mp.name}
-              href={mp.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                fontSize: 12,
-                padding: '8px 16px',
-                border: '1px solid var(--dimmer)',
-                color: 'var(--text)',
-                textDecoration: 'none',
-                transition: 'border-color 0.2s',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--dimmer)')}
-            >
-              {mp.name} ↗
-            </a>
-          ))}
-        </div>
-      </section>
+      {/* Timeline */}
+      {job.timeline && job.timeline.length > 0 && (
+        <section style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
+            // timeline
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {job.timeline.map((event: any, i: number) => (
+              <div key={i} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--dimmer)', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: 'var(--accent)', minWidth: 100 }}>{event.event}</span>
+                <span style={{ fontSize: 11, color: 'var(--dim)', flex: 1 }}>{timeAgo(event.timestamp)}</span>
+                {event.txHash && (
+                  <a href={explorerTx(event.txHash)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--dim)', textDecoration: 'underline' }}>
+                    tx ↗
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

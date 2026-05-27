@@ -63,6 +63,7 @@ export interface Job {
   client: string
   provider: string | null
   providerAgentId: number | null
+  description: string | null
   status: string
   budget: string | null
   createdAt: string
