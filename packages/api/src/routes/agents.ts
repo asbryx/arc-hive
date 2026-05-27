@@ -116,13 +116,15 @@ agents.get('/search', async (c) => {
      FROM agents a
      LEFT JOIN agent_scores s ON a.agent_id = s.agent_id
      WHERE a.name ILIKE $1 OR a.description ILIKE $1 OR $2 = ANY(a.capabilities)
+       OR a.owner_address ILIKE $1 OR CAST(a.agent_id AS TEXT) = $2
      ORDER BY COALESCE(s.avg_score, 0) DESC
      LIMIT $3 OFFSET $4`,
     [`%${q}%`, q.toLowerCase(), limit, offset]
   )
 
   const countResult = await query(
-    `SELECT COUNT(*) FROM agents a WHERE a.name ILIKE $1 OR a.description ILIKE $1 OR $2 = ANY(a.capabilities)`,
+    `SELECT COUNT(*) FROM agents a WHERE a.name ILIKE $1 OR a.description ILIKE $1 OR $2 = ANY(a.capabilities)
+       OR a.owner_address ILIKE $1 OR CAST(a.agent_id AS TEXT) = $2`,
     [`%${q}%`, q.toLowerCase()]
   )
 

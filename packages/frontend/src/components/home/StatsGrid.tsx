@@ -40,9 +40,6 @@ export default function StatsGrid({ stats }: Props) {
           <div style={{ fontSize: 28, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
             <AnimatedCounter target={item.value} />
           </div>
-          <div style={{ marginTop: 8 }}>
-            <AsciiBar value={item.value} max={maxValue} />
-          </div>
         </div>
       ))}
     </div>
