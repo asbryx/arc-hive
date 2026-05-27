@@ -15,7 +15,7 @@ export default function Nav() {
         <li><NavLink to="/leaderboard" className={({ isActive }) => isActive ? styles.active : ''}>leaderboard</NavLink></li>
       </ul>
       <div className={styles.status}>
-        ● live · {stats ? `${stats.totalAgents.toLocaleString()} agents` : '...'}
+        <span style={{ color: stats ? '#00ff00' : '#ff4444' }}>●</span> {stats ? 'live' : 'offline'} · {stats ? `${stats.totalAgents.toLocaleString()} agents` : '...'}
       </div>
     </nav>
   )
