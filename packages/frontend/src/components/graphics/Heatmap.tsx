@@ -45,7 +45,7 @@ export default function Heatmap({ data, weeks = 12 }: Props) {
                 width: 10,
                 height: 10,
                 borderRadius: 1,
-                background: `var(--accent)`,
+                background: `#ff4444`,
                 opacity,
               }}
             />
