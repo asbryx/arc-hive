@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLeaderboard } from '@/api/hooks'
 import TrustBadge from '@/components/graphics/TrustBadge'
-import AsciiBar from '@/components/graphics/AsciiBar'
 import Skeleton from '@/components/graphics/Skeleton'
 import { formatUsdc } from '@/utils/format'
 
@@ -57,7 +56,7 @@ export default function Leaderboard() {
           {/* Header row */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '40px 1fr 80px 80px 80px 140px',
+            gridTemplateColumns: '40px 1fr 80px 80px 80px',
             gap: 12,
             padding: '8px 0',
             fontSize: 10,
@@ -71,7 +70,6 @@ export default function Leaderboard() {
             <span style={{ textAlign: 'right' }}>score</span>
             <span style={{ textAlign: 'right' }}>jobs</span>
             <span style={{ textAlign: 'right' }}>earned</span>
-            <span style={{ textAlign: 'right' }}>bar</span>
           </div>
 
           {data?.data.map((agent, i) => {
@@ -82,15 +80,13 @@ export default function Leaderboard() {
                 to={`/agents/${agent.agentId}`}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '40px 1fr 80px 80px 80px 140px',
+                  gridTemplateColumns: '40px 1fr 80px 80px 80px',
                   gap: 12,
                   alignItems: 'center',
                   padding: '12px 0',
                   borderBottom: '1px solid var(--dimmer)',
                   textDecoration: 'none',
                   color: 'inherit',
-                  borderLeft: isTop3 ? '2px solid var(--accent)' : '2px solid transparent',
-                  paddingLeft: 8,
                 }}
               >
                 <span style={{ fontSize: 11, color: 'var(--dim)', fontWeight: isTop3 ? 700 : 400 }}>
@@ -110,9 +106,6 @@ export default function Leaderboard() {
                 </span>
                 <span style={{ textAlign: 'right', fontSize: 11, color: 'var(--dim)' }}>
                   {agent.totalEarned ? formatUsdc(agent.totalEarned) : '0'}
-                </span>
-                <span style={{ textAlign: 'right' }}>
-                  <AsciiBar value={Math.min(agent.score || 0, 100)} width={14} />
                 </span>
               </Link>
             )
