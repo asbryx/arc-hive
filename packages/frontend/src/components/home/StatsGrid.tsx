@@ -26,7 +26,7 @@ export default function StatsGrid({ stats, daily }: Props) {
     { label: 'Agents', value: stats.totalAgents, spark: daily?.agents?.map(d => d.count) },
     { label: 'Jobs', value: stats.totalJobs, spark: daily?.jobs?.map(d => d.count) },
     { label: 'Rep Events', value: stats.totalReputationEvents, spark: daily?.reputation?.map(d => d.count) },
-    { label: 'USDC Paid', value: stats.totalVolume ? Math.round(parseFloat(stats.totalVolume)) : 0, spark: undefined },
+    { label: 'USDC Paid', value: stats.totalVolume ? Math.round(parseFloat(stats.totalVolume)) : 0, spark: daily?.volume?.map(d => d.count) },
   ]
 
   const maxValue = Math.max(...items.map(i => i.value), 1)

@@ -125,6 +125,7 @@ export interface DailyStats {
   agents: { day: string; count: number }[]
   jobs: { day: string; count: number }[]
   reputation: { day: string; count: number }[]
+  volume: { day: string; count: number }[]
 }
 
 async function fetchApi<T>(path: string): Promise<T> {

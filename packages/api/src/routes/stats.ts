@@ -64,10 +64,19 @@ stats.get('/daily', async (c) => {
     ORDER BY day
   `)
 
+  const volumeDaily = await query(`
+    SELECT DATE(completed_at) as day, COALESCE(SUM(payment_released), 0) as total
+    FROM jobs
+    WHERE completed_at > NOW() - INTERVAL '${days} days' AND payment_released > 0
+    GROUP BY DATE(completed_at)
+    ORDER BY day
+  `)
+
   return c.json({
     agents: agentsDaily.rows.map(r => ({ day: r.day, count: parseInt(r.count) })),
     jobs: jobsDaily.rows.map(r => ({ day: r.day, count: parseInt(r.count) })),
     reputation: reputationDaily.rows.map(r => ({ day: r.day, count: parseInt(r.count) })),
+    volume: volumeDaily.rows.map(r => ({ day: r.day, count: Math.round(parseInt(r.total) / 1_000_000) })),
   })
 })
 
