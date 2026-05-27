@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { Job } from '@/api/client'
 import StatusPill from '@/components/graphics/StatusPill'
 import { formatUsdc } from '@/utils/format'
+import { formatDescription } from '@/utils/description'
 
 interface Props {
   jobs: Job[]
@@ -32,7 +33,7 @@ export default function RecentJobs({ jobs }: Props) {
         >
           <StatusPill status={job.status} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {job.description || `Job #${job.jobId}`}
+            {formatDescription(job.description, job.jobId)}
           </span>
           <span style={{ textAlign: 'right' }}>
             {job.budget ? `${formatUsdc(job.budget)} USDC` : '—'}

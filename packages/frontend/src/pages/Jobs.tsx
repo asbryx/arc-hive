@@ -4,6 +4,7 @@ import { useJobs } from '@/api/hooks'
 import StatusPill from '@/components/graphics/StatusPill'
 import Skeleton from '@/components/graphics/Skeleton'
 import { truncateAddress, formatUsdc } from '@/utils/format'
+import { formatDescription } from '@/utils/description'
 import { JOB_STATUSES } from '@/utils/constants'
 import { explorerAddress } from '@/utils/explorer'
 
@@ -129,7 +130,7 @@ export default function Jobs() {
               <span style={{ color: 'var(--dim)' }}>#{job.jobId}</span>
               <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                 {job.description ? (
-                  <span style={{ color: 'var(--text)' }}>{job.description}</span>
+                  <span style={{ color: 'var(--text)' }}>{formatDescription(job.description, job.jobId)}</span>
                 ) : (
                   <span style={{ color: 'var(--dim)', fontStyle: 'italic' }}>
                     {truncateAddress(job.client)} → {job.provider ? truncateAddress(job.provider) : '...'}
