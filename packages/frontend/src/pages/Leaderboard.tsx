@@ -97,13 +97,13 @@ export default function Leaderboard() {
                     {agent.name || `agent-${agent.agentId}`}
                   </span>
                 </div>
-                <span style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent)' }}>
+                <span style={{ textAlign: 'right', fontWeight: 700, color: '#fff' }}>
                   {agent.score !== null ? agent.score.toFixed(1) : '—'}
                 </span>
-                <span style={{ textAlign: 'right', fontSize: 11, color: 'var(--dim)' }}>
+                <span style={{ textAlign: 'right', fontSize: 11, color: '#fff' }}>
                   {agent.completedJobs}
                 </span>
-                <span style={{ textAlign: 'right', fontSize: 11, color: 'var(--dim)' }}>
+                <span style={{ textAlign: 'right', fontSize: 11, color: '#fff' }}>
                   {agent.totalEarned ? formatUsdc(agent.totalEarned) : '0'}
                 </span>
               </Link>

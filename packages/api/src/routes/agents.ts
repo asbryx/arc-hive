@@ -264,9 +264,10 @@ agents.get('/:id/jobs', async (c) => {
   const ownerAddress = agentResult.rows[0]?.owner_address
 
   const result = await query(
-    `SELECT * FROM jobs
-     WHERE provider_agent_id = $1 OR ($2::text IS NOT NULL AND provider_address = $2::text)
-     ORDER BY created_timestamp DESC
+    `SELECT j.*, (SELECT je.tx_hash FROM job_events je WHERE je.job_id = j.job_id AND je.event_name = 'JobCompleted' LIMIT 1) as completion_tx
+     FROM jobs j
+     WHERE j.provider_agent_id = $1 OR ($2::text IS NOT NULL AND j.provider_address = $2::text)
+     ORDER BY j.created_timestamp DESC
      LIMIT $3 OFFSET $4`,
     [id, ownerAddress || null, limit, offset]
   )
@@ -337,6 +338,7 @@ function formatJobListItem(row: any) {
     budget: formatUsdc(row.budget),
     createdAt: row.created_timestamp,
     completedAt: row.completed_at,
+    txHash: row.completion_tx || null,
   }
 }
 

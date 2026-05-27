@@ -77,7 +77,8 @@ jobs.get('/', async (c) => {
   const total = parseInt(countResult.rows[0].count)
 
   const dataResult = await query(
-    `SELECT * FROM jobs ${where} ORDER BY ${orderBy} LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+    `SELECT j.*, (SELECT je.tx_hash FROM job_events je WHERE je.job_id = j.job_id AND je.event_name = 'JobCompleted' LIMIT 1) as completion_tx
+     FROM jobs j ${where} ORDER BY ${orderBy} LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
     [...params, limit, offset]
   )
 
@@ -205,6 +206,7 @@ function formatJob(row: any) {
     budget: formatUsdc(row.budget),
     createdAt: row.created_timestamp,
     completedAt: row.completed_at,
+    txHash: row.completion_tx || null,
   }
 }
 

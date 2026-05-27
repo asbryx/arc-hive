@@ -119,7 +119,7 @@ export default function AgentProfile() {
             {jobs.data.slice(0, 10).map((job) => (
               <div key={job.jobId} style={{
                 display: 'grid',
-                gridTemplateColumns: '90px 1fr 80px',
+                gridTemplateColumns: '90px 1fr 80px 60px',
                 gap: 12,
                 alignItems: 'center',
                 padding: '8px 0',
@@ -130,6 +130,15 @@ export default function AgentProfile() {
                 <span>Job #{job.jobId}</span>
                 <span style={{ textAlign: 'right', color: 'var(--dim)' }}>
                   {job.budget ? `${formatUsdc(job.budget)} USDC` : '—'}
+                </span>
+                <span style={{ textAlign: 'right' }}>
+                  {job.status === 'completed' && job.txHash ? (
+                    <a href={explorerTx(job.txHash)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: 11, textDecoration: 'underline' }}>
+                      tx ↗
+                    </a>
+                  ) : (
+                    <span style={{ color: 'var(--dimmer)' }}>—</span>
+                  )}
                 </span>
               </div>
             ))}

@@ -68,6 +68,7 @@ export interface Job {
   budget: string | null
   createdAt: string
   completedAt: string | null
+  txHash: string | null
 }
 
 export interface JobDetail extends Job {
