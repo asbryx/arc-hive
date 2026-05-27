@@ -56,8 +56,8 @@ export default function Leaderboard() {
           {/* Header row */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '40px 1fr 80px 80px 80px',
-            gap: 12,
+            gridTemplateColumns: '36px 1fr 60px 50px 70px',
+            gap: 8,
             padding: '8px 0',
             fontSize: 10,
             color: 'var(--dim)',
@@ -80,8 +80,8 @@ export default function Leaderboard() {
                 to={`/agents/${agent.agentId}`}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '40px 1fr 80px 80px 80px',
-                  gap: 12,
+                  gridTemplateColumns: '36px 1fr 60px 50px 70px',
+                  gap: 8,
                   alignItems: 'center',
                   padding: '12px 0',
                   borderBottom: '1px solid var(--dimmer)',

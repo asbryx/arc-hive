@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useJobs } from '@/api/hooks'
 import StatusPill from '@/components/graphics/StatusPill'
 import Skeleton from '@/components/graphics/Skeleton'
-import { truncateAddress, timeAgo, formatUsdc } from '@/utils/format'
+import { truncateAddress, formatUsdc } from '@/utils/format'
 import { JOB_STATUSES } from '@/utils/constants'
 import { explorerAddress } from '@/utils/explorer'
 
@@ -92,8 +92,8 @@ export default function Jobs() {
           {data && data.data.length > 0 && (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '90px 60px 1fr 100px 80px 80px',
-              gap: 12,
+              gridTemplateColumns: '70px 50px 1fr 80px',
+              gap: 8,
               padding: '8px 0',
               fontSize: 10,
               color: 'var(--dim)',
@@ -103,10 +103,8 @@ export default function Jobs() {
             }}>
               <span>status</span>
               <span>id</span>
-              <span>client</span>
-              <span>provider</span>
+              <span>client → provider</span>
               <span style={{ textAlign: 'right' }}>budget</span>
-              <span style={{ textAlign: 'right' }}>when</span>
             </div>
           )}
 
@@ -115,8 +113,8 @@ export default function Jobs() {
               key={job.jobId}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '90px 60px 1fr 100px 80px 80px',
-                gap: 12,
+                gridTemplateColumns: '70px 50px 1fr 80px',
+                gap: 8,
                 alignItems: 'center',
                 padding: '10px 0',
                 fontSize: 12,
@@ -125,21 +123,21 @@ export default function Jobs() {
             >
               <StatusPill status={job.status} />
               <span style={{ color: 'var(--dim)' }}>#{job.jobId}</span>
-              <a href={explorerAddress(job.client)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text)', textDecoration: 'underline' }}>
-                {truncateAddress(job.client)}
-              </a>
-              <span style={{ color: 'var(--dim)' }}>
-                {job.provider ? (
-                  <a href={explorerAddress(job.provider)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
-                    {truncateAddress(job.provider)}
-                  </a>
-                ) : '—'}
-              </span>
+              <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                <a href={explorerAddress(job.client)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text)', textDecoration: 'underline' }}>
+                  {truncateAddress(job.client)}
+                </a>
+                {job.provider && (
+                  <>
+                    <span style={{ color: 'var(--dim)', margin: '0 4px' }}>→</span>
+                    <a href={explorerAddress(job.provider)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
+                      {truncateAddress(job.provider)}
+                    </a>
+                  </>
+                )}
+              </div>
               <span style={{ textAlign: 'right' }}>
                 {job.budget ? `${formatUsdc(job.budget)}` : '—'}
-              </span>
-              <span style={{ textAlign: 'right', color: 'var(--dim)', fontSize: 11 }}>
-                {timeAgo(job.createdAt)}
               </span>
             </div>
           ))}

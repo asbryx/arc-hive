@@ -12,7 +12,7 @@ export default function App() {
   return (
     <>
       <Nav />
-      <main style={{ flex: 1, paddingTop: 48 }}>
+      <main style={{ flex: 1, paddingTop: 48, paddingBottom: 60 }}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/agents" element={<Agents />} />

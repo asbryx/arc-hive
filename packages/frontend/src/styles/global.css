@@ -59,3 +59,12 @@ input, select { font-family: var(--font); }
 .page-enter {
   animation: fadeIn 0.2s ease-out;
 }
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  html, body { font-size: 13px; }
+}
+
+@media (max-width: 480px) {
+  html, body { font-size: 12px; }
+}

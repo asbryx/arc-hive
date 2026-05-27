@@ -54,7 +54,7 @@ export default function AgentProfile() {
         <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
           // score
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--dimmer)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 1, background: 'var(--dimmer)' }}>
           <div style={{ padding: 16, background: 'var(--bg)' }}>
             <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', marginBottom: 4 }}>Average</div>
             <div style={{ fontSize: 20, fontWeight: 800 }}>{agent.score.average?.toFixed(1) ?? '—'}</div>
@@ -102,7 +102,7 @@ export default function AgentProfile() {
         <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
           // jobs ({agent.jobs.total})
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, background: 'var(--dimmer)', marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 1, background: 'var(--dimmer)', marginBottom: 16 }}>
           <div style={{ padding: 12, background: 'var(--bg)', fontSize: 11 }}>
             <span style={{ color: 'var(--dim)' }}>completed </span>{agent.jobs.completed}
           </div>
