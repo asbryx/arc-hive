@@ -28,6 +28,7 @@ export default function Agents() {
           border: '1px solid var(--dimmer)',
           padding: '10px 16px',
           fontSize: 13,
+          transition: 'border-color 0.2s',
         }}>
           <span style={{ color: 'var(--dim)', marginRight: 8 }}>$ search agents --query</span>
           <input
@@ -110,7 +111,7 @@ export default function Agents() {
                   color: 'inherit',
                   transition: 'border-color 0.2s',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--dim)')}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--dimmer)')}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -142,7 +143,7 @@ export default function Agents() {
                 {/* Footer */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--dim)' }}>
                   <span>{agent.completedJobs} jobs</span>
-                  <span>{agent.score !== null ? agent.score.toFixed(1) : '—'} pts</span>
+                  <span style={{ color: 'var(--accent)' }}>{agent.score !== null ? agent.score.toFixed(1) : '—'} pts</span>
                   <span>{agent.totalEarned || '0'} USDC</span>
                 </div>
               </Link>

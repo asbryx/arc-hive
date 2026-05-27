@@ -14,7 +14,7 @@ export default function Leaderboard() {
   return (
     <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 900, margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
+      <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, borderLeft: '2px solid var(--accent)', paddingLeft: 8 }}>
         // leaderboard
       </div>
 
@@ -88,7 +88,7 @@ export default function Leaderboard() {
                   color: 'inherit',
                 }}
               >
-                <span style={{ fontSize: 11, color: 'var(--dim)', fontWeight: isTop3 ? 700 : 400 }}>
+                <span style={{ fontSize: 11, color: isTop3 ? 'var(--accent)' : 'var(--dim)', fontWeight: isTop3 ? 700 : 400 }}>
                   #{String(i + 1).padStart(2, '0')}
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -97,7 +97,7 @@ export default function Leaderboard() {
                     {agent.name || `agent-${agent.agentId}`}
                   </span>
                 </div>
-                <span style={{ textAlign: 'right', fontWeight: 700 }}>
+                <span style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent)' }}>
                   {agent.score !== null ? agent.score.toFixed(1) : '—'}
                 </span>
                 <span style={{ textAlign: 'right', fontSize: 11, color: 'var(--dim)' }}>

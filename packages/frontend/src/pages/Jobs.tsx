@@ -19,7 +19,7 @@ export default function Jobs() {
   return (
     <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 900, margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
+      <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, borderLeft: '2px solid var(--accent)', paddingLeft: 8 }}>
         // jobs
       </div>
 

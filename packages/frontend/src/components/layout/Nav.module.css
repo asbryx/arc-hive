@@ -36,6 +36,8 @@
 .links a.active,
 .active {
   color: var(--text);
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 2px;
 }
 
 .status {

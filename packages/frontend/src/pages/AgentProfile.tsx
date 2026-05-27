@@ -51,7 +51,7 @@ export default function AgentProfile() {
 
       {/* Score Breakdown */}
       <section style={{ marginBottom: 40 }}>
-        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
+        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderLeft: '2px solid var(--accent)', paddingLeft: 8 }}>
           // score
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 1, background: 'var(--dimmer)' }}>
@@ -79,7 +79,7 @@ export default function AgentProfile() {
       {/* Capabilities */}
       {agent.capabilities.length > 0 && (
         <section style={{ marginBottom: 40 }}>
-          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
+          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderLeft: '2px solid var(--accent)', paddingLeft: 8 }}>
             // capabilities
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -99,7 +99,7 @@ export default function AgentProfile() {
 
       {/* Jobs */}
       <section style={{ marginBottom: 40 }}>
-        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
+        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderLeft: '2px solid var(--accent)', paddingLeft: 8 }}>
           // jobs ({agent.jobs.total})
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 1, background: 'var(--dimmer)', marginBottom: 16 }}>
@@ -139,7 +139,7 @@ export default function AgentProfile() {
 
       {/* Reputation Timeline */}
       <section style={{ marginBottom: 40 }}>
-        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
+        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderLeft: '2px solid var(--accent)', paddingLeft: 8 }}>
           // reputation events
         </div>
         {reputation?.data && reputation.data.length > 0 ? (
