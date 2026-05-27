@@ -141,7 +141,7 @@ export default function Agents() {
                 </div>
 
                 {/* Footer */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--dim)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--text)' }}>
                   <span>{agent.completedJobs} jobs</span>
                   <span style={{ color: 'var(--accent)' }}>{agent.score !== null ? agent.score.toFixed(1) : '—'} pts</span>
                   <span>{agent.totalEarned || '0'} USDC</span>
