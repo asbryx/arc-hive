@@ -24,7 +24,6 @@ export default function Leaderboard() {
           { key: 'score', label: 'score' },
           { key: 'earnings', label: 'earnings' },
           { key: 'jobs', label: 'jobs' },
-          { key: 'reputation', label: 'feedback' },
         ].map((tab) => (
           <button
             key={tab.key}

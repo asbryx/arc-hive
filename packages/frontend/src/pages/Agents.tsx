@@ -145,7 +145,10 @@ export default function Agents() {
                     <TrustBadge tier={agent.trustTier} size={12} />
                     <span>{agent.completedJobs} jobs</span>
                   </div>
-                  {agent.totalEarned && <span>{agent.totalEarned} USDC</span>}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {agent.score !== null && <span>{agent.score.toFixed(1)} pts</span>}
+                    {agent.totalEarned && <span>{agent.totalEarned} USDC</span>}
+                  </div>
                 </div>
               </Link>
             ))}
