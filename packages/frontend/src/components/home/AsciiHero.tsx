@@ -35,13 +35,12 @@ function getGlitchLine(line: string, revealCount: number): string {
 export default function AsciiHero() {
   const [text, setText] = useState('')
   const revealedRef = useRef(0)
-  const doneRef = useRef(false)
+  const rafRef = useRef<number>(0)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const totalChars = ARC_HIVE_ART.join('').replace(/\s/g, '').length
 
   useEffect(() => {
-    let raf: number
-
     const perLine: { total: number; start: number }[] = []
     let cumulative = 0
     for (const line of ARC_HIVE_ART) {
@@ -50,53 +49,37 @@ export default function AsciiHero() {
       cumulative += lineNonSpace
     }
 
-    function render() {
-      const lines: string[] = []
-      for (let i = 0; i < ARC_HIVE_ART.length; i++) {
-        const lineRevealed = Math.max(0, Math.min(perLine[i].total, revealedRef.current - perLine[i].start))
-        lines.push(getGlitchLine(ARC_HIVE_ART[i], lineRevealed))
-      }
-      setText('\n' + lines.join('\n') + '\n')
+    function startReveal() {
+      revealedRef.current = 0
 
-      if (revealedRef.current < totalChars + 20) {
-        revealedRef.current += REVEAL_SPEED
-        raf = requestAnimationFrame(render)
-      } else {
-        doneRef.current = true
-        setText('\n' + ARC_HIVE_ART.join('\n') + '\n')
-      }
-    }
+      function render() {
+        const lines: string[] = []
+        for (let i = 0; i < ARC_HIVE_ART.length; i++) {
+          const lineRevealed = Math.max(0, Math.min(perLine[i].total, revealedRef.current - perLine[i].start))
+          lines.push(getGlitchLine(ARC_HIVE_ART[i], lineRevealed))
+        }
+        setText('\n' + lines.join('\n') + '\n')
 
-    raf = requestAnimationFrame(render)
-    return () => cancelAnimationFrame(raf)
-  }, [totalChars])
-
-  // Idle glitch
-  useEffect(() => {
-    if (!doneRef.current) return
-    const interval = setInterval(() => {
-      const lines = [...ARC_HIVE_ART]
-      const positions: [number, number][] = []
-      for (let l = 0; l < lines.length; l++) {
-        for (let c = 0; c < lines[l].length; c++) {
-          if (lines[l][c] !== ' ') positions.push([l, c])
+        if (revealedRef.current < totalChars + 20) {
+          revealedRef.current += REVEAL_SPEED
+          rafRef.current = requestAnimationFrame(render)
+        } else {
+          setText('\n' + ARC_HIVE_ART.join('\n') + '\n')
+          // Wait 3s then loop
+          timerRef.current = setTimeout(startReveal, 3000)
         }
       }
-      const numGlitches = 10 + Math.floor(Math.random() * 6)
-      for (let g = 0; g < numGlitches; g++) {
-        const p = positions[Math.floor(Math.random() * positions.length)]
-        const line = lines[p[0]]
-        lines[p[0]] = line.substring(0, p[1]) +
-          GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)] +
-          line.substring(p[1] + 1)
-      }
-      setText('\n' + lines.join('\n') + '\n')
-      setTimeout(() => {
-        setText('\n' + ARC_HIVE_ART.join('\n') + '\n')
-      }, 120)
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [text])
+
+      rafRef.current = requestAnimationFrame(render)
+    }
+
+    startReveal()
+
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [totalChars])
 
   return (
     <pre
