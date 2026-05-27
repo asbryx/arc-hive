@@ -141,14 +141,9 @@ export default function Agents() {
 
                 {/* Footer */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--dim)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <TrustBadge tier={agent.trustTier} size={12} />
-                    <span>{agent.completedJobs} jobs</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {agent.score !== null && <span>{agent.score.toFixed(1)} pts</span>}
-                    {agent.totalEarned && <span>{agent.totalEarned} USDC</span>}
-                  </div>
+                  <span>{agent.completedJobs} jobs</span>
+                  <span>{agent.score !== null ? agent.score.toFixed(1) : '—'} pts</span>
+                  <span>{agent.totalEarned || '0'} USDC</span>
                 </div>
               </Link>
             ))}
