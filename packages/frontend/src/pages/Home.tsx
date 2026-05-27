@@ -42,9 +42,21 @@ export default function Home() {
       {daily && (
         <section style={{ padding: '0 24px 60px', maxWidth: 900, margin: '0 auto' }}>
           <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>
-            // activity
+            // agent registrations · last 12 weeks
           </div>
+          {stats && (
+            <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 12 }}>
+              +{stats.last7Days.newAgents.toLocaleString()} this week
+            </div>
+          )}
           <Heatmap data={daily.agents} weeks={12} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 10, color: 'var(--dim)' }}>
+            <span>less</span>
+            {[0.1, 0.3, 0.5, 0.7, 1.0].map((op) => (
+              <div key={op} style={{ width: 10, height: 10, borderRadius: 1, background: '#ff4444', opacity: op }} />
+            ))}
+            <span>more</span>
+          </div>
         </section>
       )}
 
