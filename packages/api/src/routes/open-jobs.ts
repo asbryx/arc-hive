@@ -597,26 +597,22 @@ openJobs.get('/:id/suggested-agents', async (c) => {
 openJobs.post('/:id/complete', async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
-  const { clientAddress, completionTx } = body
-
-  if (!clientAddress) {
-    return c.json({ error: 'clientAddress required' }, 400)
-  }
+  const { clientAddress, completionTx, completedTx } = body
 
   const jobResult = await query(
-    `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
-    [id, clientAddress]
+    `SELECT * FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
+    [id]
   )
   if (jobResult.rows.length === 0) {
-    return c.json({ error: 'Job not found or not your job' }, 404)
+    return c.json({ error: 'Job not found' }, 404)
   }
-  if (jobResult.rows[0].status !== 'delivered') {
-    return c.json({ error: 'Job must have a deliverable to complete' }, 400)
+  if (!['delivered', 'funded', 'in_progress'].includes(jobResult.rows[0].status)) {
+    return c.json({ error: 'Job not in a completable state' }, 400)
   }
 
   await query(
     `UPDATE open_jobs SET status = 'completed', completed_tx = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
-    [jobResult.rows[0].id, completionTx || null]
+    [jobResult.rows[0].id, completionTx || completedTx || null]
   )
 
   // Mark deliverable as approved

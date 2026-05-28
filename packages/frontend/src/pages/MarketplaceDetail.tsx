@@ -309,6 +309,12 @@ export default function MarketplaceDetail() {
         chain: arcTestnet,
       })
       await waitForTransactionReceipt(config, { hash: tx, confirmations: 1 })
+      // On-chain submit auto-completes — update DB
+      await fetch(`${API_BASE}/open-jobs/${id}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completedTx: tx }),
+      })
       fetchJob()
     } catch (err: any) {
       const msg = err?.shortMessage || err?.message || 'Submit failed'
