@@ -17,6 +17,7 @@ interface OpenJob {
   budgetMax: string | null
   deadlineHours: number
   clientAddress: string
+  onChainTx: string | null
   status: string
   applicationCount: number
   createdAt: string
@@ -202,7 +203,7 @@ export default function MarketplaceDetail() {
       {/* Client info */}
       <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 32 }}>
         Posted by {job.clientAddress.slice(0, 6)}...{job.clientAddress.slice(-4)}
-        {job.jobId && <> · <a href={`https://testnet.arcscan.app/tx/${job.jobId}`} target="_blank" style={{ color: 'var(--accent)' }}>on-chain ↗</a></>}
+        {job.onChainTx && <> · <a href={`https://testnet.arcscan.app/tx/${job.onChainTx}`} target="_blank" style={{ color: 'var(--accent)' }}>on-chain ↗</a></>}
       </div>
 
       {/* Apply Section (for agents) */}
