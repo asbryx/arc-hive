@@ -182,6 +182,33 @@ openJobs.get('/recommended', async (c) => {
   return c.json({ data: result.rows.map(formatOpenJob) })
 })
 
+// GET /api/open-jobs/agent-ratings?address=0x...
+openJobs.get('/agent-ratings', async (c) => {
+  const address = c.req.query('address')
+  if (!address) return c.json({ error: 'address required' }, 400)
+
+  const result = await query(
+    `SELECT mr.*, oj.title FROM marketplace_ratings mr
+     JOIN open_jobs oj ON oj.id = mr.open_job_id
+     WHERE lower(mr.agent_address) = lower($1)
+     ORDER BY mr.created_at DESC`,
+    [address]
+  )
+  const avg = await query(
+    `SELECT AVG(rating)::numeric(3,2) as avg_rating, COUNT(*) as total FROM marketplace_ratings WHERE lower(agent_address) = lower($1)`,
+    [address]
+  )
+
+  return c.json({
+    data: result.rows.map(row => ({
+      id: row.id, rating: row.rating, comment: row.comment,
+      clientAddress: row.client_address, jobTitle: row.title, createdAt: row.created_at,
+    })),
+    avgRating: parseFloat(avg.rows[0].avg_rating) || 0,
+    totalRatings: parseInt(avg.rows[0].total),
+  })
+})
+
 // GET /api/open-jobs/notifications?address=0x...
 openJobs.get('/notifications', async (c) => {
   const address = c.req.query('address')
@@ -710,6 +737,57 @@ openJobs.post('/:id/comments', async (c) => {
   )
 
   return c.json({ id: result.rows[0].id, createdAt: result.rows[0].created_at }, 201)
+})
+
+// ─── Ratings ──────────────────────────────────────────────────────────────────
+
+// POST /api/open-jobs/:id/rate — client rates agent after completion
+openJobs.post('/:id/rate', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { clientAddress, rating, comment } = body
+
+  if (!clientAddress || !rating) {
+    return c.json({ error: 'clientAddress and rating required' }, 400)
+  }
+  if (rating < 1 || rating > 5) {
+    return c.json({ error: 'rating must be 1-5' }, 400)
+  }
+
+  const jobResult = await query(
+    `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
+    [id, clientAddress]
+  )
+  if (jobResult.rows.length === 0) return c.json({ error: 'Job not found or not your job' }, 404)
+  if (jobResult.rows[0].status !== 'completed') return c.json({ error: 'Job must be completed to rate' }, 400)
+  if (!jobResult.rows[0].selected_applicant) return c.json({ error: 'No agent to rate' }, 400)
+
+  try {
+    const result = await query(
+      `INSERT INTO marketplace_ratings (open_job_id, agent_address, client_address, rating, comment)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [jobResult.rows[0].id, jobResult.rows[0].selected_applicant, clientAddress.toLowerCase(), rating, comment || null]
+    )
+    return c.json({ id: result.rows[0].id }, 201)
+  } catch (e: any) {
+    if (e.code === '23505') return c.json({ error: 'Already rated this job' }, 409)
+    throw e
+  }
+})
+
+// GET /api/open-jobs/agent-ratings?address=0x... — get agent's ratings
+openJobs.get('/:id/ratings', async (c) => {
+  const id = c.req.param('id')
+  const result = await query(
+    `SELECT mr.*, oj.title FROM marketplace_ratings mr
+     JOIN open_jobs oj ON oj.id = mr.open_job_id
+     WHERE mr.open_job_id = (SELECT id FROM open_jobs WHERE id = $1 OR job_id = $1::bigint LIMIT 1)`,
+    [id]
+  )
+  return c.json({ data: result.rows.map(row => ({
+    id: row.id, rating: row.rating, comment: row.comment,
+    clientAddress: row.client_address, jobTitle: row.title, createdAt: row.created_at,
+  })) })
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
