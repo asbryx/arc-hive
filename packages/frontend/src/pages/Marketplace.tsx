@@ -67,7 +67,7 @@ export default function Marketplace() {
           to="/post-job"
           style={{
             padding: '10px 20px', fontSize: 12, fontWeight: 700,
-            background: 'var(--accent)', color: 'var(--text)', textDecoration: 'none',
+            background: 'var(--accent)', color: '#ffffff', textDecoration: 'none',
           }}
         >
           + Post Job
