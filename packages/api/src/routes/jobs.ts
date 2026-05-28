@@ -4,8 +4,10 @@ import { query } from '../db.js'
 export const jobs = new Hono()
 
 function paginate(c: any) {
-  const page = Math.max(1, parseInt(c.req.query('page') || '1'))
-  const limit = Math.min(100, Math.max(1, parseInt(c.req.query('limit') || '20')))
+  const rawPage = parseInt(c.req.query('page') || '1')
+  const rawLimit = parseInt(c.req.query('limit') || '20')
+  const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1
+  const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 20
   const offset = (page - 1) * limit
   return { page, limit, offset }
 }

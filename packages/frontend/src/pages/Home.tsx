@@ -7,7 +7,7 @@ import RecentJobs from '@/components/home/RecentJobs'
 import Heatmap from '@/components/graphics/Heatmap'
 
 export default function Home() {
-  const { data: stats } = useStats()
+  const { data: stats, isError: statsError } = useStats()
   const { data: daily } = useDailyStats(84)
   const { data: leaders } = useLeaderboard('score', 5)
   const { data: jobs } = useJobs({ limit: '20' })

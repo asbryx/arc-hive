@@ -3,7 +3,7 @@ import { useAgent, useAgentReputation, useAgentJobs } from '@/api/hooks'
 import ScoreRadial from '@/components/graphics/ScoreRadial'
 import TrustBadge from '@/components/graphics/TrustBadge'
 import StatusPill from '@/components/graphics/StatusPill'
-import AsciiBar from '@/components/graphics/AsciiBar'
+
 import Skeleton from '@/components/graphics/Skeleton'
 import { truncateAddress, timeAgo, formatUsdc } from '@/utils/format'
 import { TRUST_TIERS } from '@/utils/constants'

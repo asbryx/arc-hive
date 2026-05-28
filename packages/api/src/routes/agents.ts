@@ -3,10 +3,12 @@ import { query } from '../db.js'
 
 export const agents = new Hono()
 
-// Helper: parse pagination
+// Helper: parse pagination (validates NaN)
 function paginate(c: any) {
-  const page = Math.max(1, parseInt(c.req.query('page') || '1'))
-  const limit = Math.min(100, Math.max(1, parseInt(c.req.query('limit') || '20')))
+  const rawPage = parseInt(c.req.query('page') || '1')
+  const rawLimit = parseInt(c.req.query('limit') || '20')
+  const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1
+  const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 20
   const offset = (page - 1) * limit
   return { page, limit, offset }
 }
@@ -133,13 +135,15 @@ agents.get('/search', async (c) => {
     total: parseInt(countResult.rows[0].count),
     page,
     limit,
+    pages: Math.ceil(parseInt(countResult.rows[0].count) / limit),
   })
 })
 
 // GET /api/agents/leaderboard
 agents.get('/leaderboard', async (c) => {
   const by = c.req.query('by') || 'score'
-  const limit = Math.min(50, parseInt(c.req.query('limit') || '20'))
+  const rawLimit = parseInt(c.req.query('limit') || '20')
+  const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 20
 
   const orderMap: Record<string, string> = {
     score: 'COALESCE(s.composite_score, 0) DESC',
@@ -344,8 +348,12 @@ function formatJobListItem(row: any) {
 
 function formatUsdc(raw: string | null): string | null {
   if (!raw || raw === '0') return null
-  const num = BigInt(raw)
-  const whole = num / 1_000_000n
-  const frac = num % 1_000_000n
-  return `${whole}.${frac.toString().padStart(6, '0').replace(/0+$/, '') || '0'}`
+  try {
+    const num = BigInt(raw)
+    const whole = num / 1_000_000n
+    const frac = num % 1_000_000n
+    return `${whole}.${frac.toString().padStart(6, '0').replace(/0+$/, '') || '0'}`
+  } catch {
+    return null
+  }
 }

@@ -1,5 +1,5 @@
 import { type Address, type Log } from 'viem'
-import { CONTRACTS, DEPLOYMENT_BLOCKS } from '@arc-hive/shared'
+
 import { getHttpClient } from '../clients/chain.js'
 import { processLog, getWatchedAddresses } from '../processors/index.js'
 import * as db from '../db/queries.js'
@@ -91,6 +91,7 @@ async function syncContract(
 
     let logs: Log[] = []
     let retries = 0
+    let chunkFailed = false
 
     while (retries < MAX_RETRIES) {
       try {
@@ -102,7 +103,7 @@ async function syncContract(
         break
       } catch (err) {
         const msg = (err as Error).message
-        // If we hit the 20k result limit, halve chunk size
+        // If we hit the 20k result limit, halve chunk size and retry immediately
         if (msg.includes('max results') || msg.includes('too many')) {
           chunkSize = chunkSize / 2n
           if (chunkSize < 1n) chunkSize = 1n
@@ -113,12 +114,17 @@ async function syncContract(
         if (retries >= MAX_RETRIES) {
           console.error(`[Sync] Failed after ${MAX_RETRIES} retries at block ${currentFrom}:`, msg)
           await db.recordSyncError(address, msg)
-          // Skip this chunk
-          currentFrom = currentTo + 1n
-          continue
+          chunkFailed = true
+          break
         }
         await sleep(RETRY_DELAY * Math.pow(2, retries - 1))
       }
+    }
+
+    // Don't advance sync state on failure — will retry on next run
+    if (chunkFailed) {
+      console.error(`[Sync] Stopping ${progress.name} at block ${currentFrom} due to persistent failure`)
+      break
     }
 
     if (logs.length > 0) {
@@ -133,7 +139,7 @@ async function syncContract(
       progress.eventsProcessed += logs.length
     }
 
-    // Update sync state
+    // Update sync state only on success
     await db.updateSyncState(address, currentTo, logs.length)
     progress.currentBlock = currentTo
 

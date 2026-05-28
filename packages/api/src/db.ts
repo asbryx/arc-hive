@@ -13,6 +13,10 @@ export function getPool(): pg.Pool {
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
     })
+
+    pool.on('error', (err) => {
+      console.error('[DB] Unexpected pool error:', err.message)
+    })
   }
   return pool
 }

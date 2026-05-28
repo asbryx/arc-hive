@@ -2,6 +2,7 @@ import { type Log, decodeEventLog } from 'viem'
 import { CONTRACTS } from '@arc-hive/shared'
 import { IDENTITY_EVENTS } from '@arc-hive/shared'
 import * as db from '../db/queries.js'
+import { markDirty } from '../scoring/aggregator.js'
 
 const identityAbi = [
   IDENTITY_EVENTS.Registered,
@@ -36,9 +37,10 @@ export async function processIdentityLog(log: Log, blockTimestamp: Date) {
           registeredTx: log.transactionHash!,
           sourceContract: contract,
         })
+        markDirty(agentId)
         // Queue metadata fetch
         if (agentURI) {
-          await db.enqueueMetadata(agentId, agentURI)
+          await db.enqueueMetadata(agentId, agentURI, contract)
         }
         break
       }
@@ -64,7 +66,7 @@ export async function processIdentityLog(log: Log, blockTimestamp: Date) {
         }
         await db.updateAgentUri(agentId, newURI, contract)
         if (newURI) {
-          await db.enqueueMetadata(agentId, newURI)
+          await db.enqueueMetadata(agentId, newURI, contract)
         }
         break
       }

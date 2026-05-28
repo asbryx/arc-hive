@@ -2,6 +2,7 @@ import { type Log, decodeEventLog, decodeFunctionData, type AbiEvent, type Hex }
 import { CONTRACTS, COMMERCE_EVENTS } from '@arc-hive/shared'
 import * as db from '../db/queries.js'
 import { getHttpClient } from '../clients/chain.js'
+import { markDirty } from '../scoring/aggregator.js'
 
 const CREATE_JOB_ABI = [{
   inputs: [
@@ -101,12 +102,17 @@ export async function processCommerceLog(log: Log, blockTimestamp: Date) {
         completed_at: blockTimestamp,
         completion_reason: args.reason,
       })
+      // Mark provider agent dirty for score recompute
+      const jobRow = await db.getJobProviderAgent(jobId, contract)
+      if (jobRow) markDirty(BigInt(jobRow))
     } else if (name === 'JobRejected') {
       await db.updateJobFields(jobId, contract, {
         status: STATUS_MAP.Rejected,
         rejected_at: blockTimestamp,
         rejection_reason: args.reason,
       })
+      const jobRow = await db.getJobProviderAgent(jobId, contract)
+      if (jobRow) markDirty(BigInt(jobRow))
     } else if (name === 'JobExpired') {
       await db.updateJobField(jobId, contract, 'status', STATUS_MAP.Expired)
     } else if (name === 'PaymentReleased') {

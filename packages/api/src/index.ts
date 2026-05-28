@@ -31,7 +31,7 @@ app.route('/api/stats', stats)
 // Proxy indexer health
 app.get('/api/health', async (c) => {
   try {
-    const res = await fetch('http://localhost:3001/health')
+    const res = await fetch('http://localhost:3001/health', { signal: AbortSignal.timeout(5000) })
     const data = await res.json()
     const syncing = data.historicalProgress?.some((p: any) => p.progress !== '100%') || false
     return c.json({ syncing, liveSync: data.liveSync, block: data.contracts?.[0]?.last_synced_block })

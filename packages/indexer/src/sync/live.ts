@@ -5,6 +5,7 @@ import * as db from '../db/queries.js'
 
 let isRunning = false
 let unwatch: (() => void) | null = null
+let processing = false // serialization lock
 
 export function isLiveSyncRunning(): boolean {
   return isRunning
@@ -33,17 +34,33 @@ export function stopLiveSync(): void {
   }
 }
 
+// Queue for serialized block processing
+const blockQueue: bigint[] = []
+
+async function enqueueBlock(blockNumber: bigint, addresses: Address[]): Promise<void> {
+  blockQueue.push(blockNumber)
+  if (processing) return
+  processing = true
+
+  while (blockQueue.length > 0) {
+    const block = blockQueue.shift()!
+    if (!isRunning) break
+    await processBlock(block, addresses)
+  }
+
+  processing = false
+}
+
 async function startWsSync(addresses: Address[]): Promise<void> {
   const wsClient = getWsClient()
 
   unwatch = wsClient.watchBlockNumber({
     onBlockNumber: async (blockNumber) => {
       if (!isRunning) return
-      await processBlock(blockNumber, addresses)
+      await enqueueBlock(blockNumber, addresses)
     },
     onError: (err) => {
       console.error(`[Live] WebSocket error:`, err.message)
-      // Attempt reconnect after delay
       if (isRunning) {
         setTimeout(() => {
           console.log(`[Live] Attempting WebSocket reconnect...`)
@@ -59,16 +76,22 @@ async function startWsSync(addresses: Address[]): Promise<void> {
 
 async function startPollingSync(addresses: Address[]): Promise<void> {
   const client = getHttpClient()
-  let lastBlock = await client.getBlockNumber()
+
+  // Start from DB checkpoint, not current head
+  let lastBlock = await getLastSyncedBlock(addresses)
+  if (!lastBlock) {
+    lastBlock = await client.getBlockNumber()
+  }
+  console.log(`[Live] Polling from block ${lastBlock}`)
 
   const poll = async () => {
     if (!isRunning) return
 
     try {
       const currentBlock = await client.getBlockNumber()
-      if (currentBlock > lastBlock) {
-        // Process all blocks since last
-        for (let block = lastBlock + 1n; block <= currentBlock; block++) {
+      if (currentBlock > lastBlock!) {
+        for (let block = lastBlock! + 1n; block <= currentBlock; block++) {
+          if (!isRunning) break
           await processBlock(block, addresses)
         }
         lastBlock = currentBlock
@@ -95,7 +118,13 @@ async function processBlock(blockNumber: bigint, addresses: Address[]): Promise<
       toBlock: blockNumber,
     })
 
-    if (logs.length === 0) return
+    if (logs.length === 0) {
+      // Still advance sync state so we don't re-process empty blocks
+      for (const address of addresses) {
+        await db.updateSyncState(address, blockNumber, 0)
+      }
+      return
+    }
 
     // Get block timestamp
     const block = await client.getBlock({ blockNumber })
@@ -108,15 +137,24 @@ async function processBlock(blockNumber: bigint, addresses: Address[]): Promise<
     // Update sync state for all contracts
     for (const address of addresses) {
       const contractLogs = logs.filter(l => l.address?.toLowerCase() === address.toLowerCase())
-      if (contractLogs.length > 0) {
-        await db.updateSyncState(address, blockNumber, contractLogs.length)
-      }
+      await db.updateSyncState(address, blockNumber, contractLogs.length)
     }
 
-    if (logs.length > 0) {
-      console.log(`[Live] Block ${blockNumber}: ${logs.length} events`)
-    }
+    console.log(`[Live] Block ${blockNumber}: ${logs.length} events`)
   } catch (err) {
     console.error(`[Live] Error processing block ${blockNumber}:`, (err as Error).message)
+    // Don't advance — will retry on next poll cycle
   }
+}
+
+async function getLastSyncedBlock(addresses: Address[]): Promise<bigint | null> {
+  let maxBlock: bigint | null = null
+  for (const address of addresses) {
+    const state = await db.getSyncState(address)
+    if (state && state.last_synced_block) {
+      const block = BigInt(state.last_synced_block)
+      if (!maxBlock || block > maxBlock) maxBlock = block
+    }
+  }
+  return maxBlock
 }

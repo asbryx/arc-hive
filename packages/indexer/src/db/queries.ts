@@ -256,13 +256,23 @@ export async function recordSyncError(contractAddress: string, error: string) {
   )
 }
 
+// ─── Job Helpers ──────────────────────────────────────────────────────────────
+
+export async function getJobProviderAgent(jobId: bigint, sourceContract: string): Promise<string | null> {
+  const { rows } = await query(
+    `SELECT provider_agent_id FROM jobs WHERE job_id = $1 AND source_contract = $2`,
+    [jobId.toString(), sourceContract]
+  )
+  return rows[0]?.provider_agent_id || null
+}
+
 // ─── Metadata Queue ───────────────────────────────────────────────────────────
 
-export async function enqueueMetadata(agentId: bigint, metadataUri: string) {
+export async function enqueueMetadata(agentId: bigint, metadataUri: string, sourceContract: string = '') {
   await query(
-    `INSERT INTO metadata_queue (agent_id, metadata_uri) VALUES ($1, $2)
-     ON CONFLICT (agent_id) DO UPDATE SET metadata_uri = EXCLUDED.metadata_uri, status = 'pending', attempts = 0`,
-    [agentId.toString(), metadataUri]
+    `INSERT INTO metadata_queue (agent_id, metadata_uri, source_contract) VALUES ($1, $2, $3)
+     ON CONFLICT (agent_id) DO UPDATE SET metadata_uri = EXCLUDED.metadata_uri, source_contract = EXCLUDED.source_contract, status = 'pending', attempts = 0`,
+    [agentId.toString(), metadataUri, sourceContract]
   )
 }
 

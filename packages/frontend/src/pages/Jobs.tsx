@@ -6,7 +6,7 @@ import Skeleton from '@/components/graphics/Skeleton'
 import { truncateAddress, formatUsdc } from '@/utils/format'
 import { formatDescription } from '@/utils/description'
 import { JOB_STATUSES } from '@/utils/constants'
-import { explorerAddress } from '@/utils/explorer'
+
 
 export default function Jobs() {
   const [status, setStatus] = useState('')

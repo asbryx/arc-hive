@@ -29,7 +29,6 @@ export default function StatsGrid({ stats, daily }: Props) {
     { label: 'USDC Paid', value: stats.totalVolume ? Math.round(parseFloat(stats.totalVolume)) : 0, spark: daily?.volume?.map(d => d.count) },
   ]
 
-  const maxValue = Math.max(...items.map(i => i.value), 1)
 
   return (
     <div className="stats-grid">

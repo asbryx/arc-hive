@@ -1,6 +1,7 @@
 import { type Log, decodeEventLog } from 'viem'
 import { CONTRACTS, REPUTATION_EVENTS } from '@arc-hive/shared'
 import * as db from '../db/queries.js'
+import { markDirty } from '../scoring/aggregator.js'
 
 const reputationAbi = [
   REPUTATION_EVENTS.NewFeedback,
@@ -49,6 +50,7 @@ export async function processReputationLog(log: Log, blockTimestamp: Date) {
           txHash: log.transactionHash!,
           sourceContract: contract,
         })
+        markDirty(args.agentId)
         break
       }
 
@@ -59,6 +61,7 @@ export async function processReputationLog(log: Log, blockTimestamp: Date) {
           feedbackIndex: bigint
         }
         await db.revokeFeedback(agentId, clientAddress.toLowerCase(), feedbackIndex, contract)
+        markDirty(agentId)
         break
       }
 

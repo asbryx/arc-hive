@@ -5,7 +5,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
 
   const status = (err as any).status || 500
   return c.json({
-    error: err.message || 'Internal server error',
+    error: status >= 500 ? 'Internal server error' : (err.message || 'Request failed'),
     status,
   }, status)
 }

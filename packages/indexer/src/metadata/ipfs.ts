@@ -1,5 +1,4 @@
 import * as db from '../db/queries.js'
-import { query } from '../db/client.js'
 
 export async function fetchPendingMetadata(): Promise<void> {
   const items = await db.getPendingMetadata(5)
@@ -24,7 +23,7 @@ export async function fetchPendingMetadata(): Promise<void> {
 
       const json = await response.json()
 
-      await db.updateAgentMetadata(BigInt(item.agent_id), item.source_contract || '', {
+      await db.updateAgentMetadata(BigInt(item.agent_id), item.source_contract, {
         name: json.name || null,
         description: json.description || null,
         imageUri: json.image || null,
@@ -61,15 +60,7 @@ function resolveUri(uri: string): string | null {
   }
 
   if (uri.startsWith('data:')) {
-    // data URIs handled inline — skip fetch
-    try {
-      const base64 = uri.split(',')[1]
-      const decoded = Buffer.from(base64, 'base64').toString()
-      // We'd need to parse this differently — for now skip
-      return null
-    } catch {
-      return null
-    }
+    return null // data URIs not supported for fetch
   }
 
   // Assume bare CID

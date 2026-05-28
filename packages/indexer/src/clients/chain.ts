@@ -1,4 +1,4 @@
-import { createPublicClient, http, webSocket, type PublicClient, type Transport } from 'viem'
+import { createPublicClient, http, webSocket, type PublicClient } from 'viem'
 import { defineChain } from 'viem'
 
 const arcTestnet = defineChain({

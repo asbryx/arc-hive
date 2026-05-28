@@ -38,39 +38,39 @@ stats.get('/', async (c) => {
 
 // GET /api/stats/daily — daily activity for charts
 stats.get('/daily', async (c) => {
-  const days = Math.min(90, parseInt(c.req.query('days') || '30'))
+  const rawDays = parseInt(c.req.query('days') || '30')
+  const days = Number.isFinite(rawDays) ? Math.min(90, Math.max(1, rawDays)) : 30
 
-  const agentsDaily = await query(`
-    SELECT DATE(registered_at) as day, COUNT(*) as count
-    FROM agents
-    WHERE registered_at > NOW() - INTERVAL '${days} days'
-    GROUP BY DATE(registered_at)
-    ORDER BY day
-  `)
-
-  const jobsDaily = await query(`
-    SELECT DATE(created_timestamp) as day, COUNT(*) as count
-    FROM jobs
-    WHERE created_timestamp > NOW() - INTERVAL '${days} days'
-    GROUP BY DATE(created_timestamp)
-    ORDER BY day
-  `)
-
-  const reputationDaily = await query(`
-    SELECT DATE(block_timestamp) as day, COUNT(*) as count
-    FROM reputation_events
-    WHERE block_timestamp > NOW() - INTERVAL '${days} days' AND NOT is_revoked
-    GROUP BY DATE(block_timestamp)
-    ORDER BY day
-  `)
-
-  const volumeDaily = await query(`
-    SELECT DATE(completed_at) as day, COALESCE(SUM(payment_released), 0) as total
-    FROM jobs
-    WHERE completed_at > NOW() - INTERVAL '${days} days' AND payment_released > 0
-    GROUP BY DATE(completed_at)
-    ORDER BY day
-  `)
+  const [agentsDaily, jobsDaily, reputationDaily, volumeDaily] = await Promise.all([
+    query(`
+      SELECT DATE(registered_at) as day, COUNT(*) as count
+      FROM agents
+      WHERE registered_at > NOW() - INTERVAL '${days} days'
+      GROUP BY DATE(registered_at)
+      ORDER BY day
+    `),
+    query(`
+      SELECT DATE(created_timestamp) as day, COUNT(*) as count
+      FROM jobs
+      WHERE created_timestamp > NOW() - INTERVAL '${days} days'
+      GROUP BY DATE(created_timestamp)
+      ORDER BY day
+    `),
+    query(`
+      SELECT DATE(block_timestamp) as day, COUNT(*) as count
+      FROM reputation_events
+      WHERE block_timestamp > NOW() - INTERVAL '${days} days' AND NOT is_revoked
+      GROUP BY DATE(block_timestamp)
+      ORDER BY day
+    `),
+    query(`
+      SELECT DATE(completed_at) as day, COALESCE(SUM(payment_released), 0) as total
+      FROM jobs
+      WHERE completed_at > NOW() - INTERVAL '${days} days' AND payment_released > 0
+      GROUP BY DATE(completed_at)
+      ORDER BY day
+    `),
+  ])
 
   return c.json({
     agents: agentsDaily.rows.map(r => ({ day: r.day, count: parseInt(r.count) })),
