@@ -97,6 +97,7 @@ export default function MarketplaceDetail() {
   const [rejectReason, setRejectReason] = useState('')
   const [commentText, setCommentText] = useState('')
   const [postingComment, setPostingComment] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   useEffect(() => { fetchJob() }, [id])
 
@@ -154,7 +155,7 @@ export default function MarketplaceDetail() {
         const data = jobData.result.slice(2)
         const provider = '0x' + data.slice(192, 256).slice(24)
         if (provider !== '0x0000000000000000000000000000000000000000') {
-          alert(`Provider already assigned on-chain (${provider.slice(0, 8)}...).`)
+          setActionError(`Provider already assigned on-chain (${provider.slice(0, 8)}...).`)
           setSelectingAddr(null)
           return
         }
@@ -176,9 +177,9 @@ export default function MarketplaceDetail() {
       fetchJob()
     } catch (err: any) {
       const msg = err.shortMessage || err.message || 'Failed to select agent'
-      if (msg.includes('WrongStatus')) alert('Job no longer in Open status on-chain.')
-      else if (msg.includes('Unauthorized')) alert('Only the job client can select a provider.')
-      else alert(msg)
+      if (msg.includes('WrongStatus')) setActionError('Job no longer in Open status on-chain.')
+      else if (msg.includes('Unauthorized')) setActionError('Only the job client can select a provider.')
+      else setActionError(msg)
     }
     setSelectingAddr(null)
   }
@@ -186,25 +187,36 @@ export default function MarketplaceDetail() {
   async function handleFund() {
     if (!address || !job?.jobId) return
     setFunding(true)
+    setActionError(null)
     try {
       // Use the selected applicant's proposed budget or budgetMax
       const selectedApp = applications.find(a => a.status === 'selected')
       const budgetStr = selectedApp?.proposedBudget || job.budgetMax || job.budgetMin || '5'
       const budgetAtomic = parseUnits(budgetStr, 6)
 
-      // Step 1: setBudget (provider already set via select)
-      setFundStep('Setting budget on-chain...')
-      const setBudgetTx = await writeContractAsync({
+      // Check on-chain job state first
+      const onchainJob = await readContract(config, {
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
-        functionName: 'setBudget',
-        args: [BigInt(job.jobId), budgetAtomic, '0x'],
-        chain: arcTestnet,
+        functionName: 'getJob',
+        args: [BigInt(job.jobId)],
       })
-      const setBudgetReceipt = await waitForTransactionReceipt(config, { hash: setBudgetTx })
-      if (setBudgetReceipt.status !== 'success') {
-        alert('Failed to set budget on-chain. Try again.')
-        setFunding(false); setFundStep(''); return
+
+      // Only call setBudget if budget not already set
+      if (onchainJob.budget === 0n) {
+        setFundStep('Setting budget on-chain...')
+        const setBudgetTx = await writeContractAsync({
+          address: AGENTIC_COMMERCE,
+          abi: AGENTIC_COMMERCE_ABI,
+          functionName: 'setBudget',
+          args: [BigInt(job.jobId), budgetAtomic, '0x'],
+          chain: arcTestnet,
+        })
+        const setBudgetReceipt = await waitForTransactionReceipt(config, { hash: setBudgetTx })
+        if (setBudgetReceipt.status !== 'success') {
+          setActionError('Failed to set budget on-chain. The provider may need to set it first.')
+          setFunding(false); setFundStep(''); return
+        }
       }
 
       // Step 2: Approve USDC
@@ -218,7 +230,7 @@ export default function MarketplaceDetail() {
       })
       const approveReceipt = await waitForTransactionReceipt(config, { hash: approveTx })
       if (approveReceipt.status !== 'success') {
-        alert('USDC approval failed on-chain. Try again.')
+        setActionError('USDC approval failed on-chain. Try again.')
         setFunding(false); setFundStep(''); return
       }
 
@@ -233,7 +245,7 @@ export default function MarketplaceDetail() {
       })
       const fundReceipt = await waitForTransactionReceipt(config, { hash: fundTx })
       if (fundReceipt.status !== 'success') {
-        alert('Funding failed on-chain. USDC was approved but not transferred. Try again.')
+        setActionError('Funding failed on-chain. USDC was approved but not transferred. Try again.')
         setFunding(false); setFundStep(''); return
       }
 
@@ -253,7 +265,7 @@ export default function MarketplaceDetail() {
       fetchJob()
     } catch (err: any) {
       const msg = parseContractError(err)
-      alert(msg)
+      setActionError(msg)
     }
     setFunding(false)
     setFundStep('')
@@ -283,6 +295,7 @@ export default function MarketplaceDetail() {
   async function handleComplete() {
     if (!address || !job?.jobId) return
     setCompleting(true)
+    setActionError(null)
     try {
       // Check on-chain status first
       const onchainJob = await readContract(config, {
@@ -307,21 +320,21 @@ export default function MarketplaceDetail() {
           })
           const submitReceipt = await waitForTransactionReceipt(config, { hash: submitTx })
           if (submitReceipt.status !== 'success') {
-            alert('On-chain submit failed. Try again.')
+            setActionError('On-chain submit failed. Try again.')
             setCompleting(false)
             return
           }
         } else {
-          alert('Agent hasn\'t submitted their work on-chain yet. Ask them to submit before you can approve.')
+          setActionError('Agent hasn\'t submitted their work on-chain yet. Ask them to submit before you can approve.')
           setCompleting(false)
           return
         }
       } else if (onchainJob.status === 3) {
-        alert('This job is already completed on-chain.')
+        setActionError('This job is already completed on-chain.')
         setCompleting(false)
         return
       } else if (onchainJob.status !== 2) {
-        alert('Job is not ready to be approved yet. Current state: ' + ['Open', 'Funded', 'Submitted', 'Completed', 'Rejected', 'Expired'][onchainJob.status] || 'Unknown')
+        setActionError('Job is not ready to be approved yet. Current state: ' + ['Open', 'Funded', 'Submitted', 'Completed', 'Rejected', 'Expired'][onchainJob.status] || 'Unknown')
         setCompleting(false)
         return
       }
@@ -340,7 +353,7 @@ export default function MarketplaceDetail() {
       // Wait for tx confirmation
       const receipt = await waitForTransactionReceipt(config, { hash: completeTx })
       if (receipt.status !== 'success') {
-        alert('Transaction failed on-chain. Payment was not released.')
+        setActionError('Transaction failed on-chain. Payment was not released.')
         setCompleting(false)
         return
       }
@@ -354,7 +367,7 @@ export default function MarketplaceDetail() {
       fetchJob()
     } catch (err: any) {
       const msg = parseContractError(err)
-      alert(msg)
+      setActionError(msg)
     }
     setCompleting(false)
   }
@@ -370,7 +383,7 @@ export default function MarketplaceDetail() {
       })
       setRejectReason('')
       fetchJob()
-    } catch (err: any) { alert(err.message) }
+    } catch (err: any) { setActionError(err.message) }
     setRejecting(false)
   }
 
@@ -412,6 +425,14 @@ export default function MarketplaceDetail() {
       <Link to="/marketplace" style={{ fontSize: 11, color: 'var(--dim)', textDecoration: 'none' }}>
         ← back to marketplace
       </Link>
+
+      {/* Inline error banner */}
+      {actionError && (
+        <div style={{ margin: '16px 0', padding: '12px 16px', background: '#1a0000', border: '1px solid #4a1111', fontSize: 12, color: '#ff6b6b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>⚠ {actionError}</span>
+          <span onClick={() => setActionError(null)} style={{ cursor: 'pointer', opacity: 0.6 }}>✕</span>
+        </div>
+      )}
 
       {/* Job Header */}
       <div style={{ marginTop: 20, marginBottom: 24 }}>
