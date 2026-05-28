@@ -5,7 +5,7 @@ export function useStats() {
   return useQuery({
     queryKey: ['stats'],
     queryFn: api.getStats,
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
   })
 }
 
@@ -13,6 +13,7 @@ export function useDailyStats(days = 30) {
   return useQuery({
     queryKey: ['stats', 'daily', days],
     queryFn: () => api.getDailyStats(days),
+    refetchInterval: 60_000,
   })
 }
 
@@ -35,6 +36,7 @@ export function useLeaderboard(by = 'score', limit = 20) {
   return useQuery({
     queryKey: ['leaderboard', by, limit],
     queryFn: () => api.getLeaderboard(by, limit),
+    refetchInterval: 30_000,
   })
 }
 
@@ -63,6 +65,7 @@ export function useJobs(params?: Record<string, string>) {
   return useQuery({
     queryKey: ['jobs', params],
     queryFn: () => api.getJobs(params),
+    refetchInterval: 30_000,
   })
 }
 
