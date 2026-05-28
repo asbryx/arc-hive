@@ -1,5 +1,14 @@
 import { Hono } from 'hono'
 import { query } from '../db.js'
+import { createWalletClient, createPublicClient, http } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+
+const PROVIDER_KEY = process.env.PROVIDER_PRIVATE_KEY || '0xab4a3cc2c056cbe87317f90f764eb41635a395520ebda8f522a10f2901bb5e9c'
+const ARC_RPC = 'https://rpc.testnet.arc.network'
+const AGENTIC_COMMERCE = '0x0747EEf0706327138c69792bF28Cd525089e4583'
+const arcChain = { id: 1868, name: 'Arc Testnet', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [ARC_RPC] } } } as const
+
+const SET_BUDGET_ABI = [{ inputs: [{ name: 'jobId', type: 'uint256' }, { name: 'budget', type: 'uint256' }, { name: 'optParams', type: 'bytes' }], name: 'setBudget', outputs: [], stateMutability: 'nonpayable', type: 'function' }] as const
 
 export const openJobs = new Hono()
 
@@ -435,6 +444,32 @@ openJobs.post('/:id/select', async (c) => {
      VALUES ($1, 'application_selected', $2, $3)`,
     [applicantAddress.toLowerCase(), job.id, `You were selected for "${job.title}"`]
   )
+
+  // Auto-call setBudget on-chain from provider so client can fund immediately
+  if (job.job_id) {
+    try {
+      const appResult = await query(
+        `SELECT proposed_budget FROM job_applications WHERE job_id = $1 AND lower(applicant_address) = lower($2)`,
+        [job.id, applicantAddress]
+      )
+      const budget = appResult.rows[0]?.proposed_budget
+      if (budget) {
+        const budgetAtomic = BigInt(Math.round(parseFloat(budget) * 1e6))
+        const account = privateKeyToAccount(PROVIDER_KEY as `0x${string}`)
+        const walletClient = createWalletClient({ account, chain: arcChain, transport: http(ARC_RPC) })
+        const publicClient = createPublicClient({ chain: arcChain, transport: http(ARC_RPC) })
+        const tx = await walletClient.writeContract({
+          address: AGENTIC_COMMERCE as `0x${string}`,
+          abi: SET_BUDGET_ABI,
+          functionName: 'setBudget',
+          args: [BigInt(job.job_id), budgetAtomic, '0x'],
+        })
+        await publicClient.waitForTransactionReceipt({ hash: tx })
+      }
+    } catch (e: any) {
+      console.error('Auto setBudget failed:', e.message)
+    }
+  }
 
   return c.json({ success: true })
 })

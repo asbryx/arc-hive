@@ -234,21 +234,10 @@ export default function MarketplaceDetail() {
         args: [BigInt(job.jobId)],
       })
 
-      // Only call setBudget if budget not already set
+      // Budget should already be set by the API when agent was selected
       if (onchainJob.budget === 0n) {
-        setFundStep('Setting budget on-chain...')
-        const setBudgetTx = await writeContractAsync({
-          address: AGENTIC_COMMERCE,
-          abi: AGENTIC_COMMERCE_ABI,
-          functionName: 'setBudget',
-          args: [BigInt(job.jobId), budgetAtomic, '0x'],
-          chain: arcTestnet,
-        })
-        const setBudgetReceipt = await waitForTransactionReceipt(config, { hash: setBudgetTx })
-        if (setBudgetReceipt.status !== 'success') {
-          setActionError('Failed to set budget on-chain. The provider may need to set it first.')
-          setFunding(false); setFundStep(''); return
-        }
+        setActionError('Budget not set on-chain yet. This happens automatically when you select an agent — please wait a moment and try again.')
+        setFunding(false); setFundStep(''); return
       }
 
       // Step 2: Approve USDC
