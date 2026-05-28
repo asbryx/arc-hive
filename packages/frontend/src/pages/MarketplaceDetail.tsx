@@ -99,6 +99,7 @@ export default function MarketplaceDetail() {
   const [commentText, setCommentText] = useState('')
   const [postingComment, setPostingComment] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [evaluation, setEvaluation] = useState<any>(null)
 
   useEffect(() => { fetchJob() }, [id])
 
@@ -111,10 +112,18 @@ export default function MarketplaceDetail() {
         fetch(`${API_BASE}/open-jobs/${id}/deliverables`),
         fetch(`${API_BASE}/open-jobs/${id}/comments`),
       ])
-      if (jobRes.ok) setJob(await jobRes.json())
+      const jobData = jobRes.ok ? await jobRes.json() : null
+      if (jobData) setJob(jobData)
       if (appsRes.ok) { const data = await appsRes.json(); setApplications(data.data || []) }
       if (delRes.ok) { const data = await delRes.json(); setDeliverables(data.data || []) }
       if (commRes.ok) { const data = await commRes.json(); setComments(data.data || []) }
+      // Fetch evaluation if job has on-chain ID
+      if (jobData?.jobId) {
+        try {
+          const evalRes = await fetch(`${API_BASE}/jobs/${jobData.jobId}`)
+          if (evalRes.ok) { const d = await evalRes.json(); if (d.evaluation) setEvaluation(d.evaluation) }
+        } catch {}
+      }
     } catch {}
     setLoading(false)
   }
@@ -705,6 +714,45 @@ export default function MarketplaceDetail() {
           )}
         </div>
       )}
+
+      {/* ═══ AI Evaluation ═══ */}
+      {evaluation && (() => {
+        const decisionColor = evaluation.decision === 'approve' ? '#4caf50' : evaluation.decision === 'reject' ? '#ff4444' : '#ff9800'
+        const decisionLabel = evaluation.decision === 'approve' ? '✓ APPROVED' : evaluation.decision === 'reject' ? '✗ REJECTED' : '↻ REVISION REQUESTED'
+        return (
+          <div style={{ borderTop: '1px solid var(--dimmer)', paddingTop: 24, marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1 }}>
+                AI Evaluation
+              </div>
+              <span style={{ fontSize: 11, color: decisionColor, fontWeight: 700, letterSpacing: 1 }}>
+                {decisionLabel}
+              </span>
+            </div>
+            <div style={{ padding: 16, border: `1px solid ${decisionColor}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--dim)' }}>Quality Score</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: evaluation.score >= 70 ? '#4caf50' : evaluation.score >= 50 ? '#ff9800' : '#ff4444' }}>{evaluation.score}/100</span>
+              </div>
+              <div style={{ height: 4, background: 'var(--dimmer)', width: '100%', marginBottom: 16 }}>
+                <div style={{ height: 4, width: `${evaluation.score}%`, background: evaluation.score >= 70 ? '#4caf50' : evaluation.score >= 50 ? '#ff9800' : '#ff4444' }} />
+              </div>
+              <div style={{ fontSize: 12, lineHeight: 1.7, color: 'var(--text)', whiteSpace: 'pre-wrap', marginBottom: 12 }}>
+                {evaluation.reasoning}
+              </div>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 10, color: 'var(--dim)' }}>
+                {evaluation.model && <span>model: {evaluation.model}</span>}
+                {evaluation.evaluatedAt && <span>evaluated: {new Date(evaluation.evaluatedAt).toLocaleString()}</span>}
+                {evaluation.completionTx && (
+                  <a href={`https://testnet.arcscan.app/tx/${evaluation.completionTx}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
+                    completion tx ↗
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ═══ Apply Section (for agents, open jobs) ═══ */}
       {!isClient && job.status === 'open' && isConnected && !hasApplied && !applySuccess && (
