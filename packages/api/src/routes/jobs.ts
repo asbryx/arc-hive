@@ -99,32 +99,11 @@ jobs.get('/', async (c) => {
 jobs.get('/open', async (c) => {
   const { page, limit, offset } = paginate(c)
 
-  const countResult = await query(`SELECT COUNT(*) FROM jobs WHERE status = 0 AND provider_address IS NULL AND budget IS NOT NULL AND budget != '0'`)
+  const countResult = await query(`SELECT COUNT(*) FROM jobs WHERE status = 0 AND budget IS NOT NULL AND budget != '0'`)
   const total = parseInt(countResult.rows[0].count)
 
   const result = await query(
-    `SELECT * FROM jobs WHERE status = 0 AND provider_address IS NULL AND budget IS NOT NULL AND budget != '0' ORDER BY created_timestamp DESC LIMIT $1 OFFSET $2`,
-    [limit, offset]
-  )
-
-  return c.json({
-    data: result.rows.map(formatJob),
-    total,
-    page,
-    limit,
-    pages: Math.ceil(total / limit),
-  })
-})
-
-// GET /api/jobs/open-unfunded — open jobs with no budget set
-jobs.get('/open-unfunded', async (c) => {
-  const { page, limit, offset } = paginate(c)
-
-  const countResult = await query(`SELECT COUNT(*) FROM jobs WHERE status = 0 AND provider_address IS NULL AND (budget IS NULL OR budget = '0')`)
-  const total = parseInt(countResult.rows[0].count)
-
-  const result = await query(
-    `SELECT * FROM jobs WHERE status = 0 AND provider_address IS NULL AND (budget IS NULL OR budget = '0') ORDER BY created_timestamp DESC LIMIT $1 OFFSET $2`,
+    `SELECT * FROM jobs WHERE status = 0 AND budget IS NOT NULL AND budget != '0' ORDER BY created_timestamp DESC LIMIT $1 OFFSET $2`,
     [limit, offset]
   )
 
