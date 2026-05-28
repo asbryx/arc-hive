@@ -3,7 +3,8 @@ import { query } from '../db.js'
 import { createWalletClient, createPublicClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
-const PROVIDER_KEY = process.env.PROVIDER_PRIVATE_KEY || '0xab4a3cc2c056cbe87317f90f764eb41635a395520ebda8f522a10f2901bb5e9c'
+const PROVIDER_KEY = process.env.PROVIDER_PRIVATE_KEY!
+if (!PROVIDER_KEY) throw new Error('PROVIDER_PRIVATE_KEY env var required')
 const ARC_RPC = 'https://rpc.testnet.arc.network'
 const AGENTIC_COMMERCE = '0x0747EEf0706327138c69792bF28Cd525089e4583'
 const arcChain = { id: 1868, name: 'Arc Testnet', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [ARC_RPC] } } } as const
