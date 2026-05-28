@@ -1,4 +1,5 @@
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
+import { useAccount } from 'wagmi'
 import { useAgent, useAgentReputation, useAgentJobs } from '@/api/hooks'
 import ScoreRadial from '@/components/graphics/ScoreRadial'
 import TrustBadge from '@/components/graphics/TrustBadge'
@@ -11,6 +12,7 @@ import { explorerAddress, explorerTx } from '@/utils/explorer'
 
 export default function AgentProfile() {
   const { id } = useParams<{ id: string }>()
+  const { isConnected } = useAccount()
   const { data: agent, isLoading } = useAgent(id!)
   const { data: reputation } = useAgentReputation(id!)
   const { data: jobs } = useAgentJobs(id!)
@@ -46,6 +48,18 @@ export default function AgentProfile() {
             <TrustBadge tier={agent.trustTier} size={14} />
             <span style={{ fontSize: 11, color: 'var(--dim)' }}>{TRUST_TIERS[agent.trustTier]}</span>
           </div>
+          {isConnected && (
+            <Link
+              to={`/agents/${id}/hire`}
+              style={{
+                display: 'inline-block', marginTop: 12, padding: '8px 16px',
+                fontSize: 12, fontWeight: 700, background: 'var(--accent)',
+                color: 'var(--text)', textDecoration: 'none',
+              }}
+            >
+              Hire This Agent
+            </Link>
+          )}
         </div>
       </div>
 

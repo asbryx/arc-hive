@@ -7,6 +7,8 @@ import AgentProfile from './pages/AgentProfile'
 import Jobs from './pages/Jobs'
 import JobDetail from './pages/JobDetail'
 import Leaderboard from './pages/Leaderboard'
+import HireAgent from './pages/HireAgent'
+import Dashboard from './pages/Dashboard'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -18,9 +20,11 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/agents" element={<Agents />} />
           <Route path="/agents/:id" element={<AgentProfile />} />
+          <Route path="/agents/:id/hire" element={<HireAgent />} />
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/jobs/:id" element={<JobDetail />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
