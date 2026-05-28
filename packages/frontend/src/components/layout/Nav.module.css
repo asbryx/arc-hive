@@ -46,7 +46,10 @@
   color: var(--dim);
 }
 
-.wallet {
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
 }
 
@@ -67,5 +70,5 @@
   }
   .links a { font-size: 11px; }
   .status { display: none; }
-  .wallet { margin-left: auto; }
+  .actions { margin-left: auto; }
 }

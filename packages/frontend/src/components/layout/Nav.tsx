@@ -32,6 +32,10 @@ export default function Nav() {
         <li><NavLink to="/dashboard" className={({ isActive }) => isActive ? styles.active : ''}>my jobs</NavLink></li>
       </ul>
       <div className={styles.status}>
+        <span className={isLive ? 'pulse-live' : ''} style={{ color: isLive ? '#00ff00' : '#ff4444' }}>●</span>
+        {' '}{isSyncing ? 'syncing' : isLive ? 'live' : 'offline'} · {stats ? `${stats.totalAgents.toLocaleString()} agents` : '...'}
+      </div>
+      <div className={styles.actions}>
         <button
           onClick={toggle}
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -42,15 +46,10 @@ export default function Nav() {
             fontSize: 11,
             padding: '3px 8px',
             cursor: 'pointer',
-            marginRight: 10,
           }}
         >
           {theme === 'dark' ? '☀' : '●'}
         </button>
-        <span className={isLive ? 'pulse-live' : ''} style={{ color: isLive ? '#00ff00' : '#ff4444' }}>●</span>
-        {' '}{isSyncing ? 'syncing' : isLive ? 'live' : 'offline'} · {stats ? `${stats.totalAgents.toLocaleString()} agents` : '...'}
-      </div>
-      <div className={styles.wallet}>
         {isConnected ? (
           <button
             onClick={() => disconnect()}
