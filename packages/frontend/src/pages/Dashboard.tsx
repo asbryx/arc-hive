@@ -42,9 +42,6 @@ export default function Dashboard() {
   if (!isConnected) {
     return (
       <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 700, margin: '0 auto', textAlign: 'center', minHeight: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
-          // my jobs
-        </div>
         <div style={{ fontSize: 13, color: 'var(--dim)' }}>Connect wallet to view your jobs</div>
       </div>
     )
@@ -122,7 +119,7 @@ export default function Dashboard() {
   return (
     <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 800, margin: '0 auto' }}>
       <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24 }}>
-        // my jobs
+        my jobs
       </div>
 
       {/* Tabs */}
