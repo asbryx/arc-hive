@@ -6,12 +6,12 @@ export const TRUST_TIERS: Record<number, string> = {
 }
 
 export const STATUS_COLORS: Record<string, string> = {
-  Open: '#ffffff',
-  Funded: '#ffffff',
-  Submitted: '#ffffff',
-  Completed: '#666666',
+  Open: 'var(--text)',
+  Funded: 'var(--text)',
+  Submitted: 'var(--text)',
+  Completed: 'var(--dim)',
   Rejected: '#ff4444',
-  Expired: '#666666',
+  Expired: 'var(--dim)',
 }
 
 export const JOB_STATUSES = ['Open', 'Funded', 'Submitted', 'Completed', 'Rejected', 'Expired']
