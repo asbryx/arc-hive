@@ -25,7 +25,7 @@ interface JobForm {
   requirements: string
   budgetMin: string
   budgetMax: string
-  deadlineHours: number
+  deadlineHours: string
 }
 
 type Step = 'form' | 'preview' | 'submitting' | 'done'
@@ -43,7 +43,7 @@ export default function PostJob() {
     requirements: '',
     budgetMin: '',
     budgetMax: '',
-    deadlineHours: 72,
+    deadlineHours: '72',
   })
   const [error, setError] = useState<string | null>(null)
   const [jobId, setJobId] = useState<bigint | null>(null)
@@ -57,7 +57,7 @@ export default function PostJob() {
     )
   }
 
-  const isValid = form.title.length >= 5 && form.description.length >= 20 && form.category && (form.budgetMin || form.budgetMax)
+  const isValid = form.title.length >= 5 && form.description.length >= 20 && form.category && (form.budgetMin || form.budgetMax) && parseInt(form.deadlineHours) > 0
 
   async function handleSubmit() {
     setStep('submitting')
@@ -65,7 +65,8 @@ export default function PostJob() {
 
     try {
       // Step 1: Create job on-chain with provider = zero (open job)
-      const expiredAt = BigInt(Math.floor(Date.now() / 1000) + form.deadlineHours * 3600)
+      const deadlineH = parseInt(form.deadlineHours) || 72
+      const expiredAt = BigInt(Math.floor(Date.now() / 1000) + deadlineH * 3600)
       const evaluatorAddr = '0xFD8cBbB3E58028c89F73Dc3B8b6250ca3D4c84c5' as `0x${string}`
       const onChainDesc = `[OPEN] ${form.title} | Budget: ${form.budgetMin || '?'}–${form.budgetMax || '?'} USDC`
 
@@ -225,11 +226,11 @@ export default function PostJob() {
             <label>
               <span style={labelStyle}>Deadline (hours)</span>
               <input
-                type="number"
-                min="1"
-                max="720"
+                type="text"
+                inputMode="numeric"
                 value={form.deadlineHours}
-                onChange={(e) => setForm({ ...form, deadlineHours: parseInt(e.target.value) || 72 })}
+                onChange={(e) => setForm({ ...form, deadlineHours: e.target.value.replace(/[^0-9]/g, '') })}
+                placeholder="72"
                 style={inputStyle}
               />
             </label>
@@ -282,7 +283,7 @@ export default function PostJob() {
               </div>
               <div>
                 <div style={{ color: 'var(--dim)', fontSize: 10, textTransform: 'uppercase' }}>Deadline</div>
-                <div>{form.deadlineHours}h</div>
+                <div>{form.deadlineHours || '—'}h</div>
               </div>
               <div>
                 <div style={{ color: 'var(--dim)', fontSize: 10, textTransform: 'uppercase' }}>Evaluator</div>
