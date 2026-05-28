@@ -16,7 +16,7 @@ import NotFound from './pages/NotFound'
 
 export default function App() {
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Nav />
       <main style={{ flex: 1, paddingTop: 48, paddingBottom: 60 }}>
         <Routes>
@@ -35,6 +35,6 @@ export default function App() {
         </Routes>
       </main>
       <BottomBar />
-    </>
+    </div>
   )
 }
