@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { readContract } from '@wagmi/core'
+import { readContract, waitForTransactionReceipt } from '@wagmi/core'
 import { parseUnits } from 'viem'
 import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI, USDC_ADDRESS, USDC_ABI } from '@/lib/contracts'
 import { arcTestnet, config } from '@/lib/wagmi'
@@ -55,6 +55,21 @@ interface Deliverable {
   status: string
   clientFeedback: string | null
   createdAt: string
+}
+
+// Translate contract errors to human-readable messages
+function parseContractError(err: any): string {
+  const raw = err?.shortMessage || err?.message || ''
+  if (raw.includes('WrongStatus')) return 'Job is not in the right state for this action. Refresh and try again.'
+  if (raw.includes('NotClient')) return 'Only the job poster can approve this.'
+  if (raw.includes('NotProvider')) return 'Only the assigned agent can do this.'
+  if (raw.includes('NotEvaluator')) return 'Only the evaluator can do this.'
+  if (raw.includes('Expired')) return 'This job has expired.'
+  if (raw.includes('InsufficientBudget') || raw.includes('insufficient funds')) return 'Not enough USDC balance to fund this job.'
+  if (raw.includes('InsufficientAllowance') || raw.includes('allowance')) return 'USDC approval needed. Approve spending first.'
+  if (raw.includes('User rejected') || raw.includes('user rejected')) return 'Transaction cancelled.'
+  if (raw.includes('reverted')) return 'Transaction failed on-chain. The contract rejected this action.'
+  return raw.slice(0, 120) || 'Something went wrong. Try again.'
 }
 
 export default function MarketplaceDetail() {
@@ -179,23 +194,33 @@ export default function MarketplaceDetail() {
 
       // Step 1: setBudget (provider already set via select)
       setFundStep('Setting budget on-chain...')
-      await writeContractAsync({
+      const setBudgetTx = await writeContractAsync({
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'setBudget',
         args: [BigInt(job.jobId), budgetAtomic, '0x'],
         chain: arcTestnet,
       })
+      const setBudgetReceipt = await waitForTransactionReceipt(config, { hash: setBudgetTx })
+      if (setBudgetReceipt.status !== 'success') {
+        alert('Failed to set budget on-chain. Try again.')
+        setFunding(false); setFundStep(''); return
+      }
 
       // Step 2: Approve USDC
       setFundStep('Approving USDC...')
-      await writeContractAsync({
+      const approveTx = await writeContractAsync({
         address: USDC_ADDRESS,
         abi: USDC_ABI,
         functionName: 'approve',
         args: [AGENTIC_COMMERCE, budgetAtomic],
         chain: arcTestnet,
       })
+      const approveReceipt = await waitForTransactionReceipt(config, { hash: approveTx })
+      if (approveReceipt.status !== 'success') {
+        alert('USDC approval failed on-chain. Try again.')
+        setFunding(false); setFundStep(''); return
+      }
 
       // Step 3: Fund
       setFundStep('Funding job...')
@@ -206,8 +231,13 @@ export default function MarketplaceDetail() {
         args: [BigInt(job.jobId), '0x'],
         chain: arcTestnet,
       })
+      const fundReceipt = await waitForTransactionReceipt(config, { hash: fundTx })
+      if (fundReceipt.status !== 'success') {
+        alert('Funding failed on-chain. USDC was approved but not transferred. Try again.')
+        setFunding(false); setFundStep(''); return
+      }
 
-      // Step 4: Update API
+      // Step 4: Only update API after all txs confirmed
       setFundStep('Confirming...')
       await fetch(`${API_BASE}/open-jobs/${id}/fund`, {
         method: 'POST',
@@ -222,7 +252,8 @@ export default function MarketplaceDetail() {
 
       fetchJob()
     } catch (err: any) {
-      alert(err.shortMessage || err.message || 'Funding failed')
+      const msg = parseContractError(err)
+      alert(msg)
     }
     setFunding(false)
     setFundStep('')
@@ -263,25 +294,34 @@ export default function MarketplaceDetail() {
 
       // Status 1 = FUNDED, need submit first
       if (onchainJob.status === 1) {
-        // If connected wallet is the provider, auto-submit
         if (address.toLowerCase() === onchainJob.provider.toLowerCase()) {
           const deliverableContent = deliverables[0]?.content || 'deliverable'
           const deliverableBytes = new TextEncoder().encode(deliverableContent.slice(0, 100))
           const deliverableHash = '0x' + Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', deliverableBytes))).map(b => b.toString(16).padStart(2, '0')).join('')
-          await writeContractAsync({
+          const submitTx = await writeContractAsync({
             address: AGENTIC_COMMERCE,
             abi: AGENTIC_COMMERCE_ABI,
             functionName: 'submit',
             args: [BigInt(job.jobId), deliverableHash as `0x${string}`, '0x'],
             chain: arcTestnet,
           })
+          const submitReceipt = await waitForTransactionReceipt(config, { hash: submitTx })
+          if (submitReceipt.status !== 'success') {
+            alert('On-chain submit failed. Try again.')
+            setCompleting(false)
+            return
+          }
         } else {
-          alert('Agent must submit deliverable on-chain before you can approve. The on-chain job is still in FUNDED state.')
+          alert('Agent hasn\'t submitted their work on-chain yet. Ask them to submit before you can approve.')
           setCompleting(false)
           return
         }
+      } else if (onchainJob.status === 3) {
+        alert('This job is already completed on-chain.')
+        setCompleting(false)
+        return
       } else if (onchainJob.status !== 2) {
-        alert(`Cannot complete: on-chain job status is ${onchainJob.status} (expected SUBMITTED=2)`)
+        alert('Job is not ready to be approved yet. Current state: ' + ['Open', 'Funded', 'Submitted', 'Completed', 'Rejected', 'Expired'][onchainJob.status] || 'Unknown')
         setCompleting(false)
         return
       }
@@ -297,6 +337,15 @@ export default function MarketplaceDetail() {
         chain: arcTestnet,
       })
 
+      // Wait for tx confirmation
+      const receipt = await waitForTransactionReceipt(config, { hash: completeTx })
+      if (receipt.status !== 'success') {
+        alert('Transaction failed on-chain. Payment was not released.')
+        setCompleting(false)
+        return
+      }
+
+      // Only update DB after confirmed on-chain
       await fetch(`${API_BASE}/open-jobs/${id}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -304,7 +353,8 @@ export default function MarketplaceDetail() {
       })
       fetchJob()
     } catch (err: any) {
-      alert(err.shortMessage || err.message || 'Completion failed')
+      const msg = parseContractError(err)
+      alert(msg)
     }
     setCompleting(false)
   }
