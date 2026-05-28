@@ -64,6 +64,7 @@ export default function MarketplaceDetail() {
   const [job, setJob] = useState<OpenJob | null>(null)
   const [applications, setApplications] = useState<Application[]>([])
   const [deliverables, setDeliverables] = useState<Deliverable[]>([])
+  const [comments, setComments] = useState<{id: number, senderAddress: string, message: string, createdAt: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [applying, setApplying] = useState(false)
   const [applyForm, setApplyForm] = useState({ message: '', proposedBudget: '' })
@@ -78,20 +79,24 @@ export default function MarketplaceDetail() {
   const [completing, setCompleting] = useState(false)
   const [rejecting, setRejecting] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [commentText, setCommentText] = useState('')
+  const [postingComment, setPostingComment] = useState(false)
 
   useEffect(() => { fetchJob() }, [id])
 
   async function fetchJob() {
     setLoading(true)
     try {
-      const [jobRes, appsRes, delRes] = await Promise.all([
+      const [jobRes, appsRes, delRes, commRes] = await Promise.all([
         fetch(`${API_BASE}/open-jobs/${id}`),
         fetch(`${API_BASE}/open-jobs/${id}/applications`),
         fetch(`${API_BASE}/open-jobs/${id}/deliverables`),
+        fetch(`${API_BASE}/open-jobs/${id}/comments`),
       ])
       if (jobRes.ok) setJob(await jobRes.json())
       if (appsRes.ok) { const data = await appsRes.json(); setApplications(data.data || []) }
       if (delRes.ok) { const data = await delRes.json(); setDeliverables(data.data || []) }
+      if (commRes.ok) { const data = await commRes.json(); setComments(data.data || []) }
     } catch {}
     setLoading(false)
   }
@@ -285,6 +290,21 @@ export default function MarketplaceDetail() {
       fetchJob()
     } catch (err: any) { alert(err.message) }
     setRejecting(false)
+  }
+
+  async function handlePostComment() {
+    if (!address || !commentText.trim()) return
+    setPostingComment(true)
+    try {
+      await fetch(`${API_BASE}/open-jobs/${id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderAddress: address, message: commentText.trim() }),
+      })
+      setCommentText('')
+      fetchJob()
+    } catch {}
+    setPostingComment(false)
   }
 
   if (loading) {
@@ -624,6 +644,55 @@ export default function MarketplaceDetail() {
             {job.onchainJobId && <div>Job ID: #{job.onchainJobId} · <a href={`https://testnet.arcscan.app/tx/${job.fundedTx}`} target="_blank" style={{ color: 'var(--accent)' }}>fund tx ↗</a></div>}
             {job.finalBudget && <div>Payment: {job.finalBudget} USDC → {job.selectedApplicant?.slice(0, 8)}...</div>}
             {job.completedTx && <div>Completed: <a href={`https://testnet.arcscan.app/tx/${job.completedTx}`} target="_blank" style={{ color: 'var(--accent)' }}>tx ↗</a></div>}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Comments Thread ═══ */}
+      {isConnected && (
+        <div style={{ borderTop: '1px solid var(--dimmer)', paddingTop: 24, marginBottom: 24 }}>
+          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
+            Discussion {comments.length > 0 && `(${comments.length})`}
+          </div>
+
+          {comments.map(c => (
+            <div key={c.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--dimmer)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: c.senderAddress.toLowerCase() === job.clientAddress.toLowerCase() ? 'var(--accent)' : 'var(--text)' }}>
+                  {c.senderAddress.slice(0, 8)}...{c.senderAddress.slice(-4)}
+                  {c.senderAddress.toLowerCase() === job.clientAddress.toLowerCase() && ' (client)'}
+                  {c.senderAddress.toLowerCase() === job.selectedApplicant?.toLowerCase() && ' (agent)'}
+                </span>
+                <span style={{ fontSize: 10, color: 'var(--dim)' }}>{getTimeAgo(c.createdAt)}</span>
+              </div>
+              <div style={{ fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{c.message}</div>
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePostComment() } }}
+              placeholder="Add a comment..."
+              style={{
+                flex: 1, padding: '10px 12px', fontSize: 12,
+                background: 'var(--bg)', border: '1px solid var(--dimmer)', color: 'var(--text)',
+                fontFamily: 'var(--font)',
+              }}
+            />
+            <button
+              onClick={handlePostComment}
+              disabled={postingComment || !commentText.trim()}
+              style={{
+                padding: '10px 16px', fontSize: 11, fontWeight: 700,
+                background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
+                opacity: postingComment || !commentText.trim() ? 0.5 : 1,
+              }}
+            >
+              Send
+            </button>
           </div>
         </div>
       )}

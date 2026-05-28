@@ -520,6 +520,57 @@ openJobs.post('/:id/cancel', async (c) => {
   return c.json({ success: true })
 })
 
+// ─── Comments ─────────────────────────────────────────────────────────────────
+
+// GET /api/open-jobs/:id/comments
+openJobs.get('/:id/comments', async (c) => {
+  const id = c.req.param('id')
+  const jobResult = await query(
+    `SELECT id FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
+    [id]
+  )
+  if (jobResult.rows.length === 0) return c.json({ error: 'Job not found' }, 404)
+
+  const result = await query(
+    `SELECT * FROM marketplace_comments WHERE open_job_id = $1 ORDER BY created_at ASC`,
+    [jobResult.rows[0].id]
+  )
+
+  return c.json({
+    data: result.rows.map(row => ({
+      id: row.id,
+      senderAddress: row.sender_address,
+      message: row.message,
+      createdAt: row.created_at,
+    }))
+  })
+})
+
+// POST /api/open-jobs/:id/comments
+openJobs.post('/:id/comments', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { senderAddress, message } = body
+
+  if (!senderAddress || !message) {
+    return c.json({ error: 'senderAddress and message required' }, 400)
+  }
+
+  const jobResult = await query(
+    `SELECT * FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
+    [id]
+  )
+  if (jobResult.rows.length === 0) return c.json({ error: 'Job not found' }, 404)
+
+  const result = await query(
+    `INSERT INTO marketplace_comments (open_job_id, sender_address, message)
+     VALUES ($1, $2, $3) RETURNING id, created_at`,
+    [jobResult.rows[0].id, senderAddress.toLowerCase(), message]
+  )
+
+  return c.json({ id: result.rows[0].id, createdAt: result.rows[0].created_at }, 201)
+})
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatOpenJob(row: any) {
