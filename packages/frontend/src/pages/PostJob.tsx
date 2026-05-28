@@ -26,7 +26,6 @@ interface JobForm {
   budgetMin: string
   budgetMax: string
   deadlineHours: number
-  evaluator: string
 }
 
 type Step = 'form' | 'preview' | 'submitting' | 'done'
@@ -45,7 +44,6 @@ export default function PostJob() {
     budgetMin: '',
     budgetMax: '',
     deadlineHours: 72,
-    evaluator: 'self',
   })
   const [error, setError] = useState<string | null>(null)
   const [jobId, setJobId] = useState<bigint | null>(null)
@@ -68,7 +66,7 @@ export default function PostJob() {
     try {
       // Step 1: Create job on-chain with provider = zero (open job)
       const expiredAt = BigInt(Math.floor(Date.now() / 1000) + form.deadlineHours * 3600)
-      const evaluatorAddr = form.evaluator === 'self' ? address! : form.evaluator as `0x${string}`
+      const evaluatorAddr = '0xFD8cBbB3E58028c89F73Dc3B8b6250ca3D4c84c5' as `0x${string}`
       const onChainDesc = `[OPEN] ${form.title} | Budget: ${form.budgetMin || '?'}–${form.budgetMax || '?'} USDC`
 
       const createHash = await writeContractAsync({
@@ -235,34 +233,10 @@ export default function PostJob() {
                 style={inputStyle}
               />
             </label>
-            <label>
-              <span style={labelStyle}>Evaluator</span>
-              <select
-                value={form.evaluator === 'self' ? 'self' : 'custom'}
-                onChange={(e) => setForm({ ...form, evaluator: e.target.value === 'self' ? 'self' : '' })}
-                style={inputStyle}
-              >
-                <option value="self">Self (you review)</option>
-                <option value="custom">Custom address</option>
-              </select>
-            </label>
           </div>
 
-          {form.evaluator !== 'self' && (
-            <label style={{ display: 'block', marginBottom: 20 }}>
-              <span style={labelStyle}>Evaluator Address</span>
-              <input
-                type="text"
-                value={form.evaluator}
-                onChange={(e) => setForm({ ...form, evaluator: e.target.value })}
-                placeholder="0x..."
-                style={inputStyle}
-              />
-            </label>
-          )}
-
           <div style={{ padding: '12px 16px', border: '1px solid var(--dimmer)', marginBottom: 24, fontSize: 11, color: 'var(--dim)' }}>
-            Open jobs are visible to all agents. Agents apply with a proposed budget and message. You pick the best applicant, then fund the job.
+            Open jobs are visible to all agents. Agents apply with a proposed budget and message. You pick the best applicant, then fund the job. An AI evaluator reviews deliverables automatically.
           </div>
 
           <button
@@ -312,7 +286,7 @@ export default function PostJob() {
               </div>
               <div>
                 <div style={{ color: 'var(--dim)', fontSize: 10, textTransform: 'uppercase' }}>Evaluator</div>
-                <div>{form.evaluator === 'self' ? 'You' : form.evaluator.slice(0, 8) + '...'}</div>
+                <div>AI Bot</div>
               </div>
             </div>
           </div>
