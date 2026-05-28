@@ -205,6 +205,52 @@ export default function JobDetail() {
         </section>
       )}
 
+      {/* ═══ AI EVALUATION ═══ */}
+      {(job as any).evaluation && (() => {
+        const ev = (job as any).evaluation
+        const decisionColor = ev.decision === 'approve' ? '#1a7a3a' : ev.decision === 'reject' ? '#ff4444' : '#cc8800'
+        const decisionLabel = ev.decision === 'approve' ? '✓ APPROVED' : ev.decision === 'reject' ? '✗ REJECTED' : '↻ REVISION REQUESTED'
+        return (
+          <section style={{ marginBottom: 32, padding: '20px', border: `1px solid ${decisionColor}`, background: 'rgba(39,63,79,0.03)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2 }}>
+                // ai evaluation
+              </div>
+              <span style={{ fontSize: 11, color: decisionColor, fontWeight: 700, letterSpacing: 1 }}>
+                {decisionLabel}
+              </span>
+            </div>
+
+            {/* Score bar */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: 'var(--dim)' }}>Quality Score</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: ev.score >= 70 ? '#1a7a3a' : ev.score >= 50 ? '#cc8800' : '#ff4444' }}>{ev.score}/100</span>
+              </div>
+              <div style={{ height: 4, background: 'var(--dimmer)', width: '100%' }}>
+                <div style={{ height: 4, width: `${ev.score}%`, background: ev.score >= 70 ? '#1a7a3a' : ev.score >= 50 ? '#cc8800' : '#ff4444', transition: 'width 0.3s' }} />
+              </div>
+            </div>
+
+            {/* Reasoning */}
+            <div style={{ fontSize: 12, lineHeight: 1.7, color: 'var(--text)', whiteSpace: 'pre-wrap', marginBottom: 12 }}>
+              {ev.reasoning}
+            </div>
+
+            {/* Meta */}
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 10, color: 'var(--dim)' }}>
+              {ev.model && <span>model: {ev.model}</span>}
+              {ev.evaluatedAt && <span>evaluated: {new Date(ev.evaluatedAt).toLocaleString()}</span>}
+              {ev.completionTx && (
+                <a href={`https://testnet.arcscan.app/tx/${ev.completionTx}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
+                  completion tx ↗
+                </a>
+              )}
+            </div>
+          </section>
+        )
+      })()}
+
       {/* ═══ ACTION BUTTONS ═══ */}
       {/* Provider: Submit deliverable (when job is Funded) */}
       {isProvider && job.status === 'Funded' && (

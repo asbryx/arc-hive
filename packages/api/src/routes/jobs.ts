@@ -173,6 +173,13 @@ jobs.get('/:id', async (c) => {
   )
   const marketplace = marketplaceResult.rows.length > 0 ? marketplaceResult.rows[0] : null
 
+  // Get AI evaluation if exists
+  const evaluationResult = await query(
+    `SELECT score, reasoning, decision, completion_tx, evaluated_at, llm_model FROM evaluations WHERE onchain_job_id = $1`,
+    [id]
+  )
+  const evaluation = evaluationResult.rows.length > 0 ? evaluationResult.rows[0] : null
+
   const job = jobResult.rows[0]
   const statusNames = ['Open', 'Funded', 'Submitted', 'Completed', 'Rejected', 'Expired']
 
@@ -224,6 +231,14 @@ jobs.get('/:id', async (c) => {
       link: deliverableResult.rows[0].link,
       notes: deliverableResult.rows[0].notes,
       submittedAt: deliverableResult.rows[0].created_at,
+    } : null,
+    evaluation: evaluation ? {
+      score: evaluation.score,
+      reasoning: evaluation.reasoning,
+      decision: evaluation.decision,
+      completionTx: evaluation.completion_tx,
+      evaluatedAt: evaluation.evaluated_at,
+      model: evaluation.llm_model,
     } : null,
     timeline: eventsResult.rows.map(e => ({
       event: e.event_name,
