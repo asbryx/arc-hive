@@ -10,8 +10,10 @@ const chain = {
 }
 
 const ABI = [
+  { inputs: [{ name: 'jobId', type: 'uint256' }, { name: 'deliverable', type: 'bytes32' }, { name: 'optParams', type: 'bytes' }], name: 'submit', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'jobId', type: 'uint256' }, { name: 'reason', type: 'bytes32' }, { name: 'optParams', type: 'bytes' }], name: 'complete', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'jobId', type: 'uint256' }, { name: 'reason', type: 'bytes32' }, { name: 'optParams', type: 'bytes' }], name: 'reject', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'jobId', type: 'uint256' }], name: 'getJob', outputs: [{ components: [{ name: 'id', type: 'uint256' }, { name: 'client', type: 'address' }, { name: 'provider', type: 'address' }, { name: 'evaluator', type: 'address' }, { name: 'description', type: 'string' }, { name: 'budget', type: 'uint256' }, { name: 'expiredAt', type: 'uint256' }, { name: 'status', type: 'uint8' }, { name: 'hook', type: 'address' }], name: '', type: 'tuple' }], stateMutability: 'view', type: 'function' },
 ] as const
 
 export async function executeComplete(jobId: bigint, reasoning: string): Promise<string> {
@@ -20,6 +22,28 @@ export async function executeComplete(jobId: bigint, reasoning: string): Promise
   const account = privateKeyToAccount(CONFIG.EVALUATOR_PRIVATE_KEY as `0x${string}`)
   const walletClient = createWalletClient({ account, chain, transport: http(CONFIG.RPC_URL) })
   const publicClient = createPublicClient({ chain, transport: http(CONFIG.RPC_URL) })
+
+  // Check on-chain status — if FUNDED (1), need to submit first
+  const jobData = await publicClient.readContract({
+    address: CONFIG.AGENTIC_COMMERCE,
+    abi: ABI,
+    functionName: 'getJob',
+    args: [jobId],
+  })
+
+  if (jobData.status === 1) {
+    // Job is FUNDED but not SUBMITTED — submit first
+    const deliverableHash = keccak256(toBytes(reasoning))
+    const submitHash = await walletClient.writeContract({
+      address: CONFIG.AGENTIC_COMMERCE,
+      abi: ABI,
+      functionName: 'submit',
+      args: [jobId, deliverableHash, '0x'],
+    })
+    const submitReceipt = await publicClient.waitForTransactionReceipt({ hash: submitHash })
+    if (submitReceipt.status !== 'success') throw new Error(`Submit tx reverted: ${submitHash}`)
+    console.log(`[evaluator] Auto-submitted job ${jobId} tx=${submitHash}`)
+  }
 
   const reasonHash = keccak256(toBytes(reasoning))
 

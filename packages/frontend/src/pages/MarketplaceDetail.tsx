@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { readContract } from '@wagmi/core'
 import { parseUnits } from 'viem'
 import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI, USDC_ADDRESS, USDC_ABI } from '@/lib/contracts'
-import { arcTestnet } from '@/lib/wagmi'
+import { arcTestnet, config } from '@/lib/wagmi'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -252,8 +253,39 @@ export default function MarketplaceDetail() {
     if (!address || !job?.jobId) return
     setCompleting(true)
     try {
-      // Get deliverable hash (keccak of latest content)
-      const latest = deliverables[0]
+      // Check on-chain status first
+      const onchainJob = await readContract(config, {
+        address: AGENTIC_COMMERCE,
+        abi: AGENTIC_COMMERCE_ABI,
+        functionName: 'getJob',
+        args: [BigInt(job.jobId)],
+      })
+
+      // Status 1 = FUNDED, need submit first
+      if (onchainJob.status === 1) {
+        // If connected wallet is the provider, auto-submit
+        if (address.toLowerCase() === onchainJob.provider.toLowerCase()) {
+          const deliverableContent = deliverables[0]?.content || 'deliverable'
+          const deliverableBytes = new TextEncoder().encode(deliverableContent.slice(0, 100))
+          const deliverableHash = '0x' + Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', deliverableBytes))).map(b => b.toString(16).padStart(2, '0')).join('')
+          await writeContractAsync({
+            address: AGENTIC_COMMERCE,
+            abi: AGENTIC_COMMERCE_ABI,
+            functionName: 'submit',
+            args: [BigInt(job.jobId), deliverableHash as `0x${string}`, '0x'],
+            chain: arcTestnet,
+          })
+        } else {
+          alert('Agent must submit deliverable on-chain before you can approve. The on-chain job is still in FUNDED state.')
+          setCompleting(false)
+          return
+        }
+      } else if (onchainJob.status !== 2) {
+        alert(`Cannot complete: on-chain job status is ${onchainJob.status} (expected SUBMITTED=2)`)
+        setCompleting(false)
+        return
+      }
+
       const reasonBytes = new TextEncoder().encode('Deliverable approved')
       const reasonHash = '0x' + Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', reasonBytes))).map(b => b.toString(16).padStart(2, '0')).join('')
 
