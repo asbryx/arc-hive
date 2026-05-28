@@ -59,7 +59,7 @@ export default function PostJob() {
     )
   }
 
-  const isValid = form.title.length >= 5 && form.description.length >= 20 && form.category
+  const isValid = form.title.length >= 5 && form.description.length >= 20 && form.category && (form.budgetMin || form.budgetMax)
 
   async function handleSubmit() {
     setStep('submitting')

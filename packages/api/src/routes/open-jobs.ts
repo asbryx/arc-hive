@@ -12,6 +12,10 @@ openJobs.post('/', async (c) => {
     return c.json({ error: 'title, description, and clientAddress required' }, 400)
   }
 
+  if (!budgetMin && !budgetMax) {
+    return c.json({ error: 'Budget is required (set at least budgetMin or budgetMax)' }, 400)
+  }
+
   const budgetMinRaw = budgetMin ? BigInt(Math.round(parseFloat(budgetMin) * 1_000_000)).toString() : null
   const budgetMaxRaw = budgetMax ? BigInt(Math.round(parseFloat(budgetMax) * 1_000_000)).toString() : null
 
