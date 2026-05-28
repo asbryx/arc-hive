@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 
 type Theme = 'dark' | 'light'
 
@@ -23,7 +23,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('archivehub-theme', theme)
   }, [theme])
 
-  const toggle = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
+  const toggle = useCallback(() => {
+    // Create scanline element
+    const scanline = document.createElement('div')
+    scanline.className = 'theme-scanline'
+    document.body.appendChild(scanline)
+
+    // Flip theme halfway through animation
+    setTimeout(() => {
+      setTheme(t => t === 'dark' ? 'light' : 'dark')
+    }, 200)
+
+    // Remove scanline after animation
+    setTimeout(() => {
+      scanline.remove()
+    }, 500)
+  }, [])
 
   return (
     <ThemeContext.Provider value={{ theme, toggle }}>

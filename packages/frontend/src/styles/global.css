@@ -37,6 +37,7 @@ html, body {
   font-size: 14px;
   line-height: 1.6;
   overflow-x: hidden;
+  transition: background 0.3s ease, color 0.3s ease;
   min-height: 100vh;
 }
 
@@ -230,4 +231,28 @@ input, select { font-family: var(--font); }
   .stat-label {
     font-size: 9px;
   }
+}
+
+/* Theme transition scanline */
+@keyframes scanline-sweep {
+  0% { top: -4px; opacity: 1; }
+  100% { top: 100vh; opacity: 0.6; }
+}
+
+.theme-scanline {
+  position: fixed;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  z-index: 99999;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--accent-light), var(--accent), var(--accent-light), transparent);
+  box-shadow: 0 0 12px 2px var(--accent-light), 0 0 30px 4px var(--glow);
+  animation: scanline-sweep 0.45s ease-in-out forwards;
+}
+
+/* Smooth transitions for themed elements */
+*, *::before, *::after {
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
