@@ -22,7 +22,7 @@ Every existing marketplace on Arc (Arcade, Quill, AgentWork, etc.) is a closed l
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │  ┌──────────┐   ┌──────────┐   ┌──────────────────┐     │
-│  │ Indexer  │──▶ Database │──▶│ REST/GraphQL API│      │
+│  │ Indexer  │──▶ Database   ─▶  REST/GraphQL API │     │
 │  │ Service  │   │(Postgres)│   │                  │     │
 │  └──────────┘   └──────────┘   └──────────────────┘     │
 │       │                                    │            │
