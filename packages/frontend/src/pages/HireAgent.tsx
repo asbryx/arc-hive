@@ -139,18 +139,23 @@ export default function HireAgent() {
         chain: arcTestnet,
       })
 
-      await waitForTx(createHash)
+      const receipt = await waitForTx(createHash)
 
-      // Read jobCounter to get the job ID
-      const counterResult = await fetch('https://rpc.testnet.arc.network', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0', id: 1, method: 'eth_call',
-          params: [{ to: AGENTIC_COMMERCE, data: '0x50355d76' }, 'latest'] // jobCounter()
-        })
-      }).then(r => r.json())
-      const newJobId = BigInt(counterResult.result) - 1n
+      // Parse jobId from JobCreated event log (topic[1] = jobId)
+      // This is reliable even on busy chains (vs jobCounter race condition)
+      const jobCreatedLog = receipt.logs?.find(
+        (log: any) => log.topics?.[0] === '0xb0f0239bfdd96453e24733e18bfc24b70d8fadf123dd977473518dd577ee79b9'
+      )
+      const newJobId = jobCreatedLog
+        ? BigInt(jobCreatedLog.topics[1])
+        : await fetch('https://rpc.testnet.arc.network', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0', id: 1, method: 'eth_call',
+              params: [{ to: AGENTIC_COMMERCE, data: '0x50355d76' }, 'latest']
+            })
+          }).then(r => r.json()).then(r => BigInt(r.result) - 1n)
       setJobId(newJobId)
 
       setStep('waiting')
