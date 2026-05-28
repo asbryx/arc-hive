@@ -1,108 +1,82 @@
-import { createPublicClient, http, parseAbiItem } from 'viem'
 import { CONFIG } from './config.js'
-import { getMarketplaceJob, storeEvaluation, notifyAgent, query } from './db.js'
+import { getPendingDeliverables, storeEvaluation, notifyAgent, updateJobStatus, query } from './db.js'
 import { evaluateDeliverable, EvalResult } from './evaluate.js'
 import { executeComplete } from './execute.js'
 
-const chain = {
-  id: CONFIG.CHAIN_ID,
-  name: 'Arc Testnet',
-  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
-  rpcUrls: { default: { http: [CONFIG.RPC_URL] } },
-}
-
-const publicClient = createPublicClient({ chain, transport: http(CONFIG.RPC_URL) })
-
-let lastProcessedBlock = 0n
-
 export async function initWatcher() {
-  // Get last processed block from DB or start from recent
-  const result = await query(
-    `SELECT COALESCE(MAX(onchain_job_id), 0) as last FROM evaluations`
-  )
-  const headBlock = await publicClient.getBlockNumber()
-  lastProcessedBlock = headBlock - 1000n // Look back 1000 blocks on startup
-  console.log(`[evaluator] Starting from block ${lastProcessedBlock}, head: ${headBlock}`)
+  console.log('[evaluator] Watcher initialized — polling DB for delivered jobs')
 }
 
 export async function pollForSubmissions() {
   try {
-    const headBlock = await publicClient.getBlockNumber()
-    if (lastProcessedBlock >= headBlock) return
+    const jobs = await getPendingDeliverables()
+    if (jobs.length === 0) return
 
-    const logs = await publicClient.getLogs({
-      address: CONFIG.AGENTIC_COMMERCE,
-      event: parseAbiItem('event JobSubmitted(uint256 indexed jobId, address indexed provider, bytes32 deliverable)'),
-      fromBlock: lastProcessedBlock + 1n,
-      toBlock: headBlock,
-    })
+    console.log(`[evaluator] Found ${jobs.length} job(s) to evaluate`)
 
-    for (const log of logs) {
-      const jobId = log.args.jobId!
-      await processSubmission(jobId)
+    for (const job of jobs) {
+      await processDeliverable(job)
     }
-
-    lastProcessedBlock = headBlock
   } catch (err) {
     console.error('[evaluator] Poll error:', (err as Error).message)
   }
 }
 
-async function processSubmission(jobId: bigint) {
-  const jobIdStr = jobId.toString()
-  console.log(`[evaluator] Processing job ${jobIdStr}`)
+async function processDeliverable(job: any) {
+  const jobId = job.job_id // on-chain job ID
+  console.log(`[evaluator] Evaluating job "${job.title}" (open_jobs.id=${job.id}, on-chain=${jobId})`)
 
-  // Check if this is a marketplace job with us as evaluator
-  const marketplaceJob = await getMarketplaceJob(jobIdStr)
-  if (!marketplaceJob) {
-    console.log(`[evaluator] Job ${jobIdStr} not in marketplace, skipping`)
+  if (!job.deliverable_content) {
+    console.log(`[evaluator] Job ${job.id} has no deliverable content, skipping`)
     return
   }
 
-  if (!marketplaceJob.deliverable_content) {
-    console.log(`[evaluator] Job ${jobIdStr} has no deliverable content, skipping`)
-    return
-  }
-
-  // Evaluate
+  // Evaluate with LLM
   let result: EvalResult
   try {
     result = await evaluateDeliverable({
-      jobTitle: marketplaceJob.title,
-      jobDescription: marketplaceJob.description,
-      requirements: marketplaceJob.requirements,
-      deliverableContent: marketplaceJob.deliverable_content,
-      deliverableLink: marketplaceJob.deliverable_link,
-      deliverableNotes: marketplaceJob.deliverable_notes,
+      jobTitle: job.title,
+      jobDescription: job.description,
+      requirements: job.requirements,
+      deliverableContent: job.deliverable_content,
+      deliverableLink: job.deliverable_link,
+      deliverableNotes: job.deliverable_notes,
     })
   } catch (err) {
-    console.error(`[evaluator] LLM error for job ${jobIdStr}:`, (err as Error).message)
+    console.error(`[evaluator] LLM error for job ${job.id}:`, (err as Error).message)
     return
   }
 
-  console.log(`[evaluator] Job ${jobIdStr}: score=${result.score} decision=${result.decision}`)
+  console.log(`[evaluator] Job ${job.id}: score=${result.score} decision=${result.decision}`)
 
-  // Execute decision
   let completionTx: string | undefined
-  if (result.decision === 'approve') {
+
+  if (result.decision === 'approve' && jobId) {
+    // Evaluator calls complete on-chain (releases USDC to provider)
     try {
-      completionTx = await executeComplete(jobId, result.reasoning)
-      console.log(`[evaluator] APPROVED job ${jobIdStr} tx=${completionTx}`)
-    } catch (err) {
-      console.error(`[evaluator] Execute error for job ${jobIdStr}:`, (err as Error).message)
+      completionTx = await executeComplete(BigInt(jobId), result.reasoning)
+      console.log(`[evaluator] APPROVED job ${job.id} — completed on-chain tx=${completionTx}`)
+      await updateJobStatus(job.id, 'completed', completionTx)
+    } catch (err: any) {
+      if (err.message?.includes('not in Submitted state')) {
+        console.log(`[evaluator] Job ${job.id} not yet submitted on-chain, will retry next poll`)
+        return // Don't store evaluation yet — retry next cycle
+      }
+      console.error(`[evaluator] On-chain complete error for job ${job.id}:`, err.message)
+      return
     }
   } else if (result.decision === 'revision') {
-    // Don't execute on-chain, just notify
-    console.log(`[evaluator] REVISION requested for job ${jobIdStr}`)
+    console.log(`[evaluator] REVISION requested for job ${job.id}`)
+    await updateJobStatus(job.id, 'revision_requested')
   } else {
-    // Hard reject — let it expire
-    console.log(`[evaluator] REJECTED job ${jobIdStr}`)
+    console.log(`[evaluator] REJECTED job ${job.id}`)
+    await updateJobStatus(job.id, 'rejected')
   }
 
   // Store evaluation
   await storeEvaluation({
-    onchainJobId: jobIdStr,
-    openJobId: marketplaceJob.id,
+    onchainJobId: jobId?.toString() || '0',
+    openJobId: job.id,
     score: result.score,
     reasoning: result.reasoning,
     decision: result.decision,
@@ -110,13 +84,13 @@ async function processSubmission(jobId: bigint) {
   })
 
   // Notify agent
-  if (marketplaceJob.selected_applicant) {
+  if (job.selected_applicant) {
     const msg = result.decision === 'approve'
-      ? `Your deliverable for "${marketplaceJob.title}" scored ${result.score}/100. Approved! Payment released.`
+      ? `Your deliverable for "${job.title}" scored ${result.score}/100. Approved! Payment released.`
       : result.decision === 'revision'
-      ? `Your deliverable for "${marketplaceJob.title}" scored ${result.score}/100. Revision needed: ${result.reasoning}`
-      : `Your deliverable for "${marketplaceJob.title}" scored ${result.score}/100. Rejected.`
+      ? `Your deliverable for "${job.title}" scored ${result.score}/100. Revision needed: ${result.reasoning}`
+      : `Your deliverable for "${job.title}" scored ${result.score}/100. Rejected: ${result.reasoning}`
 
-    await notifyAgent(marketplaceJob.selected_applicant, 'evaluation_result', marketplaceJob.id, msg)
+    await notifyAgent(job.selected_applicant, 'evaluation_result', job.id, msg)
   }
 }
