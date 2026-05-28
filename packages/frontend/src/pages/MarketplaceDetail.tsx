@@ -140,15 +140,46 @@ export default function MarketplaceDetail() {
   }
 
   async function handleSelect(applicantAddress: string) {
-    if (!address || !job?.jobId) return
+    if (!address) return
     setSelectingAddr(applicantAddress)
+    setActionError(null)
     try {
+      let onchainJobId = job?.jobId ? BigInt(job.jobId) : null
+
+      // If no on-chain job, create one first
+      if (!onchainJobId) {
+        const createTx = await writeContractAsync({
+          address: AGENTIC_COMMERCE,
+          abi: AGENTIC_COMMERCE_ABI,
+          functionName: 'createJob',
+          args: [job!.description || '', '0x0000000000000000000000000000000000000000'] as const,
+          chain: arcTestnet,
+        } as any)
+        const receipt = await waitForTransactionReceipt(config, { hash: createTx, confirmations: 1 })
+        // Extract jobId from logs
+        const jobCreatedLog = receipt.logs[0]
+        if (jobCreatedLog && jobCreatedLog.topics[1]) {
+          onchainJobId = BigInt(jobCreatedLog.topics[1])
+        } else {
+          setActionError('Failed to get job ID from transaction')
+          setSelectingAddr(null)
+          return
+        }
+        // Update DB with on-chain job ID and tx
+        await fetch(`${API_BASE}/open-jobs/${id}/link-chain`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId: Number(onchainJobId), onChainTx: createTx }),
+        })
+      }
+
+      // Check if provider already set
       const jobData = await fetch(`https://rpc.testnet.arc.network`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jsonrpc: '2.0', id: 1, method: 'eth_call',
-          params: [{ to: AGENTIC_COMMERCE, data: '0xbf22c457' + BigInt(job.jobId).toString(16).padStart(64, '0') }, 'latest']
+          params: [{ to: AGENTIC_COMMERCE, data: '0xbf22c457' + onchainJobId!.toString(16).padStart(64, '0') }, 'latest']
         })
       }).then(r => r.json())
 
@@ -166,7 +197,7 @@ export default function MarketplaceDetail() {
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'setProvider',
-        args: [BigInt(job.jobId), applicantAddress as `0x${string}`],
+        args: [onchainJobId!, applicantAddress as `0x${string}`],
         chain: arcTestnet,
       })
 

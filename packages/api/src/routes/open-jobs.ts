@@ -379,6 +379,21 @@ openJobs.get('/:id/applications', async (c) => {
   })
 })
 
+// POST /api/open-jobs/:id/link-chain — link an off-chain job to its on-chain ID
+openJobs.post('/:id/link-chain', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { jobId, onChainTx } = body
+
+  if (!jobId) return c.json({ error: 'jobId required' }, 400)
+
+  await query(
+    `UPDATE open_jobs SET job_id = $2, on_chain_tx = $3, updated_at = NOW() WHERE id = $1`,
+    [id, jobId, onChainTx || null]
+  )
+  return c.json({ success: true })
+})
+
 // POST /api/open-jobs/:id/select — client selects an applicant
 openJobs.post('/:id/select', async (c) => {
   const id = c.req.param('id')
