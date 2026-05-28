@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { CONFIG } from './config.js'
 import { initWatcher, pollForSubmissions } from './watcher.js'
 

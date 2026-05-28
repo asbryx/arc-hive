@@ -19,12 +19,11 @@ export interface EvalResult {
 export async function evaluateDeliverable(input: EvalInput): Promise<EvalResult> {
   const prompt = buildEvaluationPrompt(input)
 
-  const response = await fetch(`${CONFIG.LLM_BASE_URL}/v1/messages`, {
+  const response = await fetch(`${CONFIG.LLM_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': CONFIG.LLM_API_KEY,
-      'anthropic-version': '2023-06-01',
+      'Authorization': `Bearer ${CONFIG.LLM_API_KEY}`,
     },
     body: JSON.stringify({
       model: CONFIG.LLM_MODEL,
@@ -38,7 +37,7 @@ export async function evaluateDeliverable(input: EvalInput): Promise<EvalResult>
   }
 
   const data = await response.json() as any
-  const text = data.content?.[0]?.text || ''
+  const text = data.choices?.[0]?.message?.content || ''
   const { score, reasoning } = parseEvaluationResponse(text)
 
   if (score === 0) {

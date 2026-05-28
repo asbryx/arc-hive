@@ -41,6 +41,9 @@ importers:
 
   packages/evaluator:
     dependencies:
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
       pg:
         specifier: ^8.11.0
         version: 8.21.0
