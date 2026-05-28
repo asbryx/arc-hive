@@ -1,11 +1,19 @@
 import { NavLink } from 'react-router-dom'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { useStats, useIndexerHealth } from '@/api/hooks'
 import styles from './Nav.module.css'
+
+function truncateAddr(addr: string) {
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`
+}
 
 export default function Nav() {
   const { data: stats } = useStats()
   const { data: health } = useIndexerHealth()
+  const { address, isConnected } = useAccount()
+  const { openConnectModal } = useConnectModal()
+  const { disconnect } = useDisconnect()
 
   const isLive = !!stats
   const isSyncing = health?.syncing ?? false
@@ -25,7 +33,39 @@ export default function Nav() {
         {' '}{isSyncing ? 'syncing' : isLive ? 'live' : 'offline'} · {stats ? `${stats.totalAgents.toLocaleString()} agents` : '...'}
       </div>
       <div className={styles.wallet}>
-        <ConnectButton accountStatus="address" chainStatus="none" showBalance={true} />
+        {isConnected ? (
+          <button
+            onClick={() => disconnect()}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--dimmer)',
+              color: 'var(--text)',
+              fontFamily: 'var(--font)',
+              fontSize: 11,
+              padding: '5px 10px',
+              cursor: 'pointer',
+              letterSpacing: '0.5px',
+            }}
+          >
+            {truncateAddr(address!)} ✕
+          </button>
+        ) : (
+          <button
+            onClick={() => openConnectModal?.()}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--accent)',
+              color: 'var(--accent)',
+              fontFamily: 'var(--font)',
+              fontSize: 11,
+              padding: '5px 10px',
+              cursor: 'pointer',
+              letterSpacing: '0.5px',
+            }}
+          >
+            [connect ↗]
+          </button>
+        )}
       </div>
     </nav>
   )
