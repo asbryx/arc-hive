@@ -252,6 +252,29 @@ openJobs.post('/notifications/read', async (c) => {
   return c.json({ success: true })
 })
 
+// GET /api/open-jobs/expire-check — auto-expire unfunded assigned jobs past deadline
+openJobs.get('/expire-check', async (c) => {
+  const result = await query(
+    `UPDATE open_jobs SET status = 'expired', updated_at = NOW()
+     WHERE status = 'assigned'
+     AND updated_at + (deadline_hours * INTERVAL '1 hour') < NOW()
+     RETURNING id, title, selected_applicant`
+  )
+
+  // Notify agents of expired jobs
+  for (const row of result.rows) {
+    if (row.selected_applicant) {
+      await query(
+        `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
+         VALUES ($1, 'job_expired', $2, $3)`,
+        [row.selected_applicant, row.id, `"${row.title}" expired — client did not fund in time.`]
+      )
+    }
+  }
+
+  return c.json({ expired: result.rows.length, jobs: result.rows.map(r => r.id) })
+})
+
 // GET /api/open-jobs/:id — single open job detail
 openJobs.get('/:id', async (c) => {
   const id = c.req.param('id')
