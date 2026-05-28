@@ -298,3 +298,11 @@ export async function markMetadataFailed(agentId: bigint, error: string) {
     [error, agentId.toString()]
   )
 }
+
+export async function completeMarketplaceJob(onchainJobId: string, txHash: string, completedAt: Date) {
+  await query(
+    `UPDATE open_jobs SET status = 'completed', completed_tx = $2, completed_at = $3, updated_at = NOW()
+     WHERE onchain_job_id = $1 AND status != 'completed'`,
+    [onchainJobId, txHash, completedAt]
+  )
+}

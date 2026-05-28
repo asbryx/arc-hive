@@ -105,6 +105,8 @@ export async function processCommerceLog(log: Log, blockTimestamp: Date) {
       // Mark provider agent dirty for score recompute
       const jobRow = await db.getJobProviderAgent(jobId, contract)
       if (jobRow) markDirty(BigInt(jobRow))
+      // Link-back: auto-complete marketplace job if linked
+      await db.completeMarketplaceJob(jobId.toString(), log.transactionHash as string, blockTimestamp)
     } else if (name === 'JobRejected') {
       await db.updateJobFields(jobId, contract, {
         status: STATUS_MAP.Rejected,
