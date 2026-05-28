@@ -166,8 +166,25 @@ jobs.get('/:id', async (c) => {
     [id]
   )
 
+  // Check if there's a matching open_jobs entry (marketplace metadata)
+  const marketplaceResult = await query(
+    `SELECT title, description, category, requirements, budget_min, budget_max, deadline_hours FROM open_jobs WHERE job_id = $1`,
+    [id]
+  )
+  const marketplace = marketplaceResult.rows.length > 0 ? marketplaceResult.rows[0] : null
+
   const job = jobResult.rows[0]
   const statusNames = ['Open', 'Funded', 'Submitted', 'Completed', 'Rejected', 'Expired']
+
+  // Use on-chain budget, fallback to marketplace budget range if 0
+  let budget = formatUsdc(job.budget)
+  let budgetMin = null
+  let budgetMax = null
+  if (!budget && marketplace) {
+    budgetMin = formatUsdc(marketplace.budget_min)
+    budgetMax = formatUsdc(marketplace.budget_max)
+    budget = budgetMin && budgetMax ? `${budgetMin}–${budgetMax}` : budgetMax || budgetMin
+  }
 
   return c.json({
     jobId: parseInt(job.job_id),
@@ -177,7 +194,9 @@ jobs.get('/:id', async (c) => {
     providerAgentId: job.provider_agent_id ? parseInt(job.provider_agent_id) : null,
     description: job.description,
     status: statusNames[job.status] || 'Unknown',
-    budget: formatUsdc(job.budget),
+    budget,
+    budgetMin,
+    budgetMax,
     paymentToken: job.payment_token,
     hook: job.hook_address,
     expiredAt: job.expired_at,
@@ -193,6 +212,13 @@ jobs.get('/:id', async (c) => {
     refundAmount: formatUsdc(job.refund_amount),
     createdAt: job.created_timestamp,
     createdTx: job.created_tx,
+    marketplace: marketplace ? {
+      title: marketplace.title,
+      description: marketplace.description,
+      category: marketplace.category,
+      requirements: marketplace.requirements,
+      deadlineHours: marketplace.deadline_hours,
+    } : null,
     deliverable: deliverableResult.rows.length > 0 ? {
       content: deliverableResult.rows[0].content,
       link: deliverableResult.rows[0].link,
