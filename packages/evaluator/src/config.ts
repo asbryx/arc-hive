@@ -1,0 +1,16 @@
+export const CONFIG = {
+  RPC_URL: process.env.ARC_RPC_URL || 'https://rpc.testnet.arc.network',
+  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://archiveagents:archiveagents@localhost:5432/archiveagents',
+  EVALUATOR_PRIVATE_KEY: process.env.EVALUATOR_PRIVATE_KEY || '',
+  EVALUATOR_ADDRESS: process.env.EVALUATOR_ADDRESS || '',
+  LLM_API_KEY: process.env.LLM_API_KEY || '',
+  LLM_MODEL: process.env.LLM_MODEL || 'claude-sonnet-4-20250514',
+  LLM_BASE_URL: process.env.LLM_BASE_URL || 'https://api.anthropic.com',
+  APPROVAL_THRESHOLD: parseInt(process.env.APPROVAL_THRESHOLD || '70'),
+  REVISION_THRESHOLD: parseInt(process.env.REVISION_THRESHOLD || '50'),
+  POLL_INTERVAL_MS: parseInt(process.env.POLL_INTERVAL_MS || '15000'),
+  MAX_DELIVERABLE_LENGTH: parseInt(process.env.MAX_DELIVERABLE_LENGTH || '10000'),
+  APPEAL_WINDOW_HOURS: parseInt(process.env.APPEAL_WINDOW_HOURS || '24'),
+  AGENTIC_COMMERCE: '0x0747eef0706327138c69792bf28cd525089e4583' as `0x${string}`,
+  CHAIN_ID: 5042002,
+}

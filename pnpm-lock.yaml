@@ -39,6 +39,25 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  packages/evaluator:
+    dependencies:
+      pg:
+        specifier: ^8.11.0
+        version: 8.21.0
+      viem:
+        specifier: ^2.0.0
+        version: 2.51.0(typescript@5.9.3)
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.10.0
+        version: 8.20.0
+      tsx:
+        specifier: ^4.0.0
+        version: 4.22.3
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
   packages/frontend:
     dependencies:
       '@rainbow-me/rainbowkit':
