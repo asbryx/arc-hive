@@ -24,20 +24,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme])
 
   const toggle = useCallback(() => {
-    // Create scanline element
-    const scanline = document.createElement('div')
-    scanline.className = 'theme-scanline'
-    document.body.appendChild(scanline)
-
-    // Flip theme halfway through animation
-    setTimeout(() => {
-      setTheme(t => t === 'dark' ? 'light' : 'dark')
-    }, 200)
-
-    // Remove scanline after animation
-    setTimeout(() => {
-      scanline.remove()
-    }, 500)
+    setTheme(t => t === 'dark' ? 'light' : 'dark')
   }, [])
 
   return (
