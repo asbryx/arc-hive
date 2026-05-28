@@ -69,10 +69,9 @@ export default function HireAgent() {
         args: [
           agent!.owner as `0x${string}`,
           evaluatorAddr as `0x${string}`,
-          expiredAt,
+          BigInt(expiredAt),
           config.description,
           zeroAddress,
-          BigInt(agent!.agentId),
         ],
         chain: arcTestnet,
       })
@@ -80,16 +79,16 @@ export default function HireAgent() {
       // Wait for receipt to get jobId
       await waitForTx(createHash)
       
-      // Read jobCounter to get the latest job ID
-      const counterHash = await fetch(`https://rpc.testnet.arc.network`, {
+      // Read jobCounter to get the latest job ID (counter = next ID, so last created = counter - 1)
+      const counterResult = await fetch(`https://rpc.testnet.arc.network`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jsonrpc: '2.0', id: 1, method: 'eth_call',
-          params: [{ to: AGENTIC_COMMERCE, data: '0xb4f40c61' }, 'latest'] // jobCounter()
+          params: [{ to: AGENTIC_COMMERCE, data: '0x50355d76' }, 'latest'] // jobCounter()
         })
       }).then(r => r.json())
-      const newJobId = BigInt(counterHash.result)
+      const newJobId = BigInt(counterResult.result) - 1n
       setJobId(newJobId)
 
       // Step 2: setBudget
@@ -98,7 +97,7 @@ export default function HireAgent() {
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'setBudget',
-        args: [newJobId, USDC_ADDRESS, budgetUsdc, '0x'],
+        args: [newJobId, budgetUsdc, '0x'],
         chain: arcTestnet,
       })
 
@@ -118,7 +117,7 @@ export default function HireAgent() {
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'fund',
-        args: [newJobId, budgetUsdc, '0x'],
+        args: [newJobId, '0x'],
         chain: arcTestnet,
       })
 

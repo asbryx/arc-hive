@@ -10,10 +10,9 @@ export const AGENTIC_COMMERCE_ABI = [
     inputs: [
       { name: 'provider', type: 'address' },
       { name: 'evaluator', type: 'address' },
-      { name: 'expiredAt', type: 'uint48' },
+      { name: 'expiredAt', type: 'uint256' },
       { name: 'description', type: 'string' },
       { name: 'hook', type: 'address' },
-      { name: 'providerAgentId', type: 'uint256' },
     ],
     name: 'createJob',
     outputs: [{ name: '', type: 'uint256' }],
@@ -24,7 +23,6 @@ export const AGENTIC_COMMERCE_ABI = [
     inputs: [
       { name: 'jobId', type: 'uint256' },
       { name: 'provider_', type: 'address' },
-      { name: 'agentId', type: 'uint256' },
     ],
     name: 'setProvider',
     outputs: [],
@@ -34,7 +32,6 @@ export const AGENTIC_COMMERCE_ABI = [
   {
     inputs: [
       { name: 'jobId', type: 'uint256' },
-      { name: 'token', type: 'address' },
       { name: 'amount', type: 'uint256' },
       { name: 'optParams', type: 'bytes' },
     ],
@@ -46,7 +43,6 @@ export const AGENTIC_COMMERCE_ABI = [
   {
     inputs: [
       { name: 'jobId', type: 'uint256' },
-      { name: 'expectedBudget', type: 'uint256' },
       { name: 'optParams', type: 'bytes' },
     ],
     name: 'fund',
@@ -100,17 +96,15 @@ export const AGENTIC_COMMERCE_ABI = [
     outputs: [
       {
         components: [
+          { name: 'id', type: 'uint256' },
           { name: 'client', type: 'address' },
-          { name: 'status', type: 'uint8' },
           { name: 'provider', type: 'address' },
-          { name: 'expiredAt', type: 'uint48' },
           { name: 'evaluator', type: 'address' },
-          { name: 'submittedAt', type: 'uint48' },
-          { name: 'budget', type: 'uint256' },
-          { name: 'hook', type: 'address' },
-          { name: 'paymentToken', type: 'address' },
-          { name: 'providerAgentId', type: 'uint256' },
           { name: 'description', type: 'string' },
+          { name: 'budget', type: 'uint256' },
+          { name: 'expiredAt', type: 'uint256' },
+          { name: 'status', type: 'uint8' },
+          { name: 'hook', type: 'address' },
         ],
         name: '',
         type: 'tuple',
@@ -123,6 +117,20 @@ export const AGENTIC_COMMERCE_ABI = [
     inputs: [],
     name: 'jobCounter',
     outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'jobId', type: 'uint256' }],
+    name: 'jobHasBudget',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'paymentToken',
+    outputs: [{ name: '', type: 'address' }],
     stateMutability: 'view',
     type: 'function',
   },
