@@ -69,7 +69,8 @@ openJobs.get('/:id', async (c) => {
 
   const result = await query(
     `SELECT oj.*,
-      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count,
+      (SELECT j.created_tx FROM jobs j WHERE j.job_id = oj.job_id LIMIT 1) as indexed_tx
      FROM open_jobs oj WHERE oj.id = $1 OR oj.job_id = $1::bigint`,
     [id]
   )
@@ -217,7 +218,7 @@ function formatOpenJob(row: any) {
     budgetMax: formatUsdc(row.budget_max),
     deadlineHours: row.deadline_hours,
     clientAddress: row.client_address,
-    onChainTx: row.on_chain_tx,
+    onChainTx: row.on_chain_tx || row.indexed_tx || null,
     status: row.status,
     applicationCount: parseInt(row.application_count || '0'),
     createdAt: row.created_at,
