@@ -9,6 +9,9 @@ import JobDetail from './pages/JobDetail'
 import Leaderboard from './pages/Leaderboard'
 import HireAgent from './pages/HireAgent'
 import Dashboard from './pages/Dashboard'
+import Marketplace from './pages/Marketplace'
+import MarketplaceDetail from './pages/MarketplaceDetail'
+import PostJob from './pages/PostJob'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -25,6 +28,9 @@ export default function App() {
           <Route path="/jobs/:id" element={<JobDetail />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/marketplace/:id" element={<MarketplaceDetail />} />
+          <Route path="/post-job" element={<PostJob />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

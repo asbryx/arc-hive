@@ -6,6 +6,7 @@ import 'dotenv/config'
 import { agents } from './routes/agents.js'
 import { jobs } from './routes/jobs.js'
 import { stats } from './routes/stats.js'
+import { openJobs } from './routes/open-jobs.js'
 import { errorHandler } from './middleware/error.js'
 import { rateLimiter } from './middleware/rate-limit.js'
 
@@ -27,6 +28,7 @@ app.onError(errorHandler)
 app.route('/api/agents', agents)
 app.route('/api/jobs', jobs)
 app.route('/api/stats', stats)
+app.route('/api/open-jobs', openJobs)
 
 // Proxy indexer health
 app.get('/api/health', async (c) => {

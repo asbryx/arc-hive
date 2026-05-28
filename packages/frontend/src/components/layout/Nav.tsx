@@ -26,6 +26,7 @@ export default function Nav() {
         <li><NavLink to="/agents" className={({ isActive }) => isActive ? styles.active : ''}>agents</NavLink></li>
         <li><NavLink to="/jobs" className={({ isActive }) => isActive ? styles.active : ''}>jobs</NavLink></li>
         <li><NavLink to="/leaderboard" className={({ isActive }) => isActive ? styles.active : ''}>leaderboard</NavLink></li>
+        <li><NavLink to="/marketplace" className={({ isActive }) => isActive ? styles.active : ''}>marketplace</NavLink></li>
         <li><NavLink to="/dashboard" className={({ isActive }) => isActive ? styles.active : ''}>my jobs</NavLink></li>
       </ul>
       <div className={styles.status}>
