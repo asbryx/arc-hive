@@ -24,12 +24,17 @@ const CREATE_JOB_ABI = [{
 
 const CREATE_JOB_SELECTOR = '41528812'
 
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL not set')
+  process.exit(1)
+}
+
 const client = createPublicClient({
   transport: http('https://rpc.testnet.arc.network'),
 })
 
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://archiveagents:archiveagents@localhost:5432/archiveagents',
+  connectionString: process.env.DATABASE_URL,
 })
 
 async function extractDescription(txHash: Hex): Promise<string | null> {

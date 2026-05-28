@@ -13,13 +13,17 @@ import { rateLimiter } from './middleware/rate-limit.js'
 const app = new Hono()
 
 // Global middleware
+const corsOrigins = [
+  'https://arcs-hive.vercel.app',
+  'https://archive-kappa-weld.vercel.app',
+  'http://localhost:5173',
+]
+if (process.env.CORS_ORIGIN) {
+  corsOrigins.push(process.env.CORS_ORIGIN)
+}
+
 app.use('*', cors({
-  origin: [
-    'https://arcs-hive.vercel.app',
-    'https://archive-kappa-weld.vercel.app',
-    'https://bureau-hurricane-categories-hebrew.trycloudflare.com',
-    'http://localhost:5173',
-  ],
+  origin: corsOrigins,
 }))
 app.use('/api/*', rateLimiter())
 app.onError(errorHandler)

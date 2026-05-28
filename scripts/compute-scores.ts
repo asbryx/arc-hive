@@ -1,7 +1,12 @@
 import pg from 'pg'
 
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL not set')
+  process.exit(1)
+}
+
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://archiveagents:archiveagents@localhost:5432/archiveagents',
+  connectionString: process.env.DATABASE_URL,
 })
 
 async function main() {
