@@ -147,6 +147,84 @@ openJobs.get('/my-posted', async (c) => {
   return c.json({ data: result.rows.map(formatOpenJob) })
 })
 
+// GET /api/open-jobs/recommended?address=0x...
+openJobs.get('/recommended', async (c) => {
+  const address = c.req.query('address')
+  if (!address) return c.json({ error: 'address required' }, 400)
+
+  const catResult = await query(
+    `SELECT DISTINCT oj.category FROM open_jobs oj
+     WHERE lower(oj.selected_applicant) = lower($1) AND oj.category IS NOT NULL`,
+    [address]
+  )
+  const categories = catResult.rows.map(r => r.category)
+
+  let result
+  if (categories.length > 0) {
+    result = await query(
+      `SELECT oj.*, (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
+       FROM open_jobs oj
+       WHERE oj.status = 'open' AND oj.category = ANY($1)
+       AND lower(oj.client_address) != lower($2)
+       ORDER BY oj.created_at DESC LIMIT 10`,
+      [categories, address]
+    )
+  } else {
+    result = await query(
+      `SELECT oj.*, (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
+       FROM open_jobs oj
+       WHERE oj.status = 'open' AND lower(oj.client_address) != lower($1)
+       ORDER BY oj.created_at DESC LIMIT 10`,
+      [address]
+    )
+  }
+
+  return c.json({ data: result.rows.map(formatOpenJob) })
+})
+
+// GET /api/open-jobs/notifications?address=0x...
+openJobs.get('/notifications', async (c) => {
+  const address = c.req.query('address')
+  if (!address) return c.json({ error: 'address required' }, 400)
+
+  const result = await query(
+    `SELECT * FROM agent_notifications WHERE lower(agent_address) = lower($1) ORDER BY created_at DESC LIMIT 50`,
+    [address]
+  )
+  const unreadCount = await query(
+    `SELECT COUNT(*) FROM agent_notifications WHERE lower(agent_address) = lower($1) AND read = FALSE`,
+    [address]
+  )
+
+  return c.json({
+    data: result.rows.map(row => ({
+      id: row.id, type: row.type, referenceId: row.reference_id,
+      message: row.message, read: row.read, createdAt: row.created_at,
+    })),
+    unreadCount: parseInt(unreadCount.rows[0].count),
+  })
+})
+
+// POST /api/open-jobs/notifications/read
+openJobs.post('/notifications/read', async (c) => {
+  const body = await c.req.json()
+  const { address, ids } = body
+  if (!address) return c.json({ error: 'address required' }, 400)
+
+  if (ids && ids.length > 0) {
+    await query(
+      `UPDATE agent_notifications SET read = TRUE WHERE lower(agent_address) = lower($1) AND id = ANY($2)`,
+      [address, ids]
+    )
+  } else {
+    await query(
+      `UPDATE agent_notifications SET read = TRUE WHERE lower(agent_address) = lower($1)`,
+      [address]
+    )
+  }
+  return c.json({ success: true })
+})
+
 // GET /api/open-jobs/:id — single open job detail
 openJobs.get('/:id', async (c) => {
   const id = c.req.param('id')
@@ -285,6 +363,14 @@ openJobs.post('/:id/select', async (c) => {
     [id, applicantAddress]
   )
 
+  // Notify selected agent
+  const job = jobResult.rows[0]
+  await query(
+    `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
+     VALUES ($1, 'application_selected', $2, $3)`,
+    [applicantAddress.toLowerCase(), job.id, `You were selected for "${job.title}"`]
+  )
+
   return c.json({ success: true })
 })
 
@@ -313,6 +399,15 @@ openJobs.post('/:id/fund', async (c) => {
      WHERE id = $1`,
     [jobResult.rows[0].id, onchainJobId || null, fundTx, budgetRaw]
   )
+
+  // Notify agent that job is funded
+  if (jobResult.rows[0].selected_applicant) {
+    await query(
+      `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
+       VALUES ($1, 'job_funded', $2, $3)`,
+      [jobResult.rows[0].selected_applicant, jobResult.rows[0].id, `"${jobResult.rows[0].title}" is funded. You can start work.`]
+    )
+  }
 
   return c.json({ success: true })
 })
@@ -420,6 +515,34 @@ openJobs.get('/:id/deliverables', async (c) => {
   })
 })
 
+// GET /api/open-jobs/:id/suggested-agents
+openJobs.get('/:id/suggested-agents', async (c) => {
+  const id = c.req.param('id')
+  const jobResult = await query(
+    `SELECT id, category FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
+    [id]
+  )
+  if (jobResult.rows.length === 0) return c.json({ error: 'Job not found' }, 404)
+
+  const result = await query(
+    `SELECT a.agent_id, a.name, a.owner_address,
+      (SELECT COUNT(*) FROM jobs WHERE provider_agent_id = a.agent_id AND status = 3) as completed_jobs
+     FROM agents a
+     WHERE a.name IS NOT NULL
+     ORDER BY completed_jobs DESC
+     LIMIT 10`
+  )
+
+  return c.json({
+    data: result.rows.map(row => ({
+      agentId: parseInt(row.agent_id),
+      name: row.name,
+      ownerAddress: row.owner_address,
+      completedJobs: parseInt(row.completed_jobs || '0'),
+    }))
+  })
+})
+
 // POST /api/open-jobs/:id/complete — client approves and confirms on-chain completion
 openJobs.post('/:id/complete', async (c) => {
   const id = c.req.param('id')
@@ -451,6 +574,15 @@ openJobs.post('/:id/complete', async (c) => {
     `UPDATE marketplace_deliverables SET status = 'approved' WHERE open_job_id = $1 AND status = 'submitted'`,
     [jobResult.rows[0].id]
   )
+
+  // Notify agent
+  if (jobResult.rows[0].selected_applicant) {
+    await query(
+      `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
+       VALUES ($1, 'deliverable_approved', $2, $3)`,
+      [jobResult.rows[0].selected_applicant, jobResult.rows[0].id, `"${jobResult.rows[0].title}" approved! Payment released.`]
+    )
+  }
 
   return c.json({ success: true })
 })
@@ -487,6 +619,15 @@ openJobs.post('/:id/reject', async (c) => {
     `UPDATE open_jobs SET status = 'in_progress', rejected_at = NOW(), updated_at = NOW() WHERE id = $1`,
     [jobResult.rows[0].id]
   )
+
+  // Notify agent of revision request
+  if (jobResult.rows[0].selected_applicant) {
+    await query(
+      `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
+       VALUES ($1, 'revision_requested', $2, $3)`,
+      [jobResult.rows[0].selected_applicant, jobResult.rows[0].id, `Revision requested on "${jobResult.rows[0].title}": ${reason || 'No details'}`]
+    )
+  }
 
   return c.json({ success: true })
 })
