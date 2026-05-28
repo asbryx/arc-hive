@@ -214,7 +214,7 @@ export default function MarketplaceDetail() {
               onClick={() => setApplying(true)}
               style={{
                 width: '100%', padding: '14px 0', fontSize: 13, fontWeight: 700,
-                background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
+                background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
               }}
             >
               Apply for this Job
@@ -268,7 +268,7 @@ export default function MarketplaceDetail() {
                 </button>
                 <button
                   onClick={handleApply}
-                  style={{ flex: 2, padding: '10px 0', fontSize: 12, fontWeight: 700, background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer' }}
+                  style={{ flex: 2, padding: '10px 0', fontSize: 12, fontWeight: 700, background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer' }}
                 >
                   Submit Application
                 </button>
@@ -333,7 +333,7 @@ export default function MarketplaceDetail() {
                   disabled={selectingAddr !== null}
                   style={{
                     marginTop: 12, padding: '8px 16px', fontSize: 11, fontWeight: 700,
-                    background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
+                    background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
                     opacity: selectingAddr ? 0.5 : 1,
                   }}
                 >
