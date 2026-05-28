@@ -21,8 +21,8 @@
 [data-theme="light"] {
   --bg: #f5f5f5;
   --text: #111111;
-  --dim: #666666;
-  --dimmer: #dddddd;
+  --dim: #555555;
+  --dimmer: #cccccc;
   --accent: #273F4F;
   --accent-light: #3a5f6f;
   --accent-dark: #1a2f3a;
