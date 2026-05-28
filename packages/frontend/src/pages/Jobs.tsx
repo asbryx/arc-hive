@@ -13,7 +13,7 @@ export default function Jobs() {
   const [sort, setSort] = useState('newest')
   const [page, setPage] = useState(1)
 
-  const params: Record<string, string> = { sort, page: String(page), limit: '20' }
+  const params: Record<string, string> = { sort, page: String(page), limit: '20', min_budget: '0.000001' }
   if (status) params.status = status
 
   const { data, isLoading } = useJobs(params)

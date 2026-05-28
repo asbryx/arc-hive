@@ -95,15 +95,15 @@ jobs.get('/', async (c) => {
   })
 })
 
-// GET /api/jobs/open
+// GET /api/jobs/open — only jobs with budget > 0
 jobs.get('/open', async (c) => {
   const { page, limit, offset } = paginate(c)
 
-  const countResult = await query(`SELECT COUNT(*) FROM jobs WHERE status = 0`)
+  const countResult = await query(`SELECT COUNT(*) FROM jobs WHERE status = 0 AND budget IS NOT NULL AND budget != '0'`)
   const total = parseInt(countResult.rows[0].count)
 
   const result = await query(
-    `SELECT * FROM jobs WHERE status = 0 ORDER BY created_timestamp DESC LIMIT $1 OFFSET $2`,
+    `SELECT * FROM jobs WHERE status = 0 AND budget IS NOT NULL AND budget != '0' ORDER BY created_timestamp DESC LIMIT $1 OFFSET $2`,
     [limit, offset]
   )
 
