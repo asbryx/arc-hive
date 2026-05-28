@@ -160,6 +160,12 @@ jobs.get('/:id', async (c) => {
     [id]
   )
 
+  // Get deliverable content if exists
+  const deliverableResult = await query(
+    `SELECT content, link, notes, created_at FROM job_deliverables WHERE job_id = $1`,
+    [id]
+  )
+
   const job = jobResult.rows[0]
   const statusNames = ['Open', 'Funded', 'Submitted', 'Completed', 'Rejected', 'Expired']
 
@@ -187,6 +193,12 @@ jobs.get('/:id', async (c) => {
     refundAmount: formatUsdc(job.refund_amount),
     createdAt: job.created_timestamp,
     createdTx: job.created_tx,
+    deliverable: deliverableResult.rows.length > 0 ? {
+      content: deliverableResult.rows[0].content,
+      link: deliverableResult.rows[0].link,
+      notes: deliverableResult.rows[0].notes,
+      submittedAt: deliverableResult.rows[0].created_at,
+    } : null,
     timeline: eventsResult.rows.map(e => ({
       event: e.event_name,
       data: e.event_data,
@@ -194,6 +206,40 @@ jobs.get('/:id', async (c) => {
       txHash: e.tx_hash,
     })),
   })
+})
+
+// ─── Deliverables ─────────────────────────────────────────────────────────────
+
+// POST /api/jobs/:id/deliverable — provider submits deliverable content
+jobs.post('/:id/deliverable', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { providerAddress, content, link, notes } = body
+
+  if (!providerAddress || !content) {
+    return c.json({ error: 'providerAddress and content required' }, 400)
+  }
+
+  // Verify job exists and caller is provider
+  const jobResult = await query(`SELECT provider_address, status FROM jobs WHERE job_id = $1`, [id])
+  if (jobResult.rows.length === 0) {
+    return c.json({ error: 'Job not found' }, 404)
+  }
+  if (jobResult.rows[0].provider_address?.toLowerCase() !== providerAddress.toLowerCase()) {
+    return c.json({ error: 'Only the provider can submit deliverables' }, 403)
+  }
+
+  try {
+    await query(
+      `INSERT INTO job_deliverables (job_id, provider_address, content, link, notes)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (job_id) DO UPDATE SET content = $3, link = $4, notes = $5, created_at = NOW()`,
+      [id, providerAddress.toLowerCase(), content, link || null, notes || null]
+    )
+    return c.json({ success: true }, 201)
+  } catch (e: any) {
+    return c.json({ error: 'Failed to save deliverable' }, 500)
+  }
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

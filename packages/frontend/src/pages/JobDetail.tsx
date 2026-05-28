@@ -1,13 +1,29 @@
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { useAccount, useWriteContract } from 'wagmi'
 import { useJob } from '@/api/hooks'
+import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI } from '@/lib/contracts'
+import { arcTestnet } from '@/lib/wagmi'
 import StatusPill from '@/components/graphics/StatusPill'
 import Skeleton from '@/components/graphics/Skeleton'
 import { truncateAddress, timeAgo, formatUsdc } from '@/utils/format'
 import { explorerAddress, explorerTx } from '@/utils/explorer'
 
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
+
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>()
-  const { data: job, isLoading } = useJob(id!)
+  const { address } = useAccount()
+  const { data: job, isLoading, refetch } = useJob(id!)
+  const { writeContractAsync } = useWriteContract()
+
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
+
+  // Deliverable submission form (for provider)
+  const [showDeliverForm, setShowDeliverForm] = useState(false)
+  const [deliverForm, setDeliverForm] = useState({ content: '', link: '', notes: '' })
 
   if (isLoading || !job) {
     return (
@@ -17,6 +33,92 @@ export default function JobDetail() {
         <Skeleton width="100%" height={120} />
       </div>
     )
+  }
+
+  const isClient = address?.toLowerCase() === job.client?.toLowerCase()
+  const isProvider = address?.toLowerCase() === job.provider?.toLowerCase()
+  const isEvaluator = address?.toLowerCase() === job.evaluator?.toLowerCase()
+
+  async function handleComplete() {
+    if (!id) return
+    setActionLoading('complete')
+    setActionError(null)
+    try {
+      const reason = ('0x' + Array.from(new TextEncoder().encode('approved-via-archivehub')).map(b => b.toString(16).padStart(2, '0')).join('').padEnd(64, '0')) as `0x${string}`
+      await writeContractAsync({
+        address: AGENTIC_COMMERCE,
+        abi: AGENTIC_COMMERCE_ABI,
+        functionName: 'complete',
+        args: [BigInt(id), reason, '0x'],
+        chain: arcTestnet,
+      })
+      setActionSuccess('Job completed — payment released to provider.')
+      refetch()
+    } catch (err: any) {
+      setActionError(err.shortMessage || err.message || 'Transaction failed')
+    }
+    setActionLoading(null)
+  }
+
+  async function handleReject() {
+    if (!id) return
+    setActionLoading('reject')
+    setActionError(null)
+    try {
+      const reason = ('0x' + Array.from(new TextEncoder().encode('rejected-via-archivehub')).map(b => b.toString(16).padStart(2, '0')).join('').padEnd(64, '0')) as `0x${string}`
+      await writeContractAsync({
+        address: AGENTIC_COMMERCE,
+        abi: AGENTIC_COMMERCE_ABI,
+        functionName: 'reject',
+        args: [BigInt(id), reason, '0x'],
+        chain: arcTestnet,
+      })
+      setActionSuccess('Job rejected. You can claim refund after expiry.')
+      refetch()
+    } catch (err: any) {
+      setActionError(err.shortMessage || err.message || 'Transaction failed')
+    }
+    setActionLoading(null)
+  }
+
+  async function handleSubmitDeliverable() {
+    if (!id || !address) return
+    setActionLoading('deliver')
+    setActionError(null)
+    try {
+      // Save to API
+      const res = await fetch(`${API_BASE}/jobs/${id}/deliverable`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          providerAddress: address,
+          content: deliverForm.content,
+          link: deliverForm.link || null,
+          notes: deliverForm.notes || null,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to save')
+      }
+
+      // Submit on-chain
+      const hash = ('0x' + Array.from(new TextEncoder().encode(deliverForm.content.slice(0, 31))).map(b => b.toString(16).padStart(2, '0')).join('').padEnd(64, '0')) as `0x${string}`
+      await writeContractAsync({
+        address: AGENTIC_COMMERCE,
+        abi: AGENTIC_COMMERCE_ABI,
+        functionName: 'submit',
+        args: [BigInt(id), hash, '0x'],
+        chain: arcTestnet,
+      })
+
+      setActionSuccess('Deliverable submitted. Waiting for client review.')
+      setShowDeliverForm(false)
+      refetch()
+    } catch (err: any) {
+      setActionError(err.shortMessage || err.message || 'Failed to submit')
+    }
+    setActionLoading(null)
   }
 
   return (
@@ -65,6 +167,178 @@ export default function JobDetail() {
         )}
       </div>
 
+      {/* ═══ DELIVERABLE SECTION ═══ */}
+      {(job.status === 'Submitted' || job.status === 'Completed' || job.status === 'Rejected') && (
+        <section style={{ marginBottom: 32, padding: '20px', border: '1px solid var(--dimmer)', background: job.status === 'Submitted' ? 'rgba(39,63,79,0.05)' : 'transparent' }}>
+          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
+            // deliverable
+          </div>
+
+          {(job as any).deliverable ? (
+            <div>
+              <div style={{ fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: 12 }}>
+                {(job as any).deliverable.content}
+              </div>
+              {(job as any).deliverable.link && (
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--dim)' }}>Link: </span>
+                  <a href={(job as any).deliverable.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'underline' }}>
+                    {(job as any).deliverable.link}
+                  </a>
+                </div>
+              )}
+              {(job as any).deliverable.notes && (
+                <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8, fontStyle: 'italic' }}>
+                  Note: {(job as any).deliverable.notes}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--dim)' }}>
+              {job.deliverableHash ? (
+                <>On-chain hash: <code style={{ fontSize: 11 }}>{job.deliverableHash.slice(0, 20)}...</code> (no off-chain content submitted)</>
+              ) : (
+                'No deliverable content available'
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ═══ ACTION BUTTONS ═══ */}
+      {/* Provider: Submit deliverable (when job is Funded) */}
+      {isProvider && job.status === 'Funded' && (
+        <section style={{ marginBottom: 32, padding: '20px', border: '1px solid var(--accent)' }}>
+          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
+            // submit your work
+          </div>
+
+          {!showDeliverForm ? (
+            <button
+              onClick={() => setShowDeliverForm(true)}
+              style={{
+                width: '100%', padding: '14px 0', fontSize: 13, fontWeight: 700,
+                background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
+              }}
+            >
+              Submit Deliverable
+            </button>
+          ) : (
+            <div>
+              <label style={{ display: 'block', marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--dim)' }}>Deliverable Description *</span>
+                <textarea
+                  value={deliverForm.content}
+                  onChange={(e) => setDeliverForm({ ...deliverForm, content: e.target.value })}
+                  placeholder="Describe what you delivered. Include results, methodology, and any relevant details..."
+                  style={{
+                    display: 'block', width: '100%', marginTop: 4, padding: 10,
+                    background: 'var(--bg)', border: '1px solid var(--dimmer)', color: 'var(--text)',
+                    fontFamily: 'var(--font)', fontSize: 13, minHeight: 120, resize: 'vertical',
+                  }}
+                />
+              </label>
+              <label style={{ display: 'block', marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--dim)' }}>Link (GitHub, IPFS, Google Drive, etc.)</span>
+                <input
+                  type="text"
+                  value={deliverForm.link}
+                  onChange={(e) => setDeliverForm({ ...deliverForm, link: e.target.value })}
+                  placeholder="https://github.com/..."
+                  style={{
+                    display: 'block', width: '100%', marginTop: 4, padding: 10,
+                    background: 'var(--bg)', border: '1px solid var(--dimmer)', color: 'var(--text)',
+                    fontFamily: 'var(--font)', fontSize: 13,
+                  }}
+                />
+              </label>
+              <label style={{ display: 'block', marginBottom: 16 }}>
+                <span style={{ fontSize: 11, color: 'var(--dim)' }}>Notes for client</span>
+                <input
+                  type="text"
+                  value={deliverForm.notes}
+                  onChange={(e) => setDeliverForm({ ...deliverForm, notes: e.target.value })}
+                  placeholder="Any additional context..."
+                  style={{
+                    display: 'block', width: '100%', marginTop: 4, padding: 10,
+                    background: 'var(--bg)', border: '1px solid var(--dimmer)', color: 'var(--text)',
+                    fontFamily: 'var(--font)', fontSize: 13,
+                  }}
+                />
+              </label>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button
+                  onClick={() => setShowDeliverForm(false)}
+                  style={{ flex: 1, padding: '10px 0', fontSize: 12, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--dimmer)', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitDeliverable}
+                  disabled={!deliverForm.content || actionLoading === 'deliver'}
+                  style={{
+                    flex: 2, padding: '10px 0', fontSize: 12, fontWeight: 700,
+                    background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
+                    opacity: !deliverForm.content ? 0.4 : 1,
+                  }}
+                >
+                  {actionLoading === 'deliver' ? 'Submitting...' : 'Submit On-Chain'}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Evaluator/Client: Approve or Reject (when job is Submitted) */}
+      {(isEvaluator || isClient) && job.status === 'Submitted' && (
+        <section style={{ marginBottom: 32, padding: '20px', border: '1px solid var(--accent)' }}>
+          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
+            // review deliverable
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 16 }}>
+            Review the deliverable above. Approve to release payment ({job.budget} USDC) to provider, or reject.
+          </div>
+
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              onClick={handleReject}
+              disabled={actionLoading !== null}
+              style={{
+                flex: 1, padding: '12px 0', fontSize: 13,
+                background: 'transparent', color: '#ff4444', border: '1px solid #ff4444', cursor: 'pointer',
+                opacity: actionLoading ? 0.5 : 1,
+              }}
+            >
+              {actionLoading === 'reject' ? 'Rejecting...' : '✗ Reject'}
+            </button>
+            <button
+              onClick={handleComplete}
+              disabled={actionLoading !== null}
+              style={{
+                flex: 2, padding: '12px 0', fontSize: 13, fontWeight: 700,
+                background: '#1a7a3a', color: 'var(--text)', border: 'none', cursor: 'pointer',
+                opacity: actionLoading ? 0.5 : 1,
+              }}
+            >
+              {actionLoading === 'complete' ? 'Approving...' : '✓ Approve & Pay'}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Action feedback */}
+      {actionError && (
+        <div style={{ padding: 12, border: '1px solid #ff4444', color: '#ff4444', fontSize: 12, marginBottom: 24 }}>
+          {actionError}
+        </div>
+      )}
+      {actionSuccess && (
+        <div style={{ padding: 12, border: '1px solid #1a7a3a', color: '#1a7a3a', fontSize: 12, marginBottom: 24 }}>
+          {actionSuccess}
+        </div>
+      )}
+
       {/* Parties */}
       <section style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
@@ -105,7 +379,6 @@ export default function JobDetail() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {(() => {
-            // Show status-relevant tx prominently
             const statusTxMap: Record<string, string> = {
               Completed: 'JobCompleted',
               Submitted: 'JobSubmitted',
@@ -133,7 +406,7 @@ export default function JobDetail() {
           </a>
           {job.deliverableHash && (
             <span style={{ fontSize: 12, color: 'var(--dim)' }}>
-              deliverable: {job.deliverableHash.slice(0, 16)}...
+              deliverable hash: <code style={{ fontSize: 11 }}>{job.deliverableHash.slice(0, 20)}...</code>
             </span>
           )}
         </div>
