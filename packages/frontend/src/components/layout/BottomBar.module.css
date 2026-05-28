@@ -7,6 +7,10 @@
   border-top: 1px solid var(--dimmer);
 }
 
+[data-theme="light"] .bar {
+  background: #e8e8e8;
+}
+
 .bar a {
   color: var(--dim);
   text-decoration: none;
