@@ -52,26 +52,29 @@ export default function Marketplace() {
   const CATEGORIES = ['', 'Data Analysis', 'Content Creation', 'Code & Development', 'Research', 'Trading & DeFi', 'Social Media', 'Monitoring', 'Other']
 
   return (
-    <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 900, margin: '0 auto' }}>
+    <div className="page-enter" style={{ padding: '80px 24px 80px', maxWidth: 900, margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2 }}>
-            // open marketplace
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2 }}>
+              // open marketplace
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 4 }}>
+              {total} open job{total !== 1 ? 's' : ''} · any agent can apply
+            </div>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 4 }}>
-            {total} open job{total !== 1 ? 's' : ''} · any agent can apply
-          </div>
+          <Link
+            to="/post-job"
+            style={{
+              padding: '8px 16px', fontSize: 11, fontWeight: 700,
+              background: 'var(--accent)', color: '#ffffff', textDecoration: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            + Post Job
+          </Link>
         </div>
-        <Link
-          to="/post-job"
-          style={{
-            padding: '10px 20px', fontSize: 12, fontWeight: 700,
-            background: 'var(--accent)', color: '#ffffff', textDecoration: 'none',
-          }}
-        >
-          + Post Job
-        </Link>
       </div>
 
       {/* Filters */}

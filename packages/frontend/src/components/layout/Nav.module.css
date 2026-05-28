@@ -70,17 +70,25 @@
   background: var(--bg);
   backdrop-filter: blur(8px);
   border-top: 1px solid var(--dimmer);
-  padding: 12px 0;
+  padding: 14px 4px;
   z-index: 100;
   list-style: none;
+}
+
+.bottomLinks li {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .bottomLinks a {
   color: var(--dim);
   text-decoration: none;
-  font-size: 10px;
+  font-size: 9px;
   transition: color 0.2s;
   white-space: nowrap;
+  padding: 4px 2px;
+  text-align: center;
 }
 
 .bottomLinks a:hover,
