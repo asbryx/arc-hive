@@ -102,6 +102,29 @@ export default function MarketplaceDetail() {
     setSelectingAddr(applicantAddress)
 
     try {
+      // Check on-chain job state before calling setProvider
+      const jobData = await fetch(`https://rpc.testnet.arc.network`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1, method: 'eth_call',
+          params: [{
+            to: AGENTIC_COMMERCE,
+            data: '0xbf22c457' + BigInt(job.jobId).toString(16).padStart(64, '0')
+          }, 'latest']
+        })
+      }).then(r => r.json())
+
+      if (jobData.result) {
+        const data = jobData.result.slice(2)
+        const provider = '0x' + data.slice(192, 256).slice(24)
+        if (provider !== '0x0000000000000000000000000000000000000000') {
+          alert(`This job already has a provider assigned on-chain (${provider.slice(0, 8)}...). Cannot reassign.`)
+          setSelectingAddr(null)
+          return
+        }
+      }
+
       // Step 1: Call setProvider on-chain
       await writeContractAsync({
         address: AGENTIC_COMMERCE,
@@ -120,7 +143,14 @@ export default function MarketplaceDetail() {
 
       fetchJob()
     } catch (err: any) {
-      alert(err.shortMessage || err.message || 'Failed to select agent')
+      const msg = err.shortMessage || err.message || 'Failed to select agent'
+      if (msg.includes('WrongStatus')) {
+        alert('This job is no longer in Open status on-chain. It may have already been assigned or expired.')
+      } else if (msg.includes('Unauthorized')) {
+        alert('Only the job client can select a provider.')
+      } else {
+        alert(msg)
+      }
     }
     setSelectingAddr(null)
   }
