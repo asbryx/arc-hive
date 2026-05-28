@@ -1,12 +1,21 @@
-import { useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
+import { useParams, Link } from 'react-router-dom'
 import { useAccount, useWriteContract } from 'wagmi'
 import { parseUnits, zeroAddress } from 'viem'
 import { useAgent } from '@/api/hooks'
 import { AGENTIC_COMMERCE, USDC_ADDRESS, AGENTIC_COMMERCE_ABI, USDC_ABI } from '@/lib/contracts'
 import { arcTestnet } from '@/lib/wagmi'
 
-type Step = 'configure' | 'preview' | 'execute' | 'confirm'
+/**
+ * Contract flow (verified on-chain):
+ * 1. Client → createJob(provider, evaluator, expiredAt, description, hook)
+ * 2. Provider → setBudget(jobId, amount, optParams)  ← provider must call this
+ * 3. Client → approve USDC + fund(jobId, optParams)
+ *
+ * This page handles steps 1 and 3. Step 2 happens off-page (provider accepts).
+ */
+
+type Step = 'configure' | 'preview' | 'execute' | 'waiting' | 'fund' | 'funding' | 'confirm'
 
 interface JobConfig {
   description: string
@@ -17,7 +26,6 @@ interface JobConfig {
 
 export default function HireAgent() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const { address, isConnected } = useAccount()
   const { data: agent } = useAgent(id!)
 
@@ -31,8 +39,64 @@ export default function HireAgent() {
   const [jobId, setJobId] = useState<bigint | null>(null)
   const [txStep, setTxStep] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [budgetSet, setBudgetSet] = useState(false)
+  const [onChainBudget, setOnChainBudget] = useState<string | null>(null)
 
   const { writeContractAsync } = useWriteContract()
+
+  // Poll for provider setBudget when in waiting state
+  const pollBudget = useCallback(async () => {
+    if (!jobId) return
+    try {
+      const res = await fetch('https://rpc.testnet.arc.network', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1, method: 'eth_call',
+          params: [{
+            to: AGENTIC_COMMERCE,
+            data: '0x5a3a05d9' + jobId.toString(16).padStart(64, '0') // jobHasBudget(uint256)
+          }, 'latest']
+        })
+      })
+      const data = await res.json()
+      const hasBudget = data.result && BigInt(data.result) === 1n
+      if (hasBudget) {
+        // Read actual budget amount
+        const jobRes = await fetch('https://rpc.testnet.arc.network', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0', id: 1, method: 'eth_call',
+            params: [{
+              to: AGENTIC_COMMERCE,
+              data: '0x1e77b5c1' + jobId.toString(16).padStart(64, '0') // getJob(uint256)
+            }, 'latest']
+          })
+        })
+        const jobData = await jobRes.json()
+        if (jobData.result) {
+          // budget is at offset 5 (160 bytes = 320 hex chars from start of tuple data)
+          // Tuple: id(32) + client(32) + provider(32) + evaluator(32) + description_offset(32) + budget(32)
+          const budgetHex = jobData.result.slice(2 + 320, 2 + 384)
+          const budgetRaw = BigInt('0x' + budgetHex)
+          const budgetUsdc = Number(budgetRaw) / 1_000_000
+          setOnChainBudget(budgetUsdc.toFixed(2))
+        }
+        setBudgetSet(true)
+        setStep('fund')
+      }
+    } catch {
+      // ignore polling errors
+    }
+  }, [jobId])
+
+  useEffect(() => {
+    if (step !== 'waiting') return
+    const interval = setInterval(pollBudget, 3000)
+    pollBudget() // immediate first check
+    return () => clearInterval(interval)
+  }, [step, pollBudget])
 
   if (!isConnected) {
     return (
@@ -50,11 +114,10 @@ export default function HireAgent() {
     )
   }
 
-  const budgetUsdc = parseUnits(config.budget || '0', 6)
   const expiredAt = Math.floor(Date.now() / 1000) + config.deadline * 3600
   const evaluatorAddr = config.evaluator === 'self' ? address! : config.evaluator
 
-  async function executeHire() {
+  async function executeCreate() {
     setStep('execute')
     setError(null)
     setTxStep(0)
@@ -76,11 +139,10 @@ export default function HireAgent() {
         chain: arcTestnet,
       })
 
-      // Wait for receipt to get jobId
       await waitForTx(createHash)
-      
-      // Read jobCounter to get the latest job ID (counter = next ID, so last created = counter - 1)
-      const counterResult = await fetch(`https://rpc.testnet.arc.network`, {
+
+      // Read jobCounter to get the job ID
+      const counterResult = await fetch('https://rpc.testnet.arc.network', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -91,39 +153,46 @@ export default function HireAgent() {
       const newJobId = BigInt(counterResult.result) - 1n
       setJobId(newJobId)
 
-      // Step 2: setBudget
-      setTxStep(2)
-      await writeContractAsync({
-        address: AGENTIC_COMMERCE,
-        abi: AGENTIC_COMMERCE_ABI,
-        functionName: 'setBudget',
-        args: [newJobId, budgetUsdc, '0x'],
-        chain: arcTestnet,
-      })
+      setStep('waiting')
+    } catch (err: any) {
+      setError(err.shortMessage || err.message || 'Transaction failed')
+    }
+  }
 
-      // Step 3: approve USDC
-      setTxStep(3)
+  async function executeFund() {
+    setStep('funding')
+    setError(null)
+    setTxStep(0)
+
+    try {
+      const budgetAmount = onChainBudget
+        ? parseUnits(onChainBudget, 6)
+        : parseUnits(config.budget || '0', 6)
+
+      // Step 1: approve USDC
+      setTxStep(1)
       await writeContractAsync({
         address: USDC_ADDRESS,
         abi: USDC_ABI,
         functionName: 'approve',
-        args: [AGENTIC_COMMERCE, budgetUsdc],
+        args: [AGENTIC_COMMERCE, budgetAmount],
         chain: arcTestnet,
       })
 
-      // Step 4: fund
-      setTxStep(4)
+      // Step 2: fund
+      setTxStep(2)
       await writeContractAsync({
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'fund',
-        args: [newJobId, '0x'],
+        args: [jobId!, '0x'],
         chain: arcTestnet,
       })
 
       setStep('confirm')
     } catch (err: any) {
       setError(err.shortMessage || err.message || 'Transaction failed')
+      setStep('fund')
     }
   }
 
@@ -160,7 +229,7 @@ export default function HireAgent() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <label>
-              <span style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1 }}>Budget (USDC)</span>
+              <span style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1 }}>Suggested Budget (USDC)</span>
               <input
                 type="number"
                 step="0.01"
@@ -190,6 +259,10 @@ export default function HireAgent() {
                 }}
               />
             </label>
+          </div>
+
+          <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 16, padding: '8px 12px', border: '1px solid var(--dimmer)' }}>
+            Budget is suggested — the provider (agent) sets the final price. You fund after they accept.
           </div>
 
           <label style={{ display: 'block', marginBottom: 24 }}>
@@ -243,7 +316,7 @@ export default function HireAgent() {
               <span style={{ color: 'var(--dim)' }}>Description:</span> {config.description}
             </div>
             <div style={{ padding: '12px 0', borderBottom: '1px solid var(--dimmer)' }}>
-              <span style={{ color: 'var(--dim)' }}>Budget:</span> {config.budget} USDC
+              <span style={{ color: 'var(--dim)' }}>Suggested budget:</span> {config.budget} USDC
             </div>
             <div style={{ padding: '12px 0', borderBottom: '1px solid var(--dimmer)' }}>
               <span style={{ color: 'var(--dim)' }}>Deadline:</span> {config.deadline}h from now
@@ -257,13 +330,12 @@ export default function HireAgent() {
           </div>
 
           <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 16 }}>
-            This will execute 4 transactions:
+            This will create the job on-chain (1 transaction). The provider sets the final budget, then you fund.
           </div>
           <div style={{ fontSize: 12, marginBottom: 24 }}>
-            <div style={{ padding: '6px 0' }}>1. createJob — register job on-chain</div>
-            <div style={{ padding: '6px 0' }}>2. setBudget — set {config.budget} USDC budget</div>
-            <div style={{ padding: '6px 0' }}>3. approve — allow contract to spend your USDC</div>
-            <div style={{ padding: '6px 0' }}>4. fund — deposit USDC into escrow</div>
+            <div style={{ padding: '6px 0' }}>1. createJob — register job on-chain with provider assigned</div>
+            <div style={{ padding: '6px 0', color: 'var(--dim)' }}>2. wait — provider reviews and sets budget</div>
+            <div style={{ padding: '6px 0', color: 'var(--dim)' }}>3. approve + fund — you deposit USDC into escrow</div>
           </div>
 
           <div style={{ display: 'flex', gap: 12 }}>
@@ -277,37 +349,30 @@ export default function HireAgent() {
               ← Back
             </button>
             <button
-              onClick={executeHire}
+              onClick={executeCreate}
               style={{
                 flex: 2, padding: '12px 0', fontSize: 13, fontWeight: 700,
                 background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
               }}
             >
-              Execute Hire
+              Create Job
             </button>
           </div>
         </div>
       )}
 
-      {/* Step: Execute */}
+      {/* Step: Execute (creating) */}
       {step === 'execute' && (
         <div>
           <div style={{ fontSize: 12, marginBottom: 24 }}>
-            {[
-              'Creating job...',
-              'Setting budget...',
-              'Approving USDC...',
-              'Funding escrow...',
-            ].map((label, i) => (
-              <div key={i} style={{
-                padding: '10px 0',
-                borderBottom: '1px solid var(--dimmer)',
-                color: txStep > i + 1 ? 'var(--text)' : txStep === i + 1 ? 'var(--text)' : 'var(--dimmer)',
-              }}>
-                {txStep > i + 1 ? '✓' : txStep === i + 1 ? '◌' : '○'} {label}
-                {txStep === i + 1 && <span style={{ color: 'var(--dim)', marginLeft: 8 }}>confirm in wallet</span>}
-              </div>
-            ))}
+            <div style={{
+              padding: '10px 0',
+              borderBottom: '1px solid var(--dimmer)',
+              color: txStep >= 1 ? 'var(--text)' : 'var(--dimmer)',
+            }}>
+              {txStep > 1 ? '✓' : '◌'} Creating job...
+              {txStep === 1 && <span style={{ color: 'var(--dim)', marginLeft: 8 }}>confirm in wallet</span>}
+            </div>
           </div>
 
           {error && (
@@ -324,13 +389,88 @@ export default function HireAgent() {
         </div>
       )}
 
+      {/* Step: Waiting for provider */}
+      {step === 'waiting' && (
+        <div>
+          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Job #{jobId?.toString()} Created</div>
+            <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 24 }}>
+              Waiting for provider to set budget...
+            </div>
+            <div style={{ margin: '0 auto', width: 24, height: 24, border: '2px solid var(--dimmer)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+            <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 24 }}>
+              Suggested budget: {config.budget} USDC · Polling every 3s
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 8 }}>
+              You can close this page — fund from <Link to="/dashboard" style={{ color: 'var(--accent)' }}>My Jobs</Link> later.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Fund (provider set budget) */}
+      {step === 'fund' && (
+        <div>
+          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Provider Accepted</div>
+            <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8 }}>
+              Job #{jobId?.toString()} · Budget set to {onChainBudget} USDC
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 24 }}>
+              Approve and fund to start the job.
+            </div>
+
+            {error && (
+              <div style={{ padding: 12, border: '1px solid #ff4444', color: '#ff4444', fontSize: 12, marginBottom: 16, textAlign: 'left' }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={executeFund}
+              style={{
+                padding: '12px 32px', fontSize: 13, fontWeight: 700,
+                background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
+              }}
+            >
+              Approve & Fund ({onChainBudget} USDC)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Funding in progress */}
+      {step === 'funding' && (
+        <div>
+          <div style={{ fontSize: 12, marginBottom: 24 }}>
+            <div style={{
+              padding: '10px 0',
+              borderBottom: '1px solid var(--dimmer)',
+              color: txStep >= 1 ? 'var(--text)' : 'var(--dimmer)',
+            }}>
+              {txStep > 1 ? '✓' : txStep === 1 ? '◌' : '○'} Approving USDC...
+              {txStep === 1 && <span style={{ color: 'var(--dim)', marginLeft: 8 }}>confirm in wallet</span>}
+            </div>
+            <div style={{
+              padding: '10px 0',
+              borderBottom: '1px solid var(--dimmer)',
+              color: txStep >= 2 ? 'var(--text)' : 'var(--dimmer)',
+            }}>
+              {txStep > 2 ? '✓' : txStep === 2 ? '◌' : '○'} Funding escrow...
+              {txStep === 2 && <span style={{ color: 'var(--dim)', marginLeft: 8 }}>confirm in wallet</span>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Step: Confirm */}
       {step === 'confirm' && (
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 24, marginBottom: 16 }}>✓</div>
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Job Created & Funded</div>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Job Funded</div>
           <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 24 }}>
-            Job #{jobId?.toString()} · {config.budget} USDC in escrow
+            Job #{jobId?.toString()} · {onChainBudget || config.budget} USDC in escrow
           </div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
             <Link
