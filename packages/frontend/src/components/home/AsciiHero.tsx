@@ -84,8 +84,8 @@ export default function AsciiHero() {
   return (
     <pre
       aria-hidden="true"
+      className="ascii-hero-pre"
       style={{
-        fontSize: 14,
         lineHeight: 1.4,
         textAlign: 'center',
         marginBottom: 24,

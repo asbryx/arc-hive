@@ -32,13 +32,13 @@ export default function StatsGrid({ stats, daily }: Props) {
   const maxValue = Math.max(...items.map(i => i.value), 1)
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+    <div className="stats-grid">
       {items.map((item, i) => (
-        <div key={item.label} className="card-glow stagger-in" style={{ padding: 20, background: 'var(--bg)', animationDelay: `${i * 100}ms` }}>
-          <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+        <div key={item.label} className="card-glow stagger-in stat-card" style={{ animationDelay: `${i * 100}ms` }}>
+          <div className="stat-label">
             {item.label}
           </div>
-          <div style={{ fontSize: 28, fontWeight: 800, fontVariantNumeric: 'tabular-nums', marginBottom: 8 }}>
+          <div className="stat-value">
             <AnimatedCounter target={item.value} />
           </div>
           {item.spark && item.spark.length > 1 && (

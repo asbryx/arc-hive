@@ -159,21 +159,31 @@ const timestampCache = new Map<bigint, Date>()
 async function getBlockTimestamps(client: any, logs: Log[]): Promise<Map<bigint, Date>> {
   const result = new Map<bigint, Date>()
   const uniqueBlocks = [...new Set(logs.map(l => l.blockNumber!))]
+  const uncached = uniqueBlocks.filter(b => !timestampCache.has(b))
 
+  // Return cached immediately
   for (const blockNum of uniqueBlocks) {
     if (timestampCache.has(blockNum)) {
       result.set(blockNum, timestampCache.get(blockNum)!)
-      continue
     }
+  }
 
-    try {
-      const block = await client.getBlock({ blockNumber: blockNum })
-      const ts = new Date(Number(block.timestamp) * 1000)
-      timestampCache.set(blockNum, ts)
-      result.set(blockNum, ts)
-    } catch {
-      // Fallback: use current time
-      result.set(blockNum, new Date())
+  // Fetch uncached in parallel batches of 20
+  const BATCH = 20
+  for (let i = 0; i < uncached.length; i += BATCH) {
+    const batch = uncached.slice(i, i + BATCH)
+    const results = await Promise.allSettled(
+      batch.map(blockNum => client.getBlock({ blockNumber: blockNum }))
+    )
+    for (let j = 0; j < batch.length; j++) {
+      const r = results[j]
+      if (r.status === 'fulfilled') {
+        const ts = new Date(Number(r.value.timestamp) * 1000)
+        timestampCache.set(batch[j], ts)
+        result.set(batch[j], ts)
+      } else {
+        result.set(batch[j], new Date())
+      }
     }
   }
 
