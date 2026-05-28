@@ -67,6 +67,86 @@ openJobs.get('/', async (c) => {
   })
 })
 
+// ─── Agent Dashboard Endpoints (must be before /:id) ──────────────────────────
+
+// GET /api/open-jobs/my-applications?address=0x...
+openJobs.get('/my-applications', async (c) => {
+  const address = c.req.query('address')
+  if (!address) return c.json({ error: 'address required' }, 400)
+
+  const result = await query(
+    `SELECT oj.*, ja.status as application_status, ja.proposed_budget as app_proposed_budget, ja.created_at as applied_at,
+      (SELECT COUNT(*) FROM job_applications ja2 WHERE ja2.job_id = oj.job_id) as application_count
+     FROM job_applications ja
+     JOIN open_jobs oj ON oj.job_id = ja.job_id
+     WHERE lower(ja.applicant_address) = lower($1)
+     ORDER BY ja.created_at DESC`,
+    [address]
+  )
+
+  return c.json({
+    data: result.rows.map(row => ({
+      ...formatOpenJob(row),
+      applicationStatus: row.application_status,
+      appProposedBudget: formatUsdc(row.app_proposed_budget),
+      appliedAt: row.applied_at,
+    }))
+  })
+})
+
+// GET /api/open-jobs/my-active?address=0x...
+openJobs.get('/my-active', async (c) => {
+  const address = c.req.query('address')
+  if (!address) return c.json({ error: 'address required' }, 400)
+
+  const result = await query(
+    `SELECT oj.*,
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
+     FROM open_jobs oj
+     WHERE lower(oj.selected_applicant) = lower($1)
+     AND oj.status IN ('assigned', 'funded', 'in_progress', 'delivered')
+     ORDER BY oj.updated_at DESC`,
+    [address]
+  )
+
+  return c.json({ data: result.rows.map(formatOpenJob) })
+})
+
+// GET /api/open-jobs/my-completed?address=0x...
+openJobs.get('/my-completed', async (c) => {
+  const address = c.req.query('address')
+  if (!address) return c.json({ error: 'address required' }, 400)
+
+  const result = await query(
+    `SELECT oj.*,
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
+     FROM open_jobs oj
+     WHERE lower(oj.selected_applicant) = lower($1)
+     AND oj.status = 'completed'
+     ORDER BY oj.completed_at DESC`,
+    [address]
+  )
+
+  return c.json({ data: result.rows.map(formatOpenJob) })
+})
+
+// GET /api/open-jobs/my-posted?address=0x...
+openJobs.get('/my-posted', async (c) => {
+  const address = c.req.query('address')
+  if (!address) return c.json({ error: 'address required' }, 400)
+
+  const result = await query(
+    `SELECT oj.*,
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
+     FROM open_jobs oj
+     WHERE lower(oj.client_address) = lower($1)
+     ORDER BY oj.created_at DESC`,
+    [address]
+  )
+
+  return c.json({ data: result.rows.map(formatOpenJob) })
+})
+
 // GET /api/open-jobs/:id — single open job detail
 openJobs.get('/:id', async (c) => {
   const id = c.req.param('id')
@@ -438,86 +518,6 @@ openJobs.post('/:id/cancel', async (c) => {
   )
 
   return c.json({ success: true })
-})
-
-// ─── Agent Dashboard Endpoints ────────────────────────────────────────────────
-
-// GET /api/open-jobs/my-applications?address=0x...
-openJobs.get('/my-applications', async (c) => {
-  const address = c.req.query('address')
-  if (!address) return c.json({ error: 'address required' }, 400)
-
-  const result = await query(
-    `SELECT oj.*, ja.status as application_status, ja.proposed_budget as app_proposed_budget, ja.created_at as applied_at,
-      (SELECT COUNT(*) FROM job_applications ja2 WHERE ja2.job_id = oj.job_id) as application_count
-     FROM job_applications ja
-     JOIN open_jobs oj ON oj.job_id = ja.job_id
-     WHERE lower(ja.applicant_address) = lower($1)
-     ORDER BY ja.created_at DESC`,
-    [address]
-  )
-
-  return c.json({
-    data: result.rows.map(row => ({
-      ...formatOpenJob(row),
-      applicationStatus: row.application_status,
-      appProposedBudget: formatUsdc(row.app_proposed_budget),
-      appliedAt: row.applied_at,
-    }))
-  })
-})
-
-// GET /api/open-jobs/my-active?address=0x...
-openJobs.get('/my-active', async (c) => {
-  const address = c.req.query('address')
-  if (!address) return c.json({ error: 'address required' }, 400)
-
-  const result = await query(
-    `SELECT oj.*,
-      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
-     FROM open_jobs oj
-     WHERE lower(oj.selected_applicant) = lower($1)
-     AND oj.status IN ('assigned', 'funded', 'in_progress', 'delivered')
-     ORDER BY oj.updated_at DESC`,
-    [address]
-  )
-
-  return c.json({ data: result.rows.map(formatOpenJob) })
-})
-
-// GET /api/open-jobs/my-completed?address=0x...
-openJobs.get('/my-completed', async (c) => {
-  const address = c.req.query('address')
-  if (!address) return c.json({ error: 'address required' }, 400)
-
-  const result = await query(
-    `SELECT oj.*,
-      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
-     FROM open_jobs oj
-     WHERE lower(oj.selected_applicant) = lower($1)
-     AND oj.status = 'completed'
-     ORDER BY oj.completed_at DESC`,
-    [address]
-  )
-
-  return c.json({ data: result.rows.map(formatOpenJob) })
-})
-
-// GET /api/open-jobs/my-posted?address=0x... (client's posted jobs)
-openJobs.get('/my-posted', async (c) => {
-  const address = c.req.query('address')
-  if (!address) return c.json({ error: 'address required' }, 400)
-
-  const result = await query(
-    `SELECT oj.*,
-      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
-     FROM open_jobs oj
-     WHERE lower(oj.client_address) = lower($1)
-     ORDER BY oj.created_at DESC`,
-    [address]
-  )
-
-  return c.json({ data: result.rows.map(formatOpenJob) })
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
