@@ -18,6 +18,18 @@
   --font: 'JetBrains Mono', monospace;
 }
 
+[data-theme="light"] {
+  --bg: #f5f5f5;
+  --text: #111111;
+  --dim: #666666;
+  --dimmer: #dddddd;
+  --accent: #273F4F;
+  --accent-light: #3a5f6f;
+  --accent-dark: #1a2f3a;
+  --glow: rgba(39, 63, 79, 0.2);
+  --glow-soft: rgba(39, 63, 79, 0.08);
+}
+
 html, body {
   background: var(--bg);
   color: var(--text);

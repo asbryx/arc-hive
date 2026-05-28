@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { useStats, useIndexerHealth } from '@/api/hooks'
+import { useTheme } from '@/hooks/useTheme'
 import styles from './Nav.module.css'
 
 function truncateAddr(addr: string) {
@@ -14,6 +15,7 @@ export default function Nav() {
   const { address, isConnected } = useAccount()
   const { openConnectModal } = useConnectModal()
   const { disconnect } = useDisconnect()
+  const { theme, toggle } = useTheme()
 
   const isLive = !!stats
   const isSyncing = health?.syncing ?? false
@@ -30,6 +32,21 @@ export default function Nav() {
         <li><NavLink to="/dashboard" className={({ isActive }) => isActive ? styles.active : ''}>my jobs</NavLink></li>
       </ul>
       <div className={styles.status}>
+        <button
+          onClick={toggle}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          style={{
+            background: 'transparent',
+            border: '1px solid var(--dimmer)',
+            color: 'var(--dim)',
+            fontSize: 11,
+            padding: '3px 8px',
+            cursor: 'pointer',
+            marginRight: 10,
+          }}
+        >
+          {theme === 'dark' ? '☀' : '●'}
+        </button>
         <span className={isLive ? 'pulse-live' : ''} style={{ color: isLive ? '#00ff00' : '#ff4444' }}>●</span>
         {' '}{isSyncing ? 'syncing' : isLive ? 'live' : 'offline'} · {stats ? `${stats.totalAgents.toLocaleString()} agents` : '...'}
       </div>
