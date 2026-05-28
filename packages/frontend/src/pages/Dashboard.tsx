@@ -117,7 +117,7 @@ export default function Dashboard() {
   const jobs = tab === 'client' ? clientJobs?.data : providerJobs?.data
 
   return (
-    <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 800, margin: '0 auto' }}>
+    <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 800, margin: '0 auto', minHeight: 'calc(100vh - 160px)' }}>
       <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24 }}>
         my jobs
       </div>
