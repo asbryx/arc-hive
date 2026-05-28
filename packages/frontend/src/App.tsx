@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard'
 import Marketplace from './pages/Marketplace'
 import MarketplaceDetail from './pages/MarketplaceDetail'
 import PostJob from './pages/PostJob'
+import MyJobs from './pages/MyJobs'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/marketplace/:id" element={<MarketplaceDetail />} />
           <Route path="/post-job" element={<PostJob />} />
+          <Route path="/my-jobs" element={<MyJobs />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
