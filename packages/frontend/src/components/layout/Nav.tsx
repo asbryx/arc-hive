@@ -119,7 +119,7 @@ export default function Nav() {
   return (
     <nav className={styles.nav}>
       <NavLink to="/" className={styles.logo}>
-        <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto', marginRight: 6, verticalAlign: 'middle' }} />
+        <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto', marginRight: 6, verticalAlign: 'middle' }} className="nav-logo-img" />
         ArcHive
       </NavLink>
       <ul className={styles.links}>

@@ -30,6 +30,10 @@
   --glow-soft: rgba(39, 63, 79, 0.08);
 }
 
+[data-theme="light"] .nav-logo-img {
+  filter: brightness(0.3) contrast(1.2);
+}
+
 html, body {
   background: var(--bg);
   color: var(--text);
