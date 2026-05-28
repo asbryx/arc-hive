@@ -102,7 +102,10 @@ export default function Nav() {
     return (
       <>
         <nav className={styles.nav}>
-          <NavLink to="/" className={styles.logo}>ArcHive</NavLink>
+          <NavLink to="/" className={styles.logo}>
+            <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto', marginRight: 6, verticalAlign: 'middle' }} />
+            ArcHive
+          </NavLink>
           {actions}
         </nav>
         <ul className={styles.bottomLinks}>
@@ -115,7 +118,10 @@ export default function Nav() {
   // Desktop: everything in one bar
   return (
     <nav className={styles.nav}>
-      <NavLink to="/" className={styles.logo}>ArcHive</NavLink>
+      <NavLink to="/" className={styles.logo}>
+        <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto', marginRight: 6, verticalAlign: 'middle' }} />
+        ArcHive
+      </NavLink>
       <ul className={styles.links}>
         {navLinks}
       </ul>
