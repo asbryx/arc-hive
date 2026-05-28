@@ -5,7 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { WagmiProvider } from 'wagmi'
 import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit'
 import { config } from './lib/wagmi'
-import { useTheme } from './hooks/useTheme'
+import { ThemeProvider, useTheme } from './hooks/useTheme'
 import App from './App'
 import './styles/global.css'
 import '@rainbow-me/rainbowkit/styles.css'
@@ -26,15 +26,13 @@ const rkOptions = {
   fontStack: 'system' as const,
 }
 
-function Root() {
+function RainbowKitWrapper({ children }: { children: React.ReactNode }) {
   const { theme } = useTheme()
   const rkTheme = theme === 'dark' ? darkTheme(rkOptions) : lightTheme(rkOptions)
 
   return (
     <RainbowKitProvider theme={rkTheme}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      {children}
     </RainbowKitProvider>
   )
 }
@@ -43,7 +41,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <Root />
+        <ThemeProvider>
+          <RainbowKitWrapper>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </RainbowKitWrapper>
+        </ThemeProvider>
       </QueryClientProvider>
     </WagmiProvider>
   </React.StrictMode>
