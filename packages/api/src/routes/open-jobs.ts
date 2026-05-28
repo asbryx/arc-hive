@@ -51,7 +51,7 @@ openJobs.get('/', async (c) => {
 
   const result = await query(
     `SELECT oj.*, 
-      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count
      FROM open_jobs oj ${where}
      ORDER BY oj.created_at DESC
      LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
@@ -76,9 +76,9 @@ openJobs.get('/my-applications', async (c) => {
 
   const result = await query(
     `SELECT oj.*, ja.status as application_status, ja.proposed_budget as app_proposed_budget, ja.created_at as applied_at,
-      (SELECT COUNT(*) FROM job_applications ja2 WHERE ja2.job_id = oj.job_id) as application_count
+      (SELECT COUNT(*) FROM job_applications ja2 WHERE ja2.job_id = oj.id) as application_count
      FROM job_applications ja
-     JOIN open_jobs oj ON oj.job_id = ja.job_id
+     JOIN open_jobs oj ON oj.id = ja.job_id
      WHERE lower(ja.applicant_address) = lower($1)
      ORDER BY ja.created_at DESC`,
     [address]
@@ -101,7 +101,7 @@ openJobs.get('/my-active', async (c) => {
 
   const result = await query(
     `SELECT oj.*,
-      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count
      FROM open_jobs oj
      WHERE lower(oj.selected_applicant) = lower($1)
      AND oj.status IN ('assigned', 'funded', 'in_progress', 'delivered')
@@ -119,7 +119,7 @@ openJobs.get('/my-completed', async (c) => {
 
   const result = await query(
     `SELECT oj.*,
-      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count
      FROM open_jobs oj
      WHERE lower(oj.selected_applicant) = lower($1)
      AND oj.status = 'completed'
@@ -137,7 +137,7 @@ openJobs.get('/my-posted', async (c) => {
 
   const result = await query(
     `SELECT oj.*,
-      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count
      FROM open_jobs oj
      WHERE lower(oj.client_address) = lower($1)
      ORDER BY oj.created_at DESC`,
@@ -162,7 +162,7 @@ openJobs.get('/recommended', async (c) => {
   let result
   if (categories.length > 0) {
     result = await query(
-      `SELECT oj.*, (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
+      `SELECT oj.*, (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count
        FROM open_jobs oj
        WHERE oj.status = 'open' AND oj.category = ANY($1)
        AND lower(oj.client_address) != lower($2)
@@ -171,7 +171,7 @@ openJobs.get('/recommended', async (c) => {
     )
   } else {
     result = await query(
-      `SELECT oj.*, (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count
+      `SELECT oj.*, (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count
        FROM open_jobs oj
        WHERE oj.status = 'open' AND lower(oj.client_address) != lower($1)
        ORDER BY oj.created_at DESC LIMIT 10`,
@@ -281,7 +281,7 @@ openJobs.get('/:id', async (c) => {
 
   const result = await query(
     `SELECT oj.*,
-      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.job_id) as application_count,
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count,
       (SELECT j.created_tx FROM jobs j WHERE j.job_id = oj.job_id LIMIT 1) as indexed_tx
      FROM open_jobs oj WHERE oj.id = $1 OR oj.job_id = $1::bigint`,
     [id]
@@ -324,7 +324,7 @@ openJobs.post('/:id/apply', async (c) => {
       `INSERT INTO job_applications (job_id, applicant_address, agent_id, message, proposed_budget)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id`,
-      [openJob.job_id, applicantAddress.toLowerCase(), agentId || null, message || null, budgetRaw]
+      [openJob.id, applicantAddress.toLowerCase(), agentId || null, message || null, budgetRaw]
     )
     return c.json({ id: result.rows[0].id }, 201)
   } catch (e: any) {
@@ -339,16 +339,16 @@ openJobs.post('/:id/apply', async (c) => {
 openJobs.get('/:id/applications', async (c) => {
   const id = c.req.param('id')
 
-  // Get job_id from open_jobs
+  // Get open_jobs.id
   const jobResult = await query(
-    `SELECT job_id FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
+    `SELECT id FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
     [id]
   )
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found' }, 404)
   }
 
-  const jobId = jobResult.rows[0].job_id
+  const openJobId = jobResult.rows[0].id
 
   const result = await query(
     `SELECT ja.*, a.name as agent_name, a.score, a.completed_jobs
@@ -361,7 +361,7 @@ openJobs.get('/:id/applications', async (c) => {
      ) a ON lower(a.owner_address) = lower(ja.applicant_address)
      WHERE ja.job_id = $1
      ORDER BY ja.created_at ASC`,
-    [jobId]
+    [openJobId]
   )
 
   return c.json({
@@ -400,12 +400,12 @@ openJobs.post('/:id/select', async (c) => {
   // Update application status
   await query(
     `UPDATE job_applications SET status = 'selected' WHERE job_id = $1 AND lower(applicant_address) = lower($2)`,
-    [jobResult.rows[0].job_id, applicantAddress]
+    [jobResult.rows[0].id, applicantAddress]
   )
   // Reject others
   await query(
     `UPDATE job_applications SET status = 'rejected' WHERE job_id = $1 AND lower(applicant_address) != lower($2) AND status = 'pending'`,
-    [jobResult.rows[0].job_id, applicantAddress]
+    [jobResult.rows[0].id, applicantAddress]
   )
   // Update open job status + store selected applicant
   await query(
