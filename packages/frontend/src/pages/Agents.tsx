@@ -126,7 +126,7 @@ export default function Agents() {
                       justifyContent: 'center',
                       fontSize: 11,
                       fontWeight: 800,
-                      color: 'var(--text)',
+                      color: '#ffffff',
                       flexShrink: 0,
                     }}>
                       {(agent.name || `A${agent.agentId}`).charAt(0).toUpperCase()}
