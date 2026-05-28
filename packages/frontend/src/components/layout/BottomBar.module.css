@@ -4,7 +4,7 @@
   justify-content: center;
   gap: 32px;
   background: var(--accent);
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid var(--dimmer);
 }
 
 .bar a {

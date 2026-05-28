@@ -6,7 +6,7 @@
   display: flex;
   align-items: center;
   gap: 24px;
-  background: rgba(0,0,0,0.9);
+  background: var(--bg);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--dimmer);
   height: 48px;
@@ -58,7 +58,7 @@
     top: auto;
     display: flex;
     justify-content: space-around;
-    background: rgba(0,0,0,0.95);
+    background: var(--bg);
     backdrop-filter: blur(8px);
     border-top: 1px solid var(--dimmer);
     padding: 12px 0;
