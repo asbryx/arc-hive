@@ -270,7 +270,7 @@ export default function PostJob() {
             disabled={!isValid}
             style={{
               width: '100%', padding: '14px 0', fontSize: 13, fontWeight: 700,
-              background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
+              background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
               opacity: isValid ? 1 : 0.4,
             }}
           >
@@ -341,7 +341,7 @@ export default function PostJob() {
               onClick={handleSubmit}
               style={{
                 flex: 2, padding: '12px 0', fontSize: 13, fontWeight: 700,
-                background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
+                background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
               }}
             >
               Post Job On-Chain
@@ -376,7 +376,7 @@ export default function PostJob() {
               to={`/marketplace/${openJobId}`}
               style={{
                 padding: '10px 20px', fontSize: 12,
-                background: 'var(--accent)', color: 'var(--text)', textDecoration: 'none',
+                background: 'var(--accent)', color: '#ffffff', textDecoration: 'none',
               }}
             >
               View Listing

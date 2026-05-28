@@ -194,7 +194,7 @@ export default function Dashboard() {
                   <>
                     <button
                       onClick={() => { setActionJobId(job.jobId); setActionType('complete'); setTxSuccess(null) }}
-                      style={{ fontSize: 11, padding: '4px 10px', background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer' }}
+                      style={{ fontSize: 11, padding: '4px 10px', background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer' }}
                     >
                       approve & pay
                     </button>
@@ -219,7 +219,7 @@ export default function Dashboard() {
                 {tab === 'provider' && (job.status === 'Funded' || job.status === 'Rejected') && (
                   <button
                     onClick={() => { setActionJobId(job.jobId); setActionType('submit'); setTxSuccess(null) }}
-                    style={{ fontSize: 11, padding: '4px 10px', background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer' }}
+                    style={{ fontSize: 11, padding: '4px 10px', background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer' }}
                   >
                     submit deliverable
                   </button>

@@ -218,7 +218,7 @@ export default function JobDetail() {
               onClick={() => setShowDeliverForm(true)}
               style={{
                 width: '100%', padding: '14px 0', fontSize: 13, fontWeight: 700,
-                background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
+                background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
               }}
             >
               Submit Deliverable
@@ -278,7 +278,7 @@ export default function JobDetail() {
                   disabled={!deliverForm.content || actionLoading === 'deliver'}
                   style={{
                     flex: 2, padding: '10px 0', fontSize: 12, fontWeight: 700,
-                    background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
+                    background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
                     opacity: !deliverForm.content ? 0.4 : 1,
                   }}
                 >

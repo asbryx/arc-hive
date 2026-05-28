@@ -304,7 +304,7 @@ export default function HireAgent() {
             disabled={!config.description || !config.budget || parseFloat(config.budget) <= 0}
             style={{
               width: '100%', padding: '12px 0', fontSize: 13, fontWeight: 700,
-              background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
+              background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
               opacity: (!config.description || !config.budget) ? 0.4 : 1,
             }}
           >
@@ -357,7 +357,7 @@ export default function HireAgent() {
               onClick={executeCreate}
               style={{
                 flex: 2, padding: '12px 0', fontSize: 13, fontWeight: 700,
-                background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
+                background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
               }}
             >
               Create Job
@@ -436,7 +436,7 @@ export default function HireAgent() {
               onClick={executeFund}
               style={{
                 padding: '12px 32px', fontSize: 13, fontWeight: 700,
-                background: 'var(--accent)', color: 'var(--text)', border: 'none', cursor: 'pointer',
+                background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
               }}
             >
               Approve & Fund ({onChainBudget} USDC)
@@ -482,7 +482,7 @@ export default function HireAgent() {
               to={`/jobs/${jobId?.toString()}`}
               style={{
                 padding: '10px 20px', fontSize: 12,
-                background: 'var(--accent)', color: 'var(--text)', textDecoration: 'none',
+                background: 'var(--accent)', color: '#ffffff', textDecoration: 'none',
               }}
             >
               View Job
