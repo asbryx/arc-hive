@@ -93,6 +93,7 @@ export default function MarketplaceDetail() {
   const [deliverForm, setDeliverForm] = useState({ content: '', link: '', notes: '' })
   const [deliverError, setDeliverError] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
+  const [submittingOnChain, setSubmittingOnChain] = useState(false)
   const [rejecting, setRejecting] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [commentText, setCommentText] = useState('')
@@ -292,6 +293,31 @@ export default function MarketplaceDetail() {
     } catch (err: any) { setDeliverError(err.message) }
   }
 
+  async function handleSubmitOnChain() {
+    if (!address || !job?.jobId || deliverables.length === 0) return
+    setSubmittingOnChain(true)
+    setActionError(null)
+    try {
+      const content = deliverables[0].content || 'deliverable'
+      const contentBytes = new TextEncoder().encode(content.slice(0, 100))
+      const hash = '0x' + Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', contentBytes))).map(b => b.toString(16).padStart(2, '0')).join('')
+      const tx = await writeContractAsync({
+        address: AGENTIC_COMMERCE,
+        abi: AGENTIC_COMMERCE_ABI,
+        functionName: 'submit',
+        args: [BigInt(job.jobId), hash as `0x${string}`, '0x'],
+        chain: arcTestnet,
+      })
+      await waitForTransactionReceipt(config, { hash: tx, confirmations: 1 })
+      fetchJob()
+    } catch (err: any) {
+      const msg = err?.shortMessage || err?.message || 'Submit failed'
+      setActionError(msg)
+    } finally {
+      setSubmittingOnChain(false)
+    }
+  }
+
   async function handleComplete() {
     if (!address || !job?.jobId) return
     setCompleting(true)
@@ -426,13 +452,7 @@ export default function MarketplaceDetail() {
         ← back to marketplace
       </Link>
 
-      {/* Inline error banner */}
-      {actionError && (
-        <div style={{ margin: '16px 0', padding: '12px 16px', background: '#1a0000', border: '1px solid #4a1111', fontSize: 12, color: '#ff6b6b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>⚠ {actionError}</span>
-          <span onClick={() => setActionError(null)} style={{ cursor: 'pointer', opacity: 0.6 }}>✕</span>
-        </div>
-      )}
+      
 
       {/* Job Header */}
       <div style={{ marginTop: 20, marginBottom: 24 }}>
@@ -634,6 +654,27 @@ export default function MarketplaceDetail() {
               >
                 Request Revision
               </button>
+            </div>
+          )}
+          {/* Agent submit on-chain button */}
+          {isAgent && job.status === 'delivered' && (
+            <button
+              onClick={handleSubmitOnChain}
+              disabled={submittingOnChain}
+              style={{
+                width: '100%', marginTop: 16, padding: '12px 0', fontSize: 12, fontWeight: 700,
+                background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
+                opacity: submittingOnChain ? 0.6 : 1,
+              }}
+            >
+              {submittingOnChain ? 'Submitting...' : 'Submit Deliverable On-Chain →'}
+            </button>
+          )}
+          {/* Inline error banner — below action buttons */}
+          {actionError && (
+            <div style={{ margin: '12px 0 0', padding: '12px 16px', background: '#1a0000', border: '1px solid #4a1111', fontSize: 12, color: '#ff6b6b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>⚠ {actionError}</span>
+              <span onClick={() => setActionError(null)} style={{ cursor: 'pointer', opacity: 0.6 }}>✕</span>
             </div>
           )}
         </div>
