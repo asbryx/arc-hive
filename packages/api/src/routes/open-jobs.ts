@@ -199,13 +199,245 @@ openJobs.post('/:id/select', async (c) => {
     `UPDATE job_applications SET status = 'rejected' WHERE job_id = $1 AND lower(applicant_address) != lower($2) AND status = 'pending'`,
     [jobResult.rows[0].job_id, applicantAddress]
   )
-  // Update open job status
+  // Update open job status + store selected applicant
   await query(
-    `UPDATE open_jobs SET status = 'assigned', updated_at = NOW() WHERE id = $1 OR job_id = $1::bigint`,
-    [id]
+    `UPDATE open_jobs SET status = 'assigned', selected_applicant = lower($2), updated_at = NOW() WHERE id = $1 OR job_id = $1::bigint`,
+    [id, applicantAddress]
   )
 
-  return c.json({ success: true, message: 'Call setProvider on-chain to finalize' })
+  return c.json({ success: true })
+})
+
+// POST /api/open-jobs/:id/fund — client confirms on-chain funding
+openJobs.post('/:id/fund', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { clientAddress, onchainJobId, fundTx, budget } = body
+
+  if (!clientAddress || !fundTx) {
+    return c.json({ error: 'clientAddress and fundTx required' }, 400)
+  }
+
+  const jobResult = await query(
+    `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
+    [id, clientAddress]
+  )
+  if (jobResult.rows.length === 0) {
+    return c.json({ error: 'Job not found or not your job' }, 404)
+  }
+
+  const budgetRaw = budget ? BigInt(Math.round(parseFloat(budget) * 1_000_000)).toString() : null
+
+  await query(
+    `UPDATE open_jobs SET status = 'funded', onchain_job_id = $2, funded_tx = $3, funded_at = NOW(), final_budget = $4, updated_at = NOW()
+     WHERE id = $1`,
+    [jobResult.rows[0].id, onchainJobId || null, fundTx, budgetRaw]
+  )
+
+  return c.json({ success: true })
+})
+
+// POST /api/open-jobs/:id/start — agent marks work started
+openJobs.post('/:id/start', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { applicantAddress } = body
+
+  if (!applicantAddress) {
+    return c.json({ error: 'applicantAddress required' }, 400)
+  }
+
+  const jobResult = await query(
+    `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(selected_applicant) = lower($2)`,
+    [id, applicantAddress]
+  )
+  if (jobResult.rows.length === 0) {
+    return c.json({ error: 'Job not found or not assigned to you' }, 404)
+  }
+  if (!['funded', 'assigned'].includes(jobResult.rows[0].status)) {
+    return c.json({ error: 'Job must be funded before starting work' }, 400)
+  }
+
+  await query(
+    `UPDATE open_jobs SET status = 'in_progress', updated_at = NOW() WHERE id = $1`,
+    [jobResult.rows[0].id]
+  )
+
+  return c.json({ success: true })
+})
+
+// POST /api/open-jobs/:id/deliver — agent submits deliverable
+openJobs.post('/:id/deliver', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { applicantAddress, content, link, notes } = body
+
+  if (!applicantAddress || !content) {
+    return c.json({ error: 'applicantAddress and content required' }, 400)
+  }
+
+  const jobResult = await query(
+    `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(selected_applicant) = lower($2)`,
+    [id, applicantAddress]
+  )
+  if (jobResult.rows.length === 0) {
+    return c.json({ error: 'Job not found or not assigned to you' }, 404)
+  }
+  if (!['funded', 'in_progress'].includes(jobResult.rows[0].status)) {
+    return c.json({ error: 'Job must be funded or in progress to deliver' }, 400)
+  }
+
+  // Get current version
+  const versionResult = await query(
+    `SELECT COALESCE(MAX(version), 0) as max_version FROM marketplace_deliverables WHERE open_job_id = $1`,
+    [jobResult.rows[0].id]
+  )
+  const nextVersion = parseInt(versionResult.rows[0].max_version) + 1
+
+  const result = await query(
+    `INSERT INTO marketplace_deliverables (open_job_id, provider_address, content, link, notes, version)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+    [jobResult.rows[0].id, applicantAddress.toLowerCase(), content, link || null, notes || null, nextVersion]
+  )
+
+  await query(
+    `UPDATE open_jobs SET status = 'delivered', updated_at = NOW() WHERE id = $1`,
+    [jobResult.rows[0].id]
+  )
+
+  return c.json({ id: result.rows[0].id, version: nextVersion })
+})
+
+// GET /api/open-jobs/:id/deliverables — list deliverables for a job
+openJobs.get('/:id/deliverables', async (c) => {
+  const id = c.req.param('id')
+
+  const jobResult = await query(
+    `SELECT id FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
+    [id]
+  )
+  if (jobResult.rows.length === 0) {
+    return c.json({ error: 'Job not found' }, 404)
+  }
+
+  const result = await query(
+    `SELECT * FROM marketplace_deliverables WHERE open_job_id = $1 ORDER BY version DESC`,
+    [jobResult.rows[0].id]
+  )
+
+  return c.json({
+    data: result.rows.map(row => ({
+      id: row.id,
+      providerAddress: row.provider_address,
+      content: row.content,
+      link: row.link,
+      notes: row.notes,
+      version: row.version,
+      status: row.status,
+      clientFeedback: row.client_feedback,
+      createdAt: row.created_at,
+    }))
+  })
+})
+
+// POST /api/open-jobs/:id/complete — client approves and confirms on-chain completion
+openJobs.post('/:id/complete', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { clientAddress, completionTx } = body
+
+  if (!clientAddress) {
+    return c.json({ error: 'clientAddress required' }, 400)
+  }
+
+  const jobResult = await query(
+    `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
+    [id, clientAddress]
+  )
+  if (jobResult.rows.length === 0) {
+    return c.json({ error: 'Job not found or not your job' }, 404)
+  }
+  if (jobResult.rows[0].status !== 'delivered') {
+    return c.json({ error: 'Job must have a deliverable to complete' }, 400)
+  }
+
+  await query(
+    `UPDATE open_jobs SET status = 'completed', completed_tx = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    [jobResult.rows[0].id, completionTx || null]
+  )
+
+  // Mark deliverable as approved
+  await query(
+    `UPDATE marketplace_deliverables SET status = 'approved' WHERE open_job_id = $1 AND status = 'submitted'`,
+    [jobResult.rows[0].id]
+  )
+
+  return c.json({ success: true })
+})
+
+// POST /api/open-jobs/:id/reject — client rejects deliverable (request revision)
+openJobs.post('/:id/reject', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { clientAddress, reason } = body
+
+  if (!clientAddress) {
+    return c.json({ error: 'clientAddress required' }, 400)
+  }
+
+  const jobResult = await query(
+    `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
+    [id, clientAddress]
+  )
+  if (jobResult.rows.length === 0) {
+    return c.json({ error: 'Job not found or not your job' }, 404)
+  }
+  if (jobResult.rows[0].status !== 'delivered') {
+    return c.json({ error: 'Job must have a deliverable to reject' }, 400)
+  }
+
+  // Mark latest deliverable as revision_requested
+  await query(
+    `UPDATE marketplace_deliverables SET status = 'revision_requested', client_feedback = $2
+     WHERE open_job_id = $1 AND status = 'submitted'`,
+    [jobResult.rows[0].id, reason || null]
+  )
+
+  await query(
+    `UPDATE open_jobs SET status = 'in_progress', rejected_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    [jobResult.rows[0].id]
+  )
+
+  return c.json({ success: true })
+})
+
+// POST /api/open-jobs/:id/cancel — client cancels job
+openJobs.post('/:id/cancel', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { clientAddress } = body
+
+  if (!clientAddress) {
+    return c.json({ error: 'clientAddress required' }, 400)
+  }
+
+  const jobResult = await query(
+    `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
+    [id, clientAddress]
+  )
+  if (jobResult.rows.length === 0) {
+    return c.json({ error: 'Job not found or not your job' }, 404)
+  }
+  if (['completed', 'cancelled'].includes(jobResult.rows[0].status)) {
+    return c.json({ error: 'Job already finalized' }, 400)
+  }
+
+  await query(
+    `UPDATE open_jobs SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
+    [jobResult.rows[0].id]
+  )
+
+  return c.json({ success: true })
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -225,6 +457,14 @@ function formatOpenJob(row: any) {
     onChainTx: row.on_chain_tx || row.indexed_tx || null,
     status: row.status,
     applicationCount: parseInt(row.application_count || '0'),
+    selectedApplicant: row.selected_applicant || null,
+    onchainJobId: row.onchain_job_id ? parseInt(row.onchain_job_id) : null,
+    fundedTx: row.funded_tx || null,
+    fundedAt: row.funded_at || null,
+    completedTx: row.completed_tx || null,
+    completedAt: row.completed_at || null,
+    rejectedAt: row.rejected_at || null,
+    finalBudget: formatUsdc(row.final_budget),
     createdAt: row.created_at,
   }
 }
