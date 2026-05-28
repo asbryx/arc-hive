@@ -37,6 +37,8 @@ jobs.get('/', async (c) => {
       paramIdx++
     }
   }
+  // Hide funded jobs with 0 budget (contract allows fund(0), looks broken in UI)
+  conditions.push(`NOT (status = 1 AND (budget IS NULL OR budget = '0'))`)
   if (minBudget) {
     conditions.push(`budget >= $${paramIdx}`)
     params.push(BigInt(Math.round(parseFloat(minBudget) * 1_000_000)).toString())
