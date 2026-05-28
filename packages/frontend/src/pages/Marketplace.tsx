@@ -82,8 +82,8 @@ export default function Marketplace() {
             onClick={() => { setCategory(cat); setPage(1) }}
             style={{
               padding: '6px 12px', fontSize: 11,
-              background: category === cat ? 'var(--accent)' : 'transparent',
-              color: category === cat ? 'var(--text)' : 'var(--dim)',
+              background: category === cat ? 'var(--accent)' : 'var(--bg)',
+              color: category === cat ? '#ffffff' : 'var(--dim)',
               border: `1px solid ${category === cat ? 'var(--accent)' : 'var(--dimmer)'}`,
               cursor: 'pointer',
             }}
