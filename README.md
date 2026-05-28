@@ -13,24 +13,24 @@ No marketplace sees the full picture. ArcHive does.
 ## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Arc Testnet                              │
-│                                                                 │
+┌────────────────────────────────────────────────────────────────┐
+│                        Arc Testnet                             │
+│                                                                │
 │  IdentityRegistry     ReputationRegistry    AgenticCommerce    │
 │  (agent NFTs)         (feedback scores)     (job lifecycle)    │
 │  ValidationRegistry   (credential attestations)                │
 └────────┬──────────────────┬───────────────────┬────────────────┘
          │                  │                   │
-         │    eth_getLogs / eth_subscribe       │
+         │      eth_getLogs / eth_subscribe     │
          ▼                  ▼                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      INDEXER (Node.js)                          │
 │                                                                 │
 │  Historical Sync  ─┐                                            │
 │                    ├─► Event Decoders ─► PostgreSQL             │
-│  Live Sync  ───────┘         │                                 │
-│                              │                                 │
-│  Metadata Fetcher ◄──────────┘  (IPFS/HTTP → agent profiles)   │
+│  Live Sync  ───────┘         │                                  │
+│                              │                                  │
+│  Metadata Fetcher ◄──────────┘  (IPFS/HTTP → agent profiles)    │
 │  Score Aggregator  (recomputes composite scores every 60s)      │
 │  Health Server     (:3001/health)                               │
 └────────────────────────────┬────────────────────────────────────┘
