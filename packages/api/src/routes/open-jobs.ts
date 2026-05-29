@@ -123,6 +123,58 @@ openJobs.get('/my-active', async (c) => {
   return c.json({ data: result.rows.map(formatOpenJob) })
 })
 
+// GET /api/open-jobs/my-active-all?address=0x...
+// Combined active view: client's open/in-progress jobs + agent's applications + agent's active work
+openJobs.get('/my-active-all', async (c) => {
+  const address = c.req.query('address')
+  if (!address) return c.json({ error: 'address required' }, 400)
+
+  const result = await query(
+    `SELECT DISTINCT oj.*,
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count,
+      ja_mine.status as application_status,
+      ja_mine.proposed_budget as app_proposed_budget,
+      ja_mine.created_at as applied_at
+     FROM open_jobs oj
+     LEFT JOIN job_applications ja_mine ON ja_mine.job_id = oj.id AND lower(ja_mine.applicant_address) = lower($1)
+     WHERE (
+       (lower(oj.client_address) = lower($1) AND oj.status IN ('open', 'assigned', 'funded', 'in_progress', 'delivered', 'evaluating', 'revision_requested'))
+       OR (lower(oj.selected_applicant) = lower($1) AND oj.status IN ('assigned', 'funded', 'in_progress', 'delivered', 'evaluating', 'revision_requested'))
+       OR (ja_mine.id IS NOT NULL AND ja_mine.status = 'pending' AND oj.status = 'open')
+     )
+     ORDER BY oj.updated_at DESC`,
+    [address]
+  )
+
+  return c.json({
+    data: result.rows.map(row => ({
+      ...formatOpenJob(row),
+      applicationStatus: row.application_status,
+      appProposedBudget: row.app_proposed_budget ? formatUsdc(row.app_proposed_budget) : null,
+      appliedAt: row.applied_at,
+    }))
+  })
+})
+
+// GET /api/open-jobs/my-history?address=0x...
+// Terminal states for both roles
+openJobs.get('/my-history', async (c) => {
+  const address = c.req.query('address')
+  if (!address) return c.json({ error: 'address required' }, 400)
+
+  const result = await query(
+    `SELECT oj.*,
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count
+     FROM open_jobs oj
+     WHERE (lower(oj.client_address) = lower($1) OR lower(oj.selected_applicant) = lower($1))
+     AND oj.status IN ('completed', 'failed', 'rejected', 'refunded', 'cancelled')
+     ORDER BY oj.updated_at DESC`,
+    [address]
+  )
+
+  return c.json({ data: result.rows.map(formatOpenJob) })
+})
+
 // GET /api/open-jobs/my-completed?address=0x...
 openJobs.get('/my-completed', async (c) => {
   const address = c.req.query('address')

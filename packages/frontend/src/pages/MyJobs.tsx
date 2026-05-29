@@ -4,7 +4,7 @@ import { useAccount } from 'wagmi'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
-type Tab = 'active' | 'applications' | 'completed' | 'posted'
+type Tab = 'active' | 'history'
 
 interface JobRow {
   id: number
@@ -22,6 +22,7 @@ interface JobRow {
   applicationStatus?: string
   appProposedBudget?: string | null
   appliedAt?: string
+  applicationCount?: number
 }
 
 export default function MyJobs() {
@@ -29,42 +30,6 @@ export default function MyJobs() {
   const [tab, setTab] = useState<Tab>('active')
   const [jobs, setJobs] = useState<JobRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [availableTabs, setAvailableTabs] = useState<Tab[]>([])
-
-  // Detect which tabs have data for this wallet
-  useEffect(() => {
-    if (!address) return
-    async function detectTabs() {
-      const tabs: Tab[] = []
-      const endpoints: [Tab, string][] = [
-        ['active', 'my-active'],
-        ['applications', 'my-applications'],
-        ['completed', 'my-completed'],
-        ['posted', 'my-posted'],
-      ]
-      await Promise.all(endpoints.map(async ([key, ep]) => {
-        try {
-          const res = await fetch(`${API_BASE}/open-jobs/${ep}?address=${address}`)
-          if (res.ok) {
-            const data = await res.json()
-            if (data.data && data.data.length > 0) tabs.push(key)
-          }
-        } catch {}
-      }))
-      // Always show at least these defaults
-      if (!tabs.includes('active')) tabs.push('active')
-      if (!tabs.includes('posted')) tabs.push('posted')
-      // Sort in consistent order
-      const order: Tab[] = ['active', 'applications', 'completed', 'posted']
-      setAvailableTabs(order.filter(t => tabs.includes(t)))
-      // If current tab not available, switch to first
-      if (!tabs.includes(tab)) {
-        const first = order.find(t => tabs.includes(t)) || 'active'
-        setTab(first)
-      }
-    }
-    detectTabs()
-  }, [address])
 
   useEffect(() => {
     if (address) fetchTab(tab)
@@ -74,10 +39,7 @@ export default function MyJobs() {
     if (!address) return
     setLoading(true)
     try {
-      const endpoint = t === 'applications' ? 'my-applications'
-        : t === 'active' ? 'my-active'
-        : t === 'completed' ? 'my-completed'
-        : 'my-posted'
+      const endpoint = t === 'active' ? 'my-active-all' : 'my-history'
       const res = await fetch(`${API_BASE}/open-jobs/${endpoint}?address=${address}`)
       if (res.ok) {
         const data = await res.json()
@@ -95,20 +57,13 @@ export default function MyJobs() {
     )
   }
 
-  const tabLabels: Record<Tab, string> = {
-    active: 'Active',
-    applications: 'Applications',
-    completed: 'Completed',
-    posted: 'Posted',
-  }
-
   return (
     <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 800, margin: '0 auto' }}>
       <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>My Jobs</div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--dimmer)', marginBottom: 24 }}>
-        {availableTabs.map(key => (
+        {(['active', 'history'] as Tab[]).map(key => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -120,7 +75,7 @@ export default function MyJobs() {
               marginBottom: -1,
             }}
           >
-            {tabLabels[key]}
+            {key === 'active' ? 'Active' : 'History'}
           </button>
         ))}
       </div>
@@ -130,50 +85,51 @@ export default function MyJobs() {
         <div style={{ fontSize: 12, color: 'var(--dim)' }}>Loading...</div>
       ) : jobs.length === 0 ? (
         <div style={{ fontSize: 12, color: 'var(--dim)' }}>
-          {tab === 'active' && 'No active jobs. Browse the marketplace to find work.'}
-          {tab === 'applications' && 'No applications yet.'}
-          {tab === 'completed' && 'No completed jobs yet.'}
-          {tab === 'posted' && 'No posted jobs. Post a job on the marketplace.'}
+          {tab === 'active' ? 'No active jobs.' : 'No completed jobs yet.'}
         </div>
       ) : (
         <div>
-          {jobs.map(job => (
-            <Link
-              key={job.id}
-              to={`/marketplace/${job.id}`}
-              style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 12 }}
-            >
-              <div style={{ padding: 16, border: '1px solid var(--dimmer)', transition: 'border-color 0.2s' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--dimmer)')}
+          {jobs.map(job => {
+            const role = job.clientAddress?.toLowerCase() === address?.toLowerCase() ? 'client' : 'agent'
+            return (
+              <Link
+                key={`${job.id}-${job.applicationStatus || ''}`}
+                to={`/marketplace/${job.id}`}
+                style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 12 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>{job.title}</div>
-                    <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 4 }}>
-                      {job.category && <span>{job.category} · </span>}
-                      {tab === 'applications' && job.applicationStatus && (
-                        <span style={{ color: job.applicationStatus === 'selected' ? '#4caf50' : job.applicationStatus === 'rejected' ? '#ff4444' : 'var(--dim)' }}>
-                          {job.applicationStatus}
+                <div style={{ padding: 16, border: '1px solid var(--dimmer)', transition: 'border-color 0.2s' }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--dimmer)')}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>{job.title}</div>
+                      <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {job.category && <span>{job.category}</span>}
+                        <span style={{ color: statusColor(job.status) }}>{statusLabel(job.status)}</span>
+                        <span style={{ fontSize: 9, padding: '1px 5px', border: '1px solid var(--dimmer)', color: 'var(--dim)' }}>
+                          {role}
                         </span>
-                      )}
-                      {tab !== 'applications' && (
-                        <span style={{ color: statusColor(job.status) }}>{job.status}</span>
-                      )}
+                        {job.applicationStatus && role === 'agent' && (
+                          <span style={{ color: job.applicationStatus === 'selected' ? '#4caf50' : job.applicationStatus === 'rejected' ? '#ff4444' : 'var(--dim)' }}>
+                            app: {job.applicationStatus}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>
-                      {job.finalBudget ? `${job.finalBudget} USDC` : job.appProposedBudget ? `${job.appProposedBudget} USDC` : job.budgetMin && job.budgetMax ? `${job.budgetMin}–${job.budgetMax}` : '—'}
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>
-                      {getTimeAgo(job.appliedAt || job.completedAt || job.createdAt)}
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>
+                        {job.finalBudget ? `${job.finalBudget} USDC` : job.appProposedBudget ? `${job.appProposedBudget} USDC` : job.budgetMin && job.budgetMax ? `${job.budgetMin}–${job.budgetMax}` : '—'}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>
+                        {getTimeAgo(job.completedAt || job.appliedAt || job.createdAt)}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>
@@ -187,12 +143,32 @@ function statusColor(status: string): string {
     case 'funded': return '#2196f3'
     case 'in_progress': return '#2196f3'
     case 'delivered': return '#9c27b0'
+    case 'evaluating': return '#9c27b0'
     case 'completed': return '#4caf50'
     case 'failed': return '#ff4444'
     case 'rejected': return '#ff4444'
+    case 'refunded': return '#4caf50'
     case 'cancelled': return '#666'
     case 'revision_requested': return '#ff9800'
     default: return 'var(--dim)'
+  }
+}
+
+function statusLabel(status: string): string {
+  switch (status) {
+    case 'open': return 'open'
+    case 'assigned': return 'assigned'
+    case 'funded': return 'funded'
+    case 'in_progress': return 'in progress'
+    case 'delivered': return 'delivered'
+    case 'evaluating': return 'evaluating'
+    case 'completed': return '✓ completed'
+    case 'failed': return '✗ failed'
+    case 'rejected': return '✗ rejected'
+    case 'refunded': return '↩ refunded'
+    case 'cancelled': return 'cancelled'
+    case 'revision_requested': return '⚠ revision'
+    default: return status
   }
 }
 
