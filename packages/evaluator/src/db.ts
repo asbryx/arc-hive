@@ -105,11 +105,12 @@ export async function notifyAgent(address: string, type: string, refId: number, 
 // Get failed jobs past expiry for refund processing
 export async function getFailedJobsForRefund() {
   const result = await query(
-    `SELECT oj.id, oj.job_id, oj.title, oj.client_address
+    `SELECT oj.id, oj.job_id, oj.title, oj.client_address, oj.final_budget
      FROM open_jobs oj
      WHERE oj.status = 'failed'
      AND oj.refund_tx IS NULL
-     AND oj.job_id IS NOT NULL`
+     AND oj.job_id IS NOT NULL
+     AND oj.funded_at + (oj.deadline_hours * INTERVAL '1 hour') < NOW()`
   )
   return result.rows
 }
