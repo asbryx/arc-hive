@@ -7,36 +7,67 @@ export async function query(text: string, params?: any[]) {
   return pool.query(text, params)
 }
 
-export async function getPendingDeliverables() {
+// Get jobs that need evaluation: status = 'evaluating'
+export async function getPendingEvaluations() {
   const result = await query(
-    `SELECT oj.*, md.content as deliverable_content, md.link as deliverable_link, md.notes as deliverable_notes, md.version
+    `SELECT oj.*, 
+            md.id as deliverable_id, md.content as deliverable_content, 
+            md.link as deliverable_link, md.notes as deliverable_notes, md.version
      FROM open_jobs oj
-     JOIN marketplace_deliverables md ON md.open_job_id = oj.id AND md.status = 'submitted'
-     WHERE oj.status = 'delivered'
-     AND oj.job_id IS NOT NULL
-     AND NOT EXISTS (SELECT 1 FROM evaluations e WHERE e.open_job_id = oj.id)
+     JOIN marketplace_deliverables md ON md.open_job_id = oj.id
+     WHERE oj.status = 'evaluating'
+     AND md.status = 'submitted'
+     AND md.version = (SELECT MAX(version) FROM marketplace_deliverables WHERE open_job_id = oj.id)
      ORDER BY md.created_at ASC`
   )
   return result.rows
 }
 
+// Get previous evaluations for a job (for revision context)
+export async function getPreviousEvaluations(openJobId: number) {
+  const result = await query(
+    `SELECT score, reasoning, suggestions, version, status
+     FROM evaluations
+     WHERE open_job_id = $1
+     ORDER BY version ASC`,
+    [openJobId]
+  )
+  return result.rows
+}
+
+// Store evaluation result
 export async function storeEvaluation(params: {
-  onchainJobId: string, openJobId: number, score: number,
-  reasoning: string, decision: string, completionTx?: string
+  openJobId: number
+  deliverableId: number
+  version: number
+  score: number
+  breakdown: any
+  reasoning: string
+  suggestions: string | null
+  status: 'approved' | 'rejected' | 'failed'
+  evaluatorAddress: string
+  txHash: string | null
+  llmModel: string
 }) {
   await query(
-    `INSERT INTO evaluations (onchain_job_id, open_job_id, score, reasoning, decision, completion_tx, llm_model)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     ON CONFLICT (onchain_job_id) DO UPDATE SET score = $3, reasoning = $4, decision = $5, completion_tx = $6`,
-    [params.onchainJobId, params.openJobId, params.score, params.reasoning, params.decision, params.completionTx || null, CONFIG.LLM_MODEL]
+    `INSERT INTO evaluations (open_job_id, deliverable_id, version, score, breakdown, reasoning, suggestions, status, evaluator_address, tx_hash, llm_model)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+    [params.openJobId, params.deliverableId, params.version, params.score,
+     JSON.stringify(params.breakdown), params.reasoning, params.suggestions,
+     params.status, params.evaluatorAddress, params.txHash, params.llmModel]
   )
 }
 
-export async function updateJobStatus(openJobId: number, status: string, completedTx?: string) {
+// Update job status after evaluation
+export async function updateJobAfterEvaluation(
+  openJobId: number,
+  status: 'completed' | 'revision_requested' | 'failed',
+  opts?: { completedTx?: string; revisionCount?: number }
+) {
   if (status === 'completed') {
     await query(
       `UPDATE open_jobs SET status = 'completed', completed_tx = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
-      [openJobId, completedTx || null]
+      [openJobId, opts?.completedTx || null]
     )
     await query(
       `UPDATE marketplace_deliverables SET status = 'approved' WHERE open_job_id = $1 AND status = 'submitted'`,
@@ -44,17 +75,17 @@ export async function updateJobStatus(openJobId: number, status: string, complet
     )
   } else if (status === 'revision_requested') {
     await query(
-      `UPDATE open_jobs SET status = 'delivered', updated_at = NOW() WHERE id = $1`,
-      [openJobId]
+      `UPDATE open_jobs SET status = 'revision_requested', revision_count = $2, updated_at = NOW() WHERE id = $1`,
+      [openJobId, opts?.revisionCount || 0]
     )
     await query(
       `UPDATE marketplace_deliverables SET status = 'revision_requested' WHERE open_job_id = $1 AND status = 'submitted'`,
       [openJobId]
     )
-  } else if (status === 'rejected') {
+  } else if (status === 'failed') {
     await query(
-      `UPDATE open_jobs SET status = 'rejected', rejected_at = NOW(), updated_at = NOW() WHERE id = $1`,
-      [openJobId]
+      `UPDATE open_jobs SET status = 'failed', revision_count = $2, updated_at = NOW() WHERE id = $1`,
+      [openJobId, opts?.revisionCount || 0]
     )
     await query(
       `UPDATE marketplace_deliverables SET status = 'rejected' WHERE open_job_id = $1 AND status = 'submitted'`,
@@ -63,10 +94,31 @@ export async function updateJobStatus(openJobId: number, status: string, complet
   }
 }
 
+// Notify agent
 export async function notifyAgent(address: string, type: string, refId: number, message: string) {
   await query(
     `INSERT INTO agent_notifications (agent_address, type, reference_id, message) VALUES ($1, $2, $3, $4)`,
     [address, type, refId, message]
+  )
+}
+
+// Get failed jobs past expiry for refund processing
+export async function getFailedJobsForRefund() {
+  const result = await query(
+    `SELECT oj.id, oj.job_id, oj.title, oj.client_address
+     FROM open_jobs oj
+     WHERE oj.status = 'failed'
+     AND oj.refund_tx IS NULL
+     AND oj.job_id IS NOT NULL`
+  )
+  return result.rows
+}
+
+// Record refund
+export async function recordRefund(openJobId: number, refundTx: string) {
+  await query(
+    `UPDATE open_jobs SET status = 'refunded', refund_tx = $2, refunded_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    [openJobId, refundTx]
   )
 }
 

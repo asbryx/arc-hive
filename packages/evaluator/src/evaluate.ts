@@ -1,22 +1,17 @@
 import { CONFIG } from './config.js'
-import { buildEvaluationPrompt, parseEvaluationResponse } from './prompt.js'
+import { buildEvaluationPrompt, parseEvaluationResponse, EvalContext } from './prompt.js'
 
-interface EvalInput {
-  jobTitle: string
-  jobDescription: string
-  requirements: string | null
-  deliverableContent: string
-  deliverableLink: string | null
-  deliverableNotes: string | null
-}
+export type EvalInput = EvalContext
 
 export interface EvalResult {
   score: number
+  breakdown: { completeness: number; quality: number; effort: number; format: number } | null
   reasoning: string
-  decision: 'approve' | 'revision' | 'reject'
+  suggestions: string | null
+  decision: 'approved' | 'rejected' | 'failed'
 }
 
-export async function evaluateDeliverable(input: EvalInput): Promise<EvalResult> {
+export async function evaluateDeliverable(input: EvalInput, maxRevisions: number): Promise<EvalResult> {
   const prompt = buildEvaluationPrompt(input)
 
   const response = await fetch(`${CONFIG.LLM_BASE_URL}/chat/completions`, {
@@ -27,7 +22,7 @@ export async function evaluateDeliverable(input: EvalInput): Promise<EvalResult>
     },
     body: JSON.stringify({
       model: CONFIG.LLM_MODEL,
-      max_tokens: 300,
+      max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
     }),
   })
@@ -38,16 +33,21 @@ export async function evaluateDeliverable(input: EvalInput): Promise<EvalResult>
 
   const data = await response.json() as any
   const text = data.choices?.[0]?.message?.content || ''
-  const { score, reasoning } = parseEvaluationResponse(text)
+  const { score, breakdown, reasoning, suggestions } = parseEvaluationResponse(text)
 
   if (score === 0) {
     throw new Error(`Failed to parse evaluation: ${text.slice(0, 200)}`)
   }
 
-  let decision: 'approve' | 'revision' | 'reject'
-  if (score >= CONFIG.APPROVAL_THRESHOLD) decision = 'approve'
-  else if (score >= CONFIG.REVISION_THRESHOLD) decision = 'revision'
-  else decision = 'reject'
+  let decision: 'approved' | 'rejected' | 'failed'
+  if (score >= CONFIG.APPROVAL_THRESHOLD) {
+    decision = 'approved'
+  } else if (input.revisionNumber >= maxRevisions) {
+    // This was the final attempt — job fails
+    decision = 'failed'
+  } else {
+    decision = 'rejected'
+  }
 
-  return { score, reasoning, decision }
+  return { score, breakdown, reasoning, suggestions, decision }
 }

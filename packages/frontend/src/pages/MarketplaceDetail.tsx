@@ -30,6 +30,8 @@ interface OpenJob {
   completedAt: string | null
   rejectedAt: string | null
   finalBudget: string | null
+  maxRevisions: number
+  revisionCount: number
   createdAt: string
 }
 
@@ -54,6 +56,19 @@ interface Deliverable {
   version: number
   status: string
   clientFeedback: string | null
+  createdAt: string
+}
+
+interface Evaluation {
+  id: number
+  version: number
+  score: number
+  breakdown: { completeness: number; quality: number; effort: number; format: number } | null
+  reasoning: string
+  suggestions: string | null
+  status: 'approved' | 'rejected' | 'failed'
+  txHash: string | null
+  llmModel: string | null
   createdAt: string
 }
 
@@ -99,31 +114,26 @@ export default function MarketplaceDetail() {
   const [commentText, setCommentText] = useState('')
   const [postingComment, setPostingComment] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [evaluation, setEvaluation] = useState<any>(null)
+  const [evaluations, setEvaluations] = useState<Evaluation[]>([])
 
   useEffect(() => { fetchJob() }, [id])
 
   async function fetchJob() {
     setLoading(true)
     try {
-      const [jobRes, appsRes, delRes, commRes] = await Promise.all([
+      const [jobRes, appsRes, delRes, commRes, evalRes] = await Promise.all([
         fetch(`${API_BASE}/open-jobs/${id}`),
         fetch(`${API_BASE}/open-jobs/${id}/applications`),
         fetch(`${API_BASE}/open-jobs/${id}/deliverables`),
         fetch(`${API_BASE}/open-jobs/${id}/comments`),
+        fetch(`${API_BASE}/open-jobs/${id}/evaluations`),
       ])
       const jobData = jobRes.ok ? await jobRes.json() : null
       if (jobData) setJob(jobData)
       if (appsRes.ok) { const data = await appsRes.json(); setApplications(data.data || []) }
       if (delRes.ok) { const data = await delRes.json(); setDeliverables(data.data || []) }
       if (commRes.ok) { const data = await commRes.json(); setComments(data.data || []) }
-      // Fetch evaluation if job has on-chain ID
-      if (jobData?.jobId) {
-        try {
-          const evalRes = await fetch(`${API_BASE}/jobs/${jobData.jobId}`)
-          if (evalRes.ok) { const d = await evalRes.json(); if (d.evaluation) setEvaluation(d.evaluation) }
-        } catch {}
-      }
+      if (evalRes.ok) { const data = await evalRes.json(); setEvaluations(data.data || []) }
     } catch {}
     setLoading(false)
   }
@@ -566,8 +576,8 @@ export default function MarketplaceDetail() {
         </div>
       )}
 
-      {/* ═══ AGENT: Submit Deliverable (after funded/in_progress) ═══ */}
-      {isAgent && ['funded', 'in_progress'].includes(job.status) && (
+      {/* ═══ AGENT: Submit Deliverable (after funded/in_progress/revision_requested) ═══ */}
+      {isAgent && ['funded', 'in_progress', 'revision_requested'].includes(job.status) && (
         <div style={{ borderTop: '1px solid var(--dimmer)', paddingTop: 24, marginBottom: 24 }}>
           {!delivering ? (
             <button
@@ -663,48 +673,11 @@ export default function MarketplaceDetail() {
             </div>
           ))}
 
-          {/* Client review buttons */}
-          {isClient && job.status === 'delivered' && (
-            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-              <button
-                onClick={handleComplete}
-                disabled={completing}
-                style={{
-                  flex: 2, padding: '12px 0', fontSize: 12, fontWeight: 700,
-                  background: '#4caf50', color: '#ffffff', border: 'none', cursor: 'pointer',
-                  opacity: completing ? 0.6 : 1,
-                }}
-              >
-                {completing ? 'Completing...' : 'Approve & Pay →'}
-              </button>
-              <button
-                onClick={() => {
-                  const reason = prompt('Feedback for the agent (what needs to change):')
-                  if (reason) { setRejectReason(reason); handleReject() }
-                }}
-                disabled={rejecting}
-                style={{
-                  flex: 1, padding: '12px 0', fontSize: 12,
-                  background: 'transparent', color: '#ff9800', border: '1px solid #ff9800', cursor: 'pointer',
-                }}
-              >
-                Request Revision
-              </button>
+          {/* Evaluator handles approval/rejection automatically */}
+          {isClient && job.status === 'evaluating' && (
+            <div style={{ marginTop: 16, padding: 12, border: '1px solid var(--dimmer)', textAlign: 'center' }}>
+              <span style={{ fontSize: 11, color: 'var(--dim)' }}>⏳ AI evaluator is reviewing this deliverable</span>
             </div>
-          )}
-          {/* Agent submit on-chain button */}
-          {isAgent && job.status === 'delivered' && (
-            <button
-              onClick={handleSubmitOnChain}
-              disabled={submittingOnChain}
-              style={{
-                width: '100%', marginTop: 16, padding: '12px 0', fontSize: 12, fontWeight: 700,
-                background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
-                opacity: submittingOnChain ? 0.6 : 1,
-              }}
-            >
-              {submittingOnChain ? 'Submitting...' : 'Submit Deliverable On-Chain →'}
-            </button>
           )}
           {/* Inline error banner — below action buttons */}
           {actionError && (
@@ -716,44 +689,98 @@ export default function MarketplaceDetail() {
         </div>
       )}
 
-      {/* ═══ AI Evaluation ═══ */}
-      {evaluation && (() => {
-        const decisionColor = evaluation.decision === 'approve' ? '#4caf50' : evaluation.decision === 'reject' ? '#ff4444' : '#ff9800'
-        const decisionLabel = evaluation.decision === 'approve' ? '✓ APPROVED' : evaluation.decision === 'reject' ? '✗ REJECTED' : '↻ REVISION REQUESTED'
-        return (
-          <div style={{ borderTop: '1px solid var(--dimmer)', paddingTop: 24, marginBottom: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1 }}>
-                AI Evaluation
-              </div>
-              <span style={{ fontSize: 11, color: decisionColor, fontWeight: 700, letterSpacing: 1 }}>
-                {decisionLabel}
-              </span>
-            </div>
-            <div style={{ padding: 16, border: `1px solid ${decisionColor}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                <span style={{ fontSize: 11, color: 'var(--dim)' }}>Quality Score</span>
-                <span style={{ fontSize: 14, fontWeight: 800, color: evaluation.score >= 70 ? '#4caf50' : evaluation.score >= 50 ? '#ff9800' : '#ff4444' }}>{evaluation.score}/100</span>
-              </div>
-              <div style={{ height: 4, background: 'var(--dimmer)', width: '100%', marginBottom: 16 }}>
-                <div style={{ height: 4, width: `${evaluation.score}%`, background: evaluation.score >= 70 ? '#4caf50' : evaluation.score >= 50 ? '#ff9800' : '#ff4444' }} />
-              </div>
-              <div style={{ fontSize: 12, lineHeight: 1.7, color: 'var(--text)', whiteSpace: 'pre-wrap', marginBottom: 12 }}>
-                {evaluation.reasoning}
-              </div>
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 10, color: 'var(--dim)' }}>
-                {evaluation.model && <span>model: {evaluation.model}</span>}
-                {evaluation.evaluatedAt && <span>evaluated: {new Date(evaluation.evaluatedAt).toLocaleString()}</span>}
-                {evaluation.completionTx && (
-                  <a href={`https://testnet.arcscan.app/tx/${evaluation.completionTx}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
-                    completion tx ↗
-                  </a>
-                )}
-              </div>
-            </div>
+      {/* ═══ AI Evaluation Timeline ═══ */}
+      {(evaluations.length > 0 || job.status === 'evaluating') && (
+        <div style={{ borderTop: '1px solid var(--dimmer)', paddingTop: 24, marginBottom: 24 }}>
+          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
+            AI Evaluation {evaluations.length > 0 && `(${evaluations.length})`}
           </div>
-        )
-      })()}
+
+          {job.status === 'evaluating' && evaluations.length === 0 && (
+            <div style={{ padding: 16, border: '1px solid var(--dimmer)', textAlign: 'center' }}>
+              <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 4 }}>⏳ Evaluating deliverable...</div>
+              <div style={{ fontSize: 10, color: 'var(--dim)' }}>AI judge is reviewing the submission</div>
+            </div>
+          )}
+
+          {evaluations.map((ev, i) => {
+            const scoreColor = ev.score >= 70 ? '#4caf50' : ev.score >= 50 ? '#ff9800' : '#ff4444'
+            const statusLabel = ev.status === 'approved' ? '✓ APPROVED' : ev.status === 'failed' ? '✗ FAILED' : '↻ REVISION NEEDED'
+            const statusColor = ev.status === 'approved' ? '#4caf50' : ev.status === 'failed' ? '#ff4444' : '#ff9800'
+            return (
+              <div key={ev.id} style={{ padding: 16, border: `1px solid ${statusColor}33`, marginBottom: 12, background: `${statusColor}08` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 10, color: 'var(--dim)' }}>v{ev.version}</span>
+                    <span style={{ fontSize: 11, color: statusColor, fontWeight: 700 }}>{statusLabel}</span>
+                  </div>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: scoreColor }}>{ev.score}<span style={{ fontSize: 11, color: 'var(--dim)' }}>/100</span></span>
+                </div>
+
+                {/* Score bar */}
+                <div style={{ height: 3, background: 'var(--dimmer)', width: '100%', marginBottom: 12 }}>
+                  <div style={{ height: 3, width: `${ev.score}%`, background: scoreColor }} />
+                </div>
+
+                {/* Breakdown */}
+                {ev.breakdown && (
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                    {Object.entries(ev.breakdown).map(([key, val]) => (
+                      <span key={key} style={{ fontSize: 10, color: 'var(--dim)' }}>
+                        {key}: <span style={{ color: 'var(--text)', fontWeight: 600 }}>{val as number}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Reasoning */}
+                <div style={{ fontSize: 12, lineHeight: 1.7, color: 'var(--text)', whiteSpace: 'pre-wrap', marginBottom: 8 }}>
+                  {ev.reasoning}
+                </div>
+
+                {/* Suggestions (if rejected) */}
+                {ev.suggestions && (
+                  <div style={{ fontSize: 11, color: '#ff9800', marginBottom: 8, padding: '8px 12px', background: '#ff980010', border: '1px solid #ff980033' }}>
+                    💡 {ev.suggestions}
+                  </div>
+                )}
+
+                {/* Meta */}
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 10, color: 'var(--dim)' }}>
+                  {ev.llmModel && <span>model: {ev.llmModel}</span>}
+                  <span>{new Date(ev.createdAt).toLocaleString()}</span>
+                  {ev.txHash && (
+                    <a href={`https://testnet.arcscan.app/tx/${ev.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
+                      tx ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Revision counter */}
+          {job.status === 'revision_requested' && (
+            <div style={{ fontSize: 11, color: '#ff9800', textAlign: 'center', marginTop: 8 }}>
+              Revision {evaluations.filter(e => e.status === 'rejected').length}/{job.maxRevisions || 2} — waiting for provider to resubmit
+            </div>
+          )}
+
+          {/* Failed + refund info */}
+          {job.status === 'failed' && (
+            <div style={{ padding: 12, border: '1px solid #ff4444', marginTop: 12, textAlign: 'center' }}>
+              <div style={{ fontSize: 12, color: '#ff4444', fontWeight: 700 }}>JOB FAILED — All revisions exhausted</div>
+              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4 }}>Refund will be processed after job expiry</div>
+            </div>
+          )}
+          {job.status === 'refunded' && (
+            <div style={{ padding: 12, border: '1px solid #4caf50', marginTop: 12, textAlign: 'center' }}>
+              <div style={{ fontSize: 12, color: '#4caf50', fontWeight: 700 }}>✓ REFUNDED</div>
+              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4 }}>Funds returned to client</div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ═══ Apply Section (for agents, open jobs) ═══ */}
       {!isClient && job.status === 'open' && isConnected && !hasApplied && !applySuccess && (
@@ -922,13 +949,17 @@ export default function MarketplaceDetail() {
 // ─── Status Timeline Component ───────────────────────────────────────────────
 
 function StatusTimeline({ job, selectedApp }: { job: OpenJob; selectedApp?: Application | null }) {
+  const doneStatuses = ['assigned', 'funded', 'in_progress', 'delivered', 'evaluating', 'revision_requested', 'completed', 'failed', 'refunded']
+  const fundedStatuses = ['funded', 'in_progress', 'delivered', 'evaluating', 'revision_requested', 'completed', 'failed', 'refunded']
+  const evalStatuses = ['evaluating', 'revision_requested', 'completed', 'failed', 'refunded']
+
   const steps = [
     { label: 'Posted', done: true, time: job.createdAt },
-    { label: 'Agent Selected', done: ['assigned', 'funded', 'in_progress', 'delivered', 'completed'].includes(job.status), time: job.selectedApplicant ? undefined : undefined, detail: job.selectedApplicant ? `${job.selectedApplicant.slice(0, 8)}...` : undefined },
-    { label: 'Funded', done: ['funded', 'in_progress', 'delivered', 'completed'].includes(job.status), time: job.fundedAt || undefined, detail: job.finalBudget ? `${job.finalBudget} USDC` : undefined },
-    { label: 'In Progress', done: ['in_progress', 'delivered', 'completed'].includes(job.status) },
-    { label: 'Delivered', done: ['delivered', 'completed'].includes(job.status) },
-    { label: 'Completed', done: job.status === 'completed', time: job.completedAt || undefined },
+    { label: 'Agent Selected', done: doneStatuses.includes(job.status), detail: job.selectedApplicant ? `${job.selectedApplicant.slice(0, 8)}...` : undefined },
+    { label: 'Funded', done: fundedStatuses.includes(job.status), time: job.fundedAt || undefined, detail: job.finalBudget ? `${job.finalBudget} USDC` : undefined },
+    { label: 'Delivered', done: evalStatuses.includes(job.status) || job.status === 'delivered' },
+    { label: 'Evaluating', done: evalStatuses.includes(job.status), detail: job.status === 'revision_requested' ? 'Revision requested' : job.status === 'evaluating' ? 'In progress...' : undefined },
+    { label: job.status === 'failed' ? 'Failed' : job.status === 'refunded' ? 'Refunded' : 'Completed', done: ['completed', 'failed', 'refunded'].includes(job.status), time: job.completedAt || undefined },
   ]
 
   return (

@@ -455,7 +455,7 @@ openJobs.post('/:id/select', async (c) => {
       )
       const budget = appResult.rows[0]?.proposed_budget
       if (budget) {
-        const budgetAtomic = BigInt(Math.round(parseFloat(budget) * 1e6))
+        const budgetAtomic = BigInt(budget) // already in atomic units (6 decimals)
         const account = privateKeyToAccount(PROVIDER_KEY as `0x${string}`)
         const walletClient = createWalletClient({ account, chain: arcChain, transport: http(ARC_RPC) })
         const publicClient = createPublicClient({ chain: arcChain, transport: http(ARC_RPC) })
@@ -559,8 +559,8 @@ openJobs.post('/:id/deliver', async (c) => {
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found or not assigned to you' }, 404)
   }
-  if (!['funded', 'in_progress'].includes(jobResult.rows[0].status)) {
-    return c.json({ error: 'Job must be funded or in progress to deliver' }, 400)
+  if (!['funded', 'in_progress', 'revision_requested'].includes(jobResult.rows[0].status)) {
+    return c.json({ error: 'Job must be funded, in progress, or awaiting revision to deliver' }, 400)
   }
 
   // Get current version
@@ -577,7 +577,7 @@ openJobs.post('/:id/deliver', async (c) => {
   )
 
   await query(
-    `UPDATE open_jobs SET status = 'delivered', updated_at = NOW() WHERE id = $1`,
+    `UPDATE open_jobs SET status = 'evaluating', updated_at = NOW() WHERE id = $1`,
     [jobResult.rows[0].id]
   )
 
@@ -611,6 +611,39 @@ openJobs.get('/:id/deliverables', async (c) => {
       version: row.version,
       status: row.status,
       clientFeedback: row.client_feedback,
+      createdAt: row.created_at,
+    }))
+  })
+})
+
+// GET /api/open-jobs/:id/evaluations — list evaluations for a job
+openJobs.get('/:id/evaluations', async (c) => {
+  const id = c.req.param('id')
+
+  const jobResult = await query(
+    `SELECT id FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
+    [id]
+  )
+  if (jobResult.rows.length === 0) {
+    return c.json({ error: 'Job not found' }, 404)
+  }
+
+  const result = await query(
+    `SELECT * FROM evaluations WHERE open_job_id = $1 ORDER BY version ASC`,
+    [jobResult.rows[0].id]
+  )
+
+  return c.json({
+    data: result.rows.map(row => ({
+      id: row.id,
+      version: row.version,
+      score: row.score,
+      breakdown: row.breakdown,
+      reasoning: row.reasoning,
+      suggestions: row.suggestions,
+      status: row.status,
+      txHash: row.tx_hash,
+      llmModel: row.llm_model,
       createdAt: row.created_at,
     }))
   })
@@ -657,7 +690,7 @@ openJobs.post('/:id/complete', async (c) => {
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found' }, 404)
   }
-  if (!['delivered', 'funded', 'in_progress'].includes(jobResult.rows[0].status)) {
+  if (!['delivered', 'funded', 'in_progress', 'evaluating'].includes(jobResult.rows[0].status)) {
     return c.json({ error: 'Job not in a completable state' }, 400)
   }
 
@@ -885,6 +918,8 @@ function formatOpenJob(row: any) {
     completedAt: row.completed_at || null,
     rejectedAt: row.rejected_at || null,
     finalBudget: formatUsdc(row.final_budget),
+    maxRevisions: row.max_revisions || 2,
+    revisionCount: row.revision_count || 0,
     createdAt: row.created_at,
   }
 }
