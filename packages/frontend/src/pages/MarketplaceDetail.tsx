@@ -202,13 +202,14 @@ export default function MarketplaceDetail() {
         }
       }
 
-      await writeContractAsync({
+      const setProviderTx = await writeContractAsync({
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'setProvider',
         args: [onchainJobId!, applicantAddress as `0x${string}`],
         chain: arcTestnet,
       })
+      await waitForTransactionReceipt(config, { hash: setProviderTx, confirmations: 1 })
 
       await fetch(`${API_BASE}/open-jobs/${id}/select`, {
         method: 'POST',
