@@ -447,31 +447,8 @@ openJobs.post('/:id/select', async (c) => {
     [applicantAddress.toLowerCase(), job.id, `You were selected for "${job.title}"`]
   )
 
-  // Auto-call setBudget on-chain from provider so client can fund immediately
-  if (job.job_id) {
-    try {
-      const appResult = await query(
-        `SELECT proposed_budget FROM job_applications WHERE job_id = $1 AND lower(applicant_address) = lower($2)`,
-        [job.id, applicantAddress]
-      )
-      const budget = appResult.rows[0]?.proposed_budget
-      if (budget) {
-        const budgetAtomic = BigInt(budget) // already in atomic units (6 decimals)
-        const account = privateKeyToAccount(PROVIDER_KEY as `0x${string}`)
-        const walletClient = createWalletClient({ account, chain: arcChain, transport: http(ARC_RPC) })
-        const publicClient = createPublicClient({ chain: arcChain, transport: http(ARC_RPC) })
-        const tx = await walletClient.writeContract({
-          address: AGENTIC_COMMERCE as `0x${string}`,
-          abi: SET_BUDGET_ABI,
-          functionName: 'setBudget',
-          args: [BigInt(job.job_id), budgetAtomic, '0x'],
-        })
-        await publicClient.waitForTransactionReceipt({ hash: tx })
-      }
-    } catch (e: any) {
-      console.error('Auto setBudget failed:', e.message)
-    }
-  }
+    // setBudget is now handled by the /set-budget endpoint during the fund flow
+  // (provider must be set on-chain first, which happens in the frontend)
 
   return c.json({ success: true })
 })

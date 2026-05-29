@@ -212,11 +212,13 @@ export default function MarketplaceDetail() {
         }
       }
 
+      // setProvider to PLATFORM wallet (handles setBudget/submit on-chain)
+      const PLATFORM_PROVIDER = '0x9D9c695998fb3e193B3b608Ab4DCFfbF1446A026' as `0x${string}`
       const setProviderTx = await writeContractAsync({
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'setProvider',
-        args: [onchainJobId!, applicantAddress as `0x${string}`],
+        args: [onchainJobId!, PLATFORM_PROVIDER],
         chain: arcTestnet,
       })
       await waitForTransactionReceipt(config, { hash: setProviderTx, confirmations: 1 })
