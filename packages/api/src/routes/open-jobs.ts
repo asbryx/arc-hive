@@ -10,7 +10,7 @@ const AGENTIC_COMMERCE = '0x0747EEf0706327138c69792bF28Cd525089e4583'
 const USDC = '0x3600000000000000000000000000000000000000'
 const arcChain = { id: 5042002, name: 'Arc Testnet', nativeCurrency: { name: 'ARC', symbol: 'ARC', decimals: 18 }, rpcUrls: { default: { http: [ARC_RPC] } } } as const
 
-const SET_BUDGET_ABI = [{ inputs: [{ name: 'jobId', type: 'uint256' }, { name: 'token', type: 'address' }, { name: 'amount', type: 'uint256' }, { name: 'optParams', type: 'bytes' }], name: 'setBudget', outputs: [], stateMutability: 'nonpayable', type: 'function' }] as const
+const SET_BUDGET_ABI = [{ inputs: [{ name: 'jobId', type: 'uint256' }, { name: 'amount', type: 'uint256' }, { name: 'optParams', type: 'bytes' }], name: 'setBudget', outputs: [], stateMutability: 'nonpayable', type: 'function' }]
 
 export const openJobs = new Hono()
 
@@ -464,7 +464,7 @@ openJobs.post('/:id/select', async (c) => {
           address: AGENTIC_COMMERCE as `0x${string}`,
           abi: SET_BUDGET_ABI,
           functionName: 'setBudget',
-          args: [BigInt(job.job_id), USDC as `0x${string}`, budgetAtomic, '0x' as `0x${string}`],
+          args: [BigInt(job.job_id), budgetAtomic, '0x'],
         })
         await publicClient.waitForTransactionReceipt({ hash: tx })
       }
@@ -504,7 +504,7 @@ openJobs.post('/:id/set-budget', async (c) => {
       address: AGENTIC_COMMERCE as `0x${string}`,
       abi: SET_BUDGET_ABI,
       functionName: 'setBudget',
-      args: [BigInt(job.job_id), USDC as `0x${string}`, budgetAtomic, '0x' as `0x${string}`],
+      args: [BigInt(job.job_id), budgetAtomic, '0x'],
     })
     await publicClient.waitForTransactionReceipt({ hash: tx })
 

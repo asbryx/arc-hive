@@ -287,6 +287,17 @@ export default function MarketplaceDetail() {
           setActionError(err.error || 'Failed to set budget. Try again.')
           setFunding(false); setFundStep(''); return
         }
+        // Re-read on-chain state after setBudget
+        const updatedJob = await readContract(config, {
+          address: AGENTIC_COMMERCE,
+          abi: AGENTIC_COMMERCE_ABI,
+          functionName: 'getJob',
+          args: [jobIdBig],
+        })
+        if (updatedJob.budget === 0n) {
+          setActionError('Budget still not set. Contact support.')
+          setFunding(false); setFundStep(''); return
+        }
       }
 
       // Step 3: Approve USDC
