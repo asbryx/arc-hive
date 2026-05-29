@@ -1,10 +1,10 @@
 import { CONFIG } from './config.js'
 import {
   getPendingEvaluations, getPreviousEvaluations, storeEvaluation,
-  updateJobAfterEvaluation, notifyAgent, getFailedJobsForRefund, recordRefund
+  updateJobAfterEvaluation, notifyAgent, recordRefund
 } from './db.js'
 import { evaluateDeliverable, EvalResult } from './evaluate.js'
-import { executeSubmit, executeComplete, executeReject, executeClaimRefund, getOnchainJobStatus } from './execute.js'
+import { executeSubmit, executeComplete, executeReject, getOnchainJobStatus } from './execute.js'
 
 export async function initWatcher() {
   console.log('[evaluator] Watcher initialized — polling DB for deliverables to evaluate')
@@ -26,16 +26,9 @@ export async function pollForEvaluations() {
 }
 
 export async function pollForRefunds() {
-  try {
-    const jobs = await getFailedJobsForRefund()
-    if (jobs.length === 0) return
-
-    for (const job of jobs) {
-      await processRefund(job)
-    }
-  } catch (err) {
-    console.error('[evaluator] Refund poll error:', (err as Error).message)
-  }
+  // No-op: contract's reject() auto-refunds USDC to client.
+  // Refund is recorded at reject time in processEvaluation.
+  // This function kept for backward compatibility but does nothing.
 }
 
 async function processEvaluation(job: any) {
@@ -116,6 +109,7 @@ async function processEvaluation(job: any) {
 
   } else if (result.decision === 'failed' && jobId) {
     // FINAL FAILURE: submit on-chain → reject on-chain
+    // Note: contract's reject() automatically refunds USDC to client
     try {
       const onchainStatus = await getOnchainJobStatus(BigInt(jobId))
       
@@ -126,11 +120,19 @@ async function processEvaluation(job: any) {
 
       console.log(`[evaluator] Rejecting on-chain for job ${jobId}...`)
       txHash = await executeReject(BigInt(jobId), result.reasoning)
-      console.log(`[evaluator] FAILED job ${openJobId} — reject tx=${txHash}`)
+      console.log(`[evaluator] FAILED job ${openJobId} — reject tx=${txHash} (refund included)`)
 
-      await updateJobAfterEvaluation(openJobId, 'failed', {
+      // reject() auto-refunds, so mark as refunded immediately
+      await updateJobAfterEvaluation(openJobId, 'refunded', {
         revisionCount: revisionNumber + 1,
       })
+      await recordRefund(openJobId, txHash)
+
+      // Notify client about refund
+      if (job.client_address) {
+        await notifyAgent(job.client_address, 'job_refunded', openJobId,
+          `Job "${job.title}" failed. USDC refunded. tx: ${txHash}`)
+      }
     } catch (err: any) {
       console.error(`[evaluator] On-chain reject error for job ${openJobId}:`, err.message)
       return
@@ -170,34 +172,5 @@ async function processEvaluation(job: any) {
       msg = `✗ Deliverable for "${job.title}" scored ${result.score}/100. Job failed after ${revisionNumber + 1} attempts. ${result.reasoning}`
     }
     await notifyAgent(job.selected_applicant, 'evaluation_result', openJobId, msg)
-  }
-}
-
-async function processRefund(job: any) {
-  try {
-    // Check if job is past expiry on-chain
-    const onchainStatus = await getOnchainJobStatus(BigInt(job.job_id))
-    
-    // Status 4 = Rejected on-chain. Try claimRefund.
-    if (onchainStatus !== 4) {
-      return // Not rejected on-chain yet or already completed
-    }
-
-    console.log(`[evaluator] Attempting refund for job ${job.id} (on-chain ${job.job_id})...`)
-    const refundTx = await executeClaimRefund(BigInt(job.job_id))
-    console.log(`[evaluator] Refunded job ${job.id} — tx=${refundTx}`)
-
-    await recordRefund(job.id, refundTx)
-
-    // Notify client
-    if (job.client_address) {
-      await notifyAgent(job.client_address, 'job_refunded', job.id,
-        `Job "${job.title}" failed. ${job.final_budget || ''} USDC refunded. tx: ${refundTx}`)
-    }
-  } catch (err: any) {
-    // claimRefund might fail if not yet expired — that's fine, retry next poll
-    if (!err.message?.includes('reverted')) {
-      console.error(`[evaluator] Refund error for job ${job.id}:`, err.message)
-    }
   }
 }

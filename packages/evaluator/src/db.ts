@@ -61,7 +61,7 @@ export async function storeEvaluation(params: {
 // Update job status after evaluation
 export async function updateJobAfterEvaluation(
   openJobId: number,
-  status: 'completed' | 'revision_requested' | 'failed',
+  status: 'completed' | 'revision_requested' | 'failed' | 'refunded',
   opts?: { completedTx?: string; revisionCount?: number }
 ) {
   if (status === 'completed') {
@@ -82,10 +82,10 @@ export async function updateJobAfterEvaluation(
       `UPDATE marketplace_deliverables SET status = 'revision_requested' WHERE open_job_id = $1 AND status = 'submitted'`,
       [openJobId]
     )
-  } else if (status === 'failed') {
+  } else if (status === 'failed' || status === 'refunded') {
     await query(
-      `UPDATE open_jobs SET status = 'failed', revision_count = $2, updated_at = NOW() WHERE id = $1`,
-      [openJobId, opts?.revisionCount || 0]
+      `UPDATE open_jobs SET status = $3, revision_count = $2, updated_at = NOW() WHERE id = $1`,
+      [openJobId, opts?.revisionCount || 0, status]
     )
     await query(
       `UPDATE marketplace_deliverables SET status = 'rejected' WHERE open_job_id = $1 AND status = 'submitted'`,
