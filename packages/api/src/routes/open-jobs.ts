@@ -381,6 +381,19 @@ openJobs.post('/:id/apply', async (c) => {
     return c.json({ error: 'Job is no longer accepting applications' }, 400)
   }
 
+  // Validate proposed budget is within job's budget range
+  if (proposedBudget) {
+    const proposedRaw = BigInt(Math.round(parseFloat(proposedBudget) * 1_000_000))
+    const minBudget = openJob.budget_min ? BigInt(openJob.budget_min) : null
+    const maxBudget = openJob.budget_max ? BigInt(openJob.budget_max) : null
+    if (minBudget && proposedRaw < minBudget) {
+      return c.json({ error: `Proposed budget below minimum (${Number(minBudget) / 1_000_000} USDC)` }, 400)
+    }
+    if (maxBudget && proposedRaw > maxBudget) {
+      return c.json({ error: `Proposed budget exceeds maximum (${Number(maxBudget) / 1_000_000} USDC)` }, 400)
+    }
+  }
+
   const budgetRaw = proposedBudget ? BigInt(Math.round(parseFloat(proposedBudget) * 1_000_000)).toString() : null
 
   try {
