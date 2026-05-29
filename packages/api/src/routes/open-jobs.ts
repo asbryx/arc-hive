@@ -128,13 +128,14 @@ openJobs.get('/my-completed', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
 
+  // Return completed/failed jobs where user is either agent or client
   const result = await query(
     `SELECT oj.*,
       (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count
      FROM open_jobs oj
-     WHERE lower(oj.selected_applicant) = lower($1)
-     AND oj.status = 'completed'
-     ORDER BY oj.completed_at DESC`,
+     WHERE (lower(oj.selected_applicant) = lower($1) OR lower(oj.client_address) = lower($1))
+     AND oj.status IN ('completed', 'failed', 'rejected')
+     ORDER BY oj.updated_at DESC`,
     [address]
   )
 

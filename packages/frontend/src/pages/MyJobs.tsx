@@ -4,7 +4,7 @@ import { useAccount } from 'wagmi'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
-type Tab = 'applications' | 'active' | 'completed' | 'posted'
+type Tab = 'active' | 'applications' | 'completed' | 'posted'
 
 interface JobRow {
   id: number
@@ -29,6 +29,42 @@ export default function MyJobs() {
   const [tab, setTab] = useState<Tab>('active')
   const [jobs, setJobs] = useState<JobRow[]>([])
   const [loading, setLoading] = useState(false)
+  const [availableTabs, setAvailableTabs] = useState<Tab[]>([])
+
+  // Detect which tabs have data for this wallet
+  useEffect(() => {
+    if (!address) return
+    async function detectTabs() {
+      const tabs: Tab[] = []
+      const endpoints: [Tab, string][] = [
+        ['active', 'my-active'],
+        ['applications', 'my-applications'],
+        ['completed', 'my-completed'],
+        ['posted', 'my-posted'],
+      ]
+      await Promise.all(endpoints.map(async ([key, ep]) => {
+        try {
+          const res = await fetch(`${API_BASE}/open-jobs/${ep}?address=${address}`)
+          if (res.ok) {
+            const data = await res.json()
+            if (data.data && data.data.length > 0) tabs.push(key)
+          }
+        } catch {}
+      }))
+      // Always show at least these defaults
+      if (!tabs.includes('active')) tabs.push('active')
+      if (!tabs.includes('posted')) tabs.push('posted')
+      // Sort in consistent order
+      const order: Tab[] = ['active', 'applications', 'completed', 'posted']
+      setAvailableTabs(order.filter(t => tabs.includes(t)))
+      // If current tab not available, switch to first
+      if (!tabs.includes(tab)) {
+        const first = order.find(t => tabs.includes(t)) || 'active'
+        setTab(first)
+      }
+    }
+    detectTabs()
+  }, [address])
 
   useEffect(() => {
     if (address) fetchTab(tab)
@@ -59,18 +95,20 @@ export default function MyJobs() {
     )
   }
 
+  const tabLabels: Record<Tab, string> = {
+    active: 'Active',
+    applications: 'Applications',
+    completed: 'Completed',
+    posted: 'Posted',
+  }
+
   return (
     <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 800, margin: '0 auto' }}>
       <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>My Jobs</div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--dimmer)', marginBottom: 24 }}>
-        {([
-          ['active', 'Active'],
-          ['applications', 'Applications'],
-          ['completed', 'Completed'],
-          ['posted', 'Posted'],
-        ] as [Tab, string][]).map(([key, label]) => (
+        {availableTabs.map(key => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -82,7 +120,7 @@ export default function MyJobs() {
               marginBottom: -1,
             }}
           >
-            {label}
+            {tabLabels[key]}
           </button>
         ))}
       </div>
@@ -150,7 +188,10 @@ function statusColor(status: string): string {
     case 'in_progress': return '#2196f3'
     case 'delivered': return '#9c27b0'
     case 'completed': return '#4caf50'
-    case 'cancelled': return '#ff4444'
+    case 'failed': return '#ff4444'
+    case 'rejected': return '#ff4444'
+    case 'cancelled': return '#666'
+    case 'revision_requested': return '#ff9800'
     default: return 'var(--dim)'
   }
 }
