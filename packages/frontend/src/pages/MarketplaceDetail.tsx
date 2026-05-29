@@ -688,118 +688,98 @@ export default function MarketplaceDetail() {
         </div>
       )}
 
-      {/* ═══ Deliverables Display ═══ */}
+      {/* ═══ Deliverables + Evaluations Timeline (interleaved by version) ═══ */}
       {deliverables.length > 0 && (
         <div style={{ borderTop: '1px solid var(--dimmer)', paddingTop: 24, marginBottom: 24 }}>
           <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
-            Deliverables
-          </div>
-          {deliverables.map(d => (
-            <div key={d.id} style={{ padding: 16, border: '1px solid var(--dimmer)', marginBottom: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, color: 'var(--dim)' }}>v{d.version} · {getTimeAgo(d.createdAt)}</span>
-                <span style={{ fontSize: 10, color: d.status === 'approved' ? '#4caf50' : d.status === 'revision_requested' ? '#ff9800' : 'var(--dim)' }}>
-                  {d.status === 'approved' ? '✓ approved' : d.status === 'revision_requested' ? '⚠ revision requested' : '● submitted'}
-                </span>
-              </div>
-              <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', marginBottom: 8 }}>{d.content}</div>
-              {d.link && (
-                <a href={d.link} target="_blank" style={{ fontSize: 12, color: 'var(--accent)' }}>{d.link} ↗</a>
-              )}
-              {d.notes && <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8 }}>{d.notes}</div>}
-              {d.clientFeedback && (
-                <div style={{ marginTop: 12, padding: '8px 12px', border: '1px solid #ff9800', fontSize: 12 }}>
-                  <span style={{ color: '#ff9800', fontWeight: 700 }}>Feedback:</span> {d.clientFeedback}
-                </div>
-              )}
-            </div>
-          ))}
-
-          {/* Evaluator handles approval/rejection automatically */}
-          {isClient && job.status === 'evaluating' && (
-            <div style={{ marginTop: 16, padding: 12, border: '1px solid var(--dimmer)', textAlign: 'center' }}>
-              <span style={{ fontSize: 11, color: 'var(--dim)' }}>⏳ AI evaluator is reviewing this deliverable</span>
-            </div>
-          )}
-          {/* Inline error banner — below action buttons */}
-          {actionError && (
-            <div style={{ margin: '12px 0 0', padding: '12px 16px', background: '#1a0000', border: '1px solid #4a1111', fontSize: 12, color: '#ff6b6b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>⚠ {actionError}</span>
-              <span onClick={() => setActionError(null)} style={{ cursor: 'pointer', opacity: 0.6 }}>✕</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ═══ AI Evaluation Timeline ═══ */}
-      {(evaluations.length > 0 || job.status === 'evaluating') && (
-        <div style={{ borderTop: '1px solid var(--dimmer)', paddingTop: 24, marginBottom: 24 }}>
-          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
-            AI Evaluation {evaluations.length > 0 && `(${evaluations.length})`}
+            Deliverables & Evaluation
           </div>
 
-          {job.status === 'evaluating' && evaluations.length === 0 && (
-            <div style={{ padding: 16, border: '1px solid var(--dimmer)', textAlign: 'center' }}>
-              <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 4 }}>⏳ Evaluating deliverable...</div>
-              <div style={{ fontSize: 10, color: 'var(--dim)' }}>AI judge is reviewing the submission</div>
-            </div>
-          )}
-
-          {evaluations.map((ev, i) => {
-            const scoreColor = ev.score >= 70 ? '#4caf50' : ev.score >= 50 ? '#ff9800' : '#ff4444'
-            const statusLabel = ev.status === 'approved' ? '✓ APPROVED' : ev.status === 'failed' ? '✗ FAILED' : '↻ REVISION NEEDED'
-            const statusColor = ev.status === 'approved' ? '#4caf50' : ev.status === 'failed' ? '#ff4444' : '#ff9800'
+          {deliverables.map(d => {
+            const ev = evaluations.find(e => e.version === d.version)
             return (
-              <div key={ev.id} style={{ padding: 16, border: `1px solid ${statusColor}33`, marginBottom: 12, background: `${statusColor}08` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 10, color: 'var(--dim)' }}>v{ev.version}</span>
-                    <span style={{ fontSize: 11, color: statusColor, fontWeight: 700 }}>{statusLabel}</span>
+              <div key={d.id} style={{ marginBottom: 20 }}>
+                {/* Deliverable */}
+                <div style={{ padding: 16, border: '1px solid var(--dimmer)', marginBottom: ev ? 0 : 12, borderBottom: ev ? 'none' : undefined }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--dim)' }}>v{d.version} · {getTimeAgo(d.createdAt)}</span>
+                    <span style={{ fontSize: 10, color: d.status === 'approved' ? '#4caf50' : d.status === 'revision_requested' ? '#ff9800' : 'var(--dim)' }}>
+                      {d.status === 'approved' ? '✓ approved' : d.status === 'revision_requested' ? '⚠️ revision requested' : d.status === 'failed' ? '✗ failed' : '● submitted'}
+                    </span>
                   </div>
-                  <span style={{ fontSize: 22, fontWeight: 800, color: scoreColor }}>{ev.score}<span style={{ fontSize: 11, color: 'var(--dim)' }}>/100</span></span>
-                </div>
-
-                {/* Score bar */}
-                <div style={{ height: 3, background: 'var(--dimmer)', width: '100%', marginBottom: 12 }}>
-                  <div style={{ height: 3, width: `${ev.score}%`, background: scoreColor }} />
-                </div>
-
-                {/* Breakdown */}
-                {ev.breakdown && (
-                  <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-                    {Object.entries(ev.breakdown).map(([key, val]) => (
-                      <span key={key} style={{ fontSize: 10, color: 'var(--dim)' }}>
-                        {key}: <span style={{ color: 'var(--text)', fontWeight: 600 }}>{val as number}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Reasoning */}
-                <div style={{ fontSize: 12, lineHeight: 1.7, color: 'var(--text)', whiteSpace: 'pre-wrap', marginBottom: 8 }}>
-                  {ev.reasoning}
-                </div>
-
-                {/* Suggestions (if rejected) */}
-                {ev.suggestions && (
-                  <div style={{ fontSize: 11, color: '#ff9800', marginBottom: 8, padding: '8px 12px', background: '#ff980010', border: '1px solid #ff980033' }}>
-                    💡 {ev.suggestions}
-                  </div>
-                )}
-
-                {/* Meta */}
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 10, color: 'var(--dim)' }}>
-                  {ev.llmModel && <span>model: {ev.llmModel}</span>}
-                  <span>{new Date(ev.createdAt).toLocaleString()}</span>
-                  {ev.txHash && (
-                    <a href={`https://testnet.arcscan.app/tx/${ev.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
-                      tx ↗
-                    </a>
+                  <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', marginBottom: 8 }}>{d.content}</div>
+                  {d.link && (
+                    <a href={d.link} target="_blank" style={{ fontSize: 12, color: 'var(--accent)' }}>{d.link} ↗</a>
+                  )}
+                  {d.notes && <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8 }}>{d.notes}</div>}
+                  {d.clientFeedback && (
+                    <div style={{ marginTop: 12, padding: '8px 12px', border: '1px solid #ff9800', fontSize: 12 }}>
+                      <span style={{ color: '#ff9800', fontWeight: 700 }}>Feedback:</span> {d.clientFeedback}
+                    </div>
                   )}
                 </div>
+
+                {/* Evaluation for this version (directly below) */}
+                {ev && (() => {
+                  const scoreColor = ev.score >= 70 ? '#4caf50' : ev.score >= 50 ? '#ff9800' : '#ff4444'
+                  const statusLabel = ev.status === 'approved' ? '✓ APPROVED' : ev.status === 'failed' ? '✗ FAILED' : '↻ REVISION NEEDED'
+                  const evStatusColor = ev.status === 'approved' ? '#4caf50' : ev.status === 'failed' ? '#ff4444' : '#ff9800'
+                  return (
+                    <div style={{ padding: 16, border: `1px solid ${evStatusColor}33`, background: `${evStatusColor}08`, marginBottom: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 10, color: 'var(--dim)' }}>evaluation</span>
+                          <span style={{ fontSize: 11, color: evStatusColor, fontWeight: 700 }}>{statusLabel}</span>
+                        </div>
+                        <span style={{ fontSize: 22, fontWeight: 800, color: scoreColor }}>{ev.score}<span style={{ fontSize: 11, color: 'var(--dim)' }}>/100</span></span>
+                      </div>
+
+                      <div style={{ height: 3, background: 'var(--dimmer)', width: '100%', marginBottom: 12 }}>
+                        <div style={{ height: 3, width: `${ev.score}%`, background: scoreColor }} />
+                      </div>
+
+                      {ev.breakdown && (
+                        <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                          {Object.entries(ev.breakdown).map(([key, val]) => (
+                            <span key={key} style={{ fontSize: 10, color: 'var(--dim)' }}>
+                              {key}: <span style={{ color: 'var(--text)', fontWeight: 600 }}>{val as number}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div style={{ fontSize: 12, lineHeight: 1.7, color: 'var(--text)', whiteSpace: 'pre-wrap', marginBottom: 8 }}>
+                        {ev.reasoning}
+                      </div>
+
+                      {ev.suggestions && (
+                        <div style={{ fontSize: 11, color: '#ff9800', marginBottom: 8, padding: '8px 12px', background: '#ff980010', border: '1px solid #ff980033' }}>
+                          💡 {ev.suggestions}
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 10, color: 'var(--dim)' }}>
+                        {ev.llmModel && <span>model: {ev.llmModel}</span>}
+                        <span>{new Date(ev.createdAt).toLocaleString()}</span>
+                        {ev.txHash && (
+                          <a href={`https://testnet.arcscan.app/tx/${ev.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
+                            tx ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             )
           })}
+
+          {/* Evaluating spinner for latest unmatched delivery */}
+          {job.status === 'evaluating' && deliverables.length > evaluations.length && (
+            <div style={{ padding: 12, border: '1px solid var(--dimmer)', textAlign: 'center', marginBottom: 12 }}>
+              <span style={{ fontSize: 11, color: 'var(--dim)' }}>⏳ AI evaluator is reviewing this deliverable...</span>
+            </div>
+          )}
 
           {/* Revision counter */}
           {job.status === 'revision_requested' && (
@@ -819,6 +799,14 @@ export default function MarketplaceDetail() {
             <div style={{ padding: 12, border: '1px solid #4caf50', marginTop: 12, textAlign: 'center' }}>
               <div style={{ fontSize: 12, color: '#4caf50', fontWeight: 700 }}>✓ REFUNDED</div>
               <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4 }}>Funds returned to client</div>
+            </div>
+          )}
+
+          {/* Inline error banner */}
+          {actionError && (
+            <div style={{ margin: '12px 0 0', padding: '12px 16px', background: '#1a0000', border: '1px solid #4a1111', fontSize: 12, color: '#ff6b6b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>⚠ {actionError}</span>
+              <span onClick={() => setActionError(null)} style={{ cursor: 'pointer', opacity: 0.6 }}>✕</span>
             </div>
           )}
         </div>
