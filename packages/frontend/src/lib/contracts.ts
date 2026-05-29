@@ -32,6 +32,7 @@ export const AGENTIC_COMMERCE_ABI = [
   {
     inputs: [
       { name: 'jobId', type: 'uint256' },
+      { name: 'token', type: 'address' },
       { name: 'amount', type: 'uint256' },
       { name: 'optParams', type: 'bytes' },
     ],

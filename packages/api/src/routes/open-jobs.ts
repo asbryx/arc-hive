@@ -7,9 +7,10 @@ const PROVIDER_KEY = process.env.PROVIDER_PRIVATE_KEY!
 if (!PROVIDER_KEY) throw new Error('PROVIDER_PRIVATE_KEY env var required')
 const ARC_RPC = 'https://rpc.testnet.arc.network'
 const AGENTIC_COMMERCE = '0x0747EEf0706327138c69792bF28Cd525089e4583'
-const arcChain = { id: 1868, name: 'Arc Testnet', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [ARC_RPC] } } } as const
+const USDC = '0x3600000000000000000000000000000000000000'
+const arcChain = { id: 5042002, name: 'Arc Testnet', nativeCurrency: { name: 'ARC', symbol: 'ARC', decimals: 18 }, rpcUrls: { default: { http: [ARC_RPC] } } } as const
 
-const SET_BUDGET_ABI = [{ inputs: [{ name: 'jobId', type: 'uint256' }, { name: 'budget', type: 'uint256' }, { name: 'optParams', type: 'bytes' }], name: 'setBudget', outputs: [], stateMutability: 'nonpayable', type: 'function' }] as const
+const SET_BUDGET_ABI = [{ inputs: [{ name: 'jobId', type: 'uint256' }, { name: 'token', type: 'address' }, { name: 'amount', type: 'uint256' }, { name: 'optParams', type: 'bytes' }], name: 'setBudget', outputs: [], stateMutability: 'nonpayable', type: 'function' }] as const
 
 export const openJobs = new Hono()
 
@@ -463,7 +464,7 @@ openJobs.post('/:id/select', async (c) => {
           address: AGENTIC_COMMERCE as `0x${string}`,
           abi: SET_BUDGET_ABI,
           functionName: 'setBudget',
-          args: [BigInt(job.job_id), budgetAtomic, '0x'],
+          args: [BigInt(job.job_id), USDC as `0x${string}`, budgetAtomic, '0x' as `0x${string}`],
         })
         await publicClient.waitForTransactionReceipt({ hash: tx })
       }
@@ -473,6 +474,45 @@ openJobs.post('/:id/select', async (c) => {
   }
 
   return c.json({ success: true })
+})
+
+// POST /api/open-jobs/:id/set-budget — provider wallet calls setBudget on-chain
+openJobs.post('/:id/set-budget', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { budget } = body
+
+  if (!budget) return c.json({ error: 'budget required' }, 400)
+
+  const jobResult = await query(
+    `SELECT * FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
+    [id]
+  )
+  if (jobResult.rows.length === 0) return c.json({ error: 'Job not found' }, 404)
+
+  const job = jobResult.rows[0]
+  if (!job.job_id) return c.json({ error: 'No on-chain job ID' }, 400)
+
+  const budgetAtomic = BigInt(Math.round(parseFloat(budget) * 1_000_000))
+
+  try {
+    const account = privateKeyToAccount(PROVIDER_KEY as `0x${string}`)
+    const walletClient = createWalletClient({ account, chain: arcChain, transport: http(ARC_RPC) })
+    const publicClient = createPublicClient({ chain: arcChain, transport: http(ARC_RPC) })
+
+    const tx = await walletClient.writeContract({
+      address: AGENTIC_COMMERCE as `0x${string}`,
+      abi: SET_BUDGET_ABI,
+      functionName: 'setBudget',
+      args: [BigInt(job.job_id), USDC as `0x${string}`, budgetAtomic, '0x' as `0x${string}`],
+    })
+    await publicClient.waitForTransactionReceipt({ hash: tx })
+
+    return c.json({ success: true, tx })
+  } catch (e: any) {
+    console.error('setBudget failed:', e.message)
+    return c.json({ error: `setBudget failed: ${e.shortMessage || e.message}` }, 500)
+  }
 })
 
 // POST /api/open-jobs/:id/fund — client confirms on-chain funding

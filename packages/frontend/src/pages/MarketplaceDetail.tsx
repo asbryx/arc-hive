@@ -245,22 +245,51 @@ export default function MarketplaceDetail() {
       const selectedApp = applications.find(a => a.status === 'selected')
       const budgetStr = selectedApp?.proposedBudget || job.budgetMax || job.budgetMin || '5'
       const budgetAtomic = parseUnits(budgetStr, 6)
+      const jobIdBig = BigInt(job.jobId)
 
       // Check on-chain job state first
       const onchainJob = await readContract(config, {
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'getJob',
-        args: [BigInt(job.jobId)],
+        args: [jobIdBig],
       })
 
-      // Budget should already be set by the API when agent was selected
-      if (onchainJob.budget === 0n) {
-        setActionError('Budget not set on-chain yet. This happens automatically when you select an agent — please wait a moment and try again.')
-        setFunding(false); setFundStep(''); return
+      // Step 1: setProvider if provider is still zero on-chain
+      // On-chain provider must be the platform's provider wallet (handles submit/setBudget)
+      const PLATFORM_PROVIDER = '0x9D9c695998fb3e193B3b608Ab4DCFfbF1446A026' as `0x${string}`
+      if (onchainJob.provider === '0x0000000000000000000000000000000000000000') {
+        setFundStep('Setting provider on-chain...')
+        const setProvTx = await writeContractAsync({
+          address: AGENTIC_COMMERCE,
+          abi: AGENTIC_COMMERCE_ABI,
+          functionName: 'setProvider',
+          args: [jobIdBig, PLATFORM_PROVIDER],
+          chain: arcTestnet,
+        })
+        const setProvReceipt = await waitForTransactionReceipt(config, { hash: setProvTx })
+        if (setProvReceipt.status !== 'success') {
+          setActionError('Failed to set provider on-chain. Try again.')
+          setFunding(false); setFundStep(''); return
+        }
       }
 
-      // Step 2: Approve USDC
+      // Step 2: setBudget — must be called by provider, so ask API backend to do it
+      if (onchainJob.budget === 0n) {
+        setFundStep('Setting budget...')
+        const setBudgetRes = await fetch(`${API_BASE}/open-jobs/${id}/set-budget`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ budget: budgetStr }),
+        })
+        if (!setBudgetRes.ok) {
+          const err = await setBudgetRes.json().catch(() => ({ error: 'setBudget failed' }))
+          setActionError(err.error || 'Failed to set budget. Try again.')
+          setFunding(false); setFundStep(''); return
+        }
+      }
+
+      // Step 3: Approve USDC
       setFundStep('Approving USDC...')
       const approveTx = await writeContractAsync({
         address: USDC_ADDRESS,
@@ -275,13 +304,13 @@ export default function MarketplaceDetail() {
         setFunding(false); setFundStep(''); return
       }
 
-      // Step 3: Fund
+      // Step 4: Fund
       setFundStep('Funding job...')
       const fundTx = await writeContractAsync({
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'fund',
-        args: [BigInt(job.jobId), '0x'],
+        args: [jobIdBig, '0x'],
         chain: arcTestnet,
       })
       const fundReceipt = await waitForTransactionReceipt(config, { hash: fundTx })
@@ -290,7 +319,7 @@ export default function MarketplaceDetail() {
         setFunding(false); setFundStep(''); return
       }
 
-      // Step 4: Only update API after all txs confirmed
+      // Step 5: Only update API after all txs confirmed
       setFundStep('Confirming...')
       await fetch(`${API_BASE}/open-jobs/${id}/fund`, {
         method: 'POST',
