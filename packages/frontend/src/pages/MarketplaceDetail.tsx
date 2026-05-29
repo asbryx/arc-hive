@@ -29,6 +29,8 @@ interface OpenJob {
   completedTx: string | null
   completedAt: string | null
   rejectedAt: string | null
+  refundTx: string | null
+  refundedAt: string | null
   finalBudget: string | null
   maxRevisions: number
   revisionCount: number
@@ -792,13 +794,22 @@ export default function MarketplaceDetail() {
           {job.status === 'failed' && (
             <div style={{ padding: 12, border: '1px solid #ff4444', marginTop: 12, textAlign: 'center' }}>
               <div style={{ fontSize: 12, color: '#ff4444', fontWeight: 700 }}>JOB FAILED — All revisions exhausted</div>
-              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4 }}>Refund will be processed after job expiry</div>
+              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4 }}>
+                {job.refundTx ? (
+                  <>Refunded · <a href={`https://testnet.arcscan.app/tx/${job.refundTx}`} target="_blank" rel="noopener noreferrer" style={{ color: '#4caf50', textDecoration: 'underline' }}>tx ↗</a></>
+                ) : 'Refund will be processed after job expiry'}
+              </div>
             </div>
           )}
           {job.status === 'refunded' && (
             <div style={{ padding: 12, border: '1px solid #4caf50', marginTop: 12, textAlign: 'center' }}>
               <div style={{ fontSize: 12, color: '#4caf50', fontWeight: 700 }}>✓ REFUNDED</div>
-              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4 }}>Funds returned to client</div>
+              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4 }}>
+                Funds returned to client
+                {job.refundTx && (
+                  <> · <a href={`https://testnet.arcscan.app/tx/${job.refundTx}`} target="_blank" rel="noopener noreferrer" style={{ color: '#4caf50', textDecoration: 'underline' }}>tx ↗</a></>
+                )}
+              </div>
             </div>
           )}
 

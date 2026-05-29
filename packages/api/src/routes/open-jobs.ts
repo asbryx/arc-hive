@@ -987,6 +987,8 @@ function formatOpenJob(row: any) {
     completedTx: row.completed_tx || null,
     completedAt: row.completed_at || null,
     rejectedAt: row.rejected_at || null,
+    refundTx: row.refund_tx || null,
+    refundedAt: row.refunded_at || null,
     finalBudget: formatUsdc(row.final_budget),
     maxRevisions: row.max_revisions || 2,
     revisionCount: row.revision_count || 0,
