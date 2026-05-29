@@ -35,7 +35,7 @@ export async function evaluateDeliverable(input: EvalInput, maxRevisions: number
   const text = data.choices?.[0]?.message?.content || ''
   const { score, breakdown, reasoning, suggestions } = parseEvaluationResponse(text)
 
-  if (score === 0) {
+  if (score === 0 && !reasoning) {
     throw new Error(`Failed to parse evaluation: ${text.slice(0, 200)}`)
   }
 
