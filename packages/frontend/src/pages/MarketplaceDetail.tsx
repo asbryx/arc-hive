@@ -695,7 +695,7 @@ export default function MarketplaceDetail() {
             Deliverables & Evaluation
           </div>
 
-          {deliverables.map(d => {
+          {[...deliverables].sort((a, b) => a.version - b.version).map(d => {
             const ev = evaluations.find(e => e.version === d.version)
             return (
               <div key={d.id} style={{ marginBottom: 20 }}>
