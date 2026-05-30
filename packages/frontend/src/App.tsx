@@ -17,9 +17,29 @@ import NotFound from './pages/NotFound'
 
 export default function App() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative' }}>
+      {/* Background video */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          objectFit: 'cover',
+          opacity: 0.06,
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      >
+        <source src="/bg-loop.mp4" type="video/mp4" />
+      </video>
       <Nav />
-      <main style={{ flex: 1, paddingTop: 48, paddingBottom: 60 }}>
+      <main style={{ flex: 1, paddingTop: 48, paddingBottom: 60, position: 'relative', zIndex: 1 }}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/agents" element={<Agents />} />
