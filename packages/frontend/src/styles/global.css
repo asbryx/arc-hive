@@ -45,6 +45,18 @@ html, body {
   min-height: 100vh;
 }
 
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 40%, rgba(39, 63, 79, 0.2), transparent 70%);
+}
 
 body::after {
   content: '';
@@ -108,6 +120,18 @@ input, select { font-family: var(--font); }
 /* Ambient glow behind hero */
 .hero-glow {
   position: relative;
+}
+.hero-glow::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(ellipse at center, var(--glow) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* Gradient stat fills */
@@ -243,21 +267,4 @@ input, select { font-family: var(--font); }
 /* Smooth transitions for themed elements */
 *, *::before, *::after {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease;
-}
-
-/* Glow behind ASCII ARCHIVE text only */
-.ascii-hero-pre {
-  position: relative;
-}
-.ascii-hero-pre::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 400px;
-  height: 200px;
-  background: radial-gradient(ellipse at center, var(--glow) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: -1;
 }
