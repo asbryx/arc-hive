@@ -1,37 +1,43 @@
 import { Hono } from 'hono'
-import { query } from '../db.js'
+import { query, queryAgents } from '../db.js'
 
 export const stats = new Hono()
 
 // GET /api/stats — ecosystem overview
 stats.get('/', async (c) => {
-  const result = await query(`
-    SELECT
-      (SELECT COUNT(*) FROM agents) as total_agents,
-      (SELECT COUNT(*) FROM reputation_events WHERE NOT is_revoked) as total_reputation_events,
-      (SELECT COUNT(*) FROM validations) as total_validations,
-      (SELECT COUNT(*) FROM jobs) as total_jobs,
-      (SELECT COUNT(*) FROM jobs WHERE status = 3) as completed_jobs,
-      (SELECT COALESCE(SUM(payment_released), 0) FROM jobs) as total_volume,
-      (SELECT COUNT(DISTINCT client_address) FROM jobs) as unique_clients,
-      (SELECT COUNT(DISTINCT provider_address) FROM jobs WHERE provider_address IS NOT NULL) as unique_providers,
-      (SELECT COUNT(*) FROM agents WHERE registered_at > NOW() - INTERVAL '7 days') as agents_last_7d,
-      (SELECT COUNT(*) FROM jobs WHERE created_timestamp > NOW() - INTERVAL '7 days') as jobs_last_7d
-  `)
+  const [agentStats, marketplaceStats] = await Promise.all([
+    queryAgents(`
+      SELECT
+        (SELECT COUNT(*) FROM agents) as total_agents,
+        (SELECT COUNT(*) FROM reputation_events WHERE NOT is_revoked) as total_reputation_events,
+        (SELECT COUNT(*) FROM validations) as total_validations,
+        (SELECT COUNT(*) FROM agents WHERE registered_at > NOW() - INTERVAL '7 days') as agents_last_7d
+    `),
+    query(`
+      SELECT
+        (SELECT COUNT(*) FROM jobs) as total_jobs,
+        (SELECT COUNT(*) FROM jobs WHERE status = 3) as completed_jobs,
+        (SELECT COALESCE(SUM(payment_released), 0) FROM jobs) as total_volume,
+        (SELECT COUNT(DISTINCT client_address) FROM jobs) as unique_clients,
+        (SELECT COUNT(DISTINCT provider_address) FROM jobs WHERE provider_address IS NOT NULL) as unique_providers,
+        (SELECT COUNT(*) FROM jobs WHERE created_timestamp > NOW() - INTERVAL '7 days') as jobs_last_7d
+    `),
+  ])
 
-  const row = result.rows[0]
+  const a = agentStats.rows[0]
+  const m = marketplaceStats.rows[0]
   return c.json({
-    totalAgents: parseInt(row.total_agents),
-    totalReputationEvents: parseInt(row.total_reputation_events),
-    totalValidations: parseInt(row.total_validations),
-    totalJobs: parseInt(row.total_jobs),
-    completedJobs: parseInt(row.completed_jobs),
-    totalVolume: formatUsdc(row.total_volume),
-    uniqueClients: parseInt(row.unique_clients),
-    uniqueProviders: parseInt(row.unique_providers),
+    totalAgents: parseInt(a.total_agents),
+    totalReputationEvents: parseInt(a.total_reputation_events),
+    totalValidations: parseInt(a.total_validations),
+    totalJobs: parseInt(m.total_jobs),
+    completedJobs: parseInt(m.completed_jobs),
+    totalVolume: formatUsdc(m.total_volume),
+    uniqueClients: parseInt(m.unique_clients),
+    uniqueProviders: parseInt(m.unique_providers),
     last7Days: {
-      newAgents: parseInt(row.agents_last_7d),
-      newJobs: parseInt(row.jobs_last_7d),
+      newAgents: parseInt(a.agents_last_7d),
+      newJobs: parseInt(m.jobs_last_7d),
     },
   })
 })
@@ -42,7 +48,7 @@ stats.get('/daily', async (c) => {
   const days = Number.isFinite(rawDays) ? Math.min(90, Math.max(1, rawDays)) : 30
 
   const [agentsDaily, jobsDaily, reputationDaily, volumeDaily] = await Promise.all([
-    query(`
+    queryAgents(`
       SELECT DATE(registered_at) as day, COUNT(*) as count
       FROM agents
       WHERE registered_at > NOW() - INTERVAL '${days} days'
@@ -56,7 +62,7 @@ stats.get('/daily', async (c) => {
       GROUP BY DATE(created_timestamp)
       ORDER BY day
     `),
-    query(`
+    queryAgents(`
       SELECT DATE(block_timestamp) as day, COUNT(*) as count
       FROM reputation_events
       WHERE block_timestamp > NOW() - INTERVAL '${days} days' AND NOT is_revoked

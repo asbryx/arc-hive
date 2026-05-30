@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { query } from '../db.js'
+import { query, queryAgents } from '../db.js'
 
 export const agents = new Hono()
 
@@ -74,14 +74,14 @@ agents.get('/', async (c) => {
   const orderBy = sortMap[sort] || sortMap.newest
 
   // Count
-  const countResult = await query(
+  const countResult = await queryAgents(
     `SELECT COUNT(*) FROM agents a LEFT JOIN agent_scores s ON a.agent_id = s.agent_id ${where}`,
     params
   )
   const total = parseInt(countResult.rows[0].count)
 
   // Data
-  const dataResult = await query(
+  const dataResult = await queryAgents(
     `SELECT
        a.agent_id, a.name, a.owner_address, a.image_uri, a.capabilities,
        a.agent_type, a.registered_at,
@@ -110,7 +110,7 @@ agents.get('/search', async (c) => {
 
   const { page, limit, offset } = paginate(c)
 
-  const searchResult = await query(
+  const searchResult = await queryAgents(
     `SELECT
        a.agent_id, a.name, a.owner_address, a.image_uri, a.capabilities,
        a.agent_type, a.registered_at,
@@ -124,7 +124,7 @@ agents.get('/search', async (c) => {
     [`%${q}%`, q.toLowerCase(), limit, offset]
   )
 
-  const countResult = await query(
+  const countResult = await queryAgents(
     `SELECT COUNT(*) FROM agents a WHERE a.name ILIKE $1 OR a.description ILIKE $1 OR $2 = ANY(a.capabilities)
        OR a.owner_address ILIKE $1 OR CAST(a.agent_id AS TEXT) = $2`,
     [`%${q}%`, q.toLowerCase()]
@@ -153,7 +153,7 @@ agents.get('/leaderboard', async (c) => {
   }
   const orderBy = orderMap[by] || orderMap.score
 
-  const result = await query(
+  const result = await queryAgents(
     `SELECT
        a.agent_id, a.name, a.owner_address, a.image_uri, a.capabilities,
        s.avg_score, s.trust_tier, s.completed_jobs, s.total_earned,
@@ -173,7 +173,7 @@ agents.get('/leaderboard', async (c) => {
 agents.get('/:id', async (c) => {
   const id = c.req.param('id')
 
-  const agentResult = await query(
+  const agentResult = await queryAgents(
     `SELECT a.*, s.*
      FROM agents a
      LEFT JOIN agent_scores s ON a.agent_id = s.agent_id
@@ -228,7 +228,7 @@ agents.get('/:id/reputation', async (c) => {
   const id = c.req.param('id')
   const { page, limit, offset } = paginate(c)
 
-  const result = await query(
+  const result = await queryAgents(
     `SELECT * FROM reputation_events
      WHERE agent_id = $1 AND NOT is_revoked
      ORDER BY block_timestamp DESC
@@ -236,7 +236,7 @@ agents.get('/:id/reputation', async (c) => {
     [id, limit, offset]
   )
 
-  const countResult = await query(
+  const countResult = await queryAgents(
     `SELECT COUNT(*) FROM reputation_events WHERE agent_id = $1 AND NOT is_revoked`,
     [id]
   )
@@ -264,7 +264,7 @@ agents.get('/:id/jobs', async (c) => {
   const { page, limit, offset } = paginate(c)
 
   // Get agent's owner address for matching
-  const agentResult = await query(`SELECT owner_address FROM agents WHERE agent_id = $1`, [id])
+  const agentResult = await queryAgents(`SELECT owner_address FROM agents WHERE agent_id = $1`, [id])
   const ownerAddress = agentResult.rows[0]?.owner_address
 
   const result = await query(
@@ -293,7 +293,7 @@ agents.get('/:id/jobs', async (c) => {
 agents.get('/:id/validations', async (c) => {
   const id = c.req.param('id')
 
-  const result = await query(
+  const result = await queryAgents(
     `SELECT * FROM validations WHERE agent_id = $1 ORDER BY request_timestamp DESC`,
     [id]
   )

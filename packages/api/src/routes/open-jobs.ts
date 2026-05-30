@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { query } from '../db.js'
+import { query, queryAgents } from '../db.js'
 import { createWalletClient, createPublicClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
@@ -428,26 +428,42 @@ openJobs.get('/:id/applications', async (c) => {
   const openJobId = jobResult.rows[0].id
 
   const result = await query(
-    `SELECT ja.*, a.name as agent_name, a.score, a.completed_jobs
+    `SELECT ja.*
      FROM job_applications ja
-     LEFT JOIN (
-       SELECT agent_id, owner_address, name,
-         (SELECT COUNT(*) FROM jobs WHERE provider_agent_id = agents.agent_id AND status = 3) as completed_jobs,
-         0 as score
-       FROM agents
-     ) a ON lower(a.owner_address) = lower(ja.applicant_address)
      WHERE ja.job_id = $1
      ORDER BY ja.created_at ASC`,
     [openJobId]
   )
+
+  // Enrich with agent names from explorer DB
+  const addresses = result.rows.map(r => r.applicant_address?.toLowerCase()).filter(Boolean)
+  let agentMap: Record<string, { name: string; score: number; completed_jobs: number }> = {}
+  if (addresses.length > 0) {
+    const agentResult = await queryAgents(
+      `SELECT owner_address, name, agent_id FROM agents WHERE lower(owner_address) = ANY($1)`,
+      [addresses]
+    )
+    // Get completed jobs count from marketplace DB
+    for (const agent of agentResult.rows) {
+      const jobCount = await query(
+        `SELECT COUNT(*) FROM jobs WHERE provider_agent_id = $1 AND status = 3`,
+        [agent.agent_id]
+      )
+      agentMap[agent.owner_address.toLowerCase()] = {
+        name: agent.name,
+        score: 0,
+        completed_jobs: parseInt(jobCount.rows[0].count),
+      }
+    }
+  }
 
   return c.json({
     data: result.rows.map(row => ({
       id: row.id,
       applicantAddress: row.applicant_address,
       agentId: row.agent_id ? parseInt(row.agent_id) : null,
-      agentName: row.agent_name || null,
-      completedJobs: parseInt(row.completed_jobs || '0'),
+      agentName: agentMap[row.applicant_address?.toLowerCase()]?.name || null,
+      completedJobs: agentMap[row.applicant_address?.toLowerCase()]?.completed_jobs || 0,
       message: row.message,
       proposedBudget: formatUsdc(row.proposed_budget),
       status: row.status,
@@ -741,22 +757,32 @@ openJobs.get('/:id/suggested-agents', async (c) => {
   )
   if (jobResult.rows.length === 0) return c.json({ error: 'Job not found' }, 404)
 
-  const result = await query(
-    `SELECT a.agent_id, a.name, a.owner_address,
-      (SELECT COUNT(*) FROM jobs WHERE provider_agent_id = a.agent_id AND status = 3) as completed_jobs
-     FROM agents a
-     WHERE a.name IS NOT NULL
-     ORDER BY completed_jobs DESC
-     LIMIT 10`
+  // Get agents from explorer DB
+  const agentsResult = await queryAgents(
+    `SELECT agent_id, name, owner_address FROM agents WHERE name IS NOT NULL`
   )
 
+  // Count completed jobs from marketplace DB for each agent
+  const agentsWithJobs = await Promise.all(
+    agentsResult.rows.map(async (agent) => {
+      const jobCount = await query(
+        `SELECT COUNT(*) FROM jobs WHERE provider_agent_id = $1 AND status = 3`,
+        [agent.agent_id]
+      )
+      return {
+        agentId: parseInt(agent.agent_id),
+        name: agent.name,
+        ownerAddress: agent.owner_address,
+        completedJobs: parseInt(jobCount.rows[0].count),
+      }
+    })
+  )
+
+  // Sort by completed jobs, take top 10
+  agentsWithJobs.sort((a, b) => b.completedJobs - a.completedJobs)
+
   return c.json({
-    data: result.rows.map(row => ({
-      agentId: parseInt(row.agent_id),
-      name: row.name,
-      ownerAddress: row.owner_address,
-      completedJobs: parseInt(row.completed_jobs || '0'),
-    }))
+    data: agentsWithJobs.slice(0, 10)
   })
 })
 

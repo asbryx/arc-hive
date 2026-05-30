@@ -1,4 +1,4 @@
-import { query } from '../db/client.js'
+import { query, queryMarketplace } from '../db/client.js'
 
 const dirtyAgents = new Set<string>()
 
@@ -43,7 +43,7 @@ async function recomputeAgentScore(agentId: bigint): Promise<void> {
   )
   const ownerAddress = agentOwnerResult.rows[0]?.owner_address
 
-  const jobResult = await query(
+  const jobResult = await queryMarketplace(
     `SELECT
        COUNT(*) as total_jobs,
        COUNT(*) FILTER (WHERE status = 3) as completed,
@@ -105,19 +105,26 @@ async function recomputeAgentScore(agentId: bigint): Promise<void> {
     ? (jobScore * 0.35) + (earningsScore * 0.35) + (repScore * 0.20) + (raterScore * 0.10)
     : (repScore * 0.15) + (raterScore * 0.05)  // max ~20 without jobs
 
-  // Get activity timestamps
-  const activityResult = await query(
-    `SELECT
-       MIN(block_timestamp) as first_active,
-       MAX(block_timestamp) as last_active
-     FROM (
-       SELECT block_timestamp FROM reputation_events WHERE agent_id = $1
-       UNION ALL
-       SELECT created_timestamp as block_timestamp FROM jobs WHERE provider_agent_id = $1 OR ($2 IS NOT NULL AND provider_address = $2)
-     ) combined`,
-    [agentId.toString(), ownerAddress || null]
-  )
-  const activity = activityResult.rows[0]
+  // Get activity timestamps from both DBs
+  const [repActivityResult, jobActivityResult] = await Promise.all([
+    query(
+      `SELECT MIN(block_timestamp) as first_active, MAX(block_timestamp) as last_active
+       FROM reputation_events WHERE agent_id = $1`,
+      [agentId.toString()]
+    ),
+    queryMarketplace(
+      `SELECT MIN(created_timestamp) as first_active, MAX(created_timestamp) as last_active
+       FROM jobs WHERE provider_agent_id = $1 OR ($2 IS NOT NULL AND provider_address = $2)`,
+      [agentId.toString(), ownerAddress || null]
+    ),
+  ])
+  const repAct = repActivityResult.rows[0]
+  const jobAct = jobActivityResult.rows[0]
+  const allDates = [repAct?.first_active, jobAct?.first_active, repAct?.last_active, jobAct?.last_active].filter(Boolean)
+  const activity = {
+    first_active: allDates.length ? new Date(Math.min(...allDates.map(d => new Date(d).getTime()))) : null,
+    last_active: allDates.length ? new Date(Math.max(...allDates.map(d => new Date(d).getTime()))) : null,
+  }
 
   // Upsert score
   await query(

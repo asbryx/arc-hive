@@ -1,4 +1,4 @@
-import { query } from './client.js'
+import { query, queryMarketplace } from './client.js'
 
 // ─── Agents ───────────────────────────────────────────────────────────────────
 
@@ -180,7 +180,7 @@ export async function updateJobField(jobId: bigint, sourceContract: string, fiel
   const allowed = ['provider_address', 'budget', 'payment_token', 'status', 'submitted_at', 'completed_at', 'rejected_at', 'deliverable_hash', 'completion_reason', 'rejection_reason', 'payment_released', 'platform_fee_paid', 'evaluator_fee_paid', 'refund_amount', 'provider_agent_id']
   if (!allowed.includes(field)) throw new Error(`Invalid field: ${field}`)
 
-  await query(
+  await queryMarketplace(
     `UPDATE jobs SET ${field} = $1, updated_at = NOW() WHERE job_id = $2 AND source_contract = $3`,
     [value, jobId.toString(), sourceContract]
   )
@@ -195,7 +195,7 @@ export async function updateJobFields(jobId: bigint, sourceContract: string, fie
   const sets = entries.map(([k], i) => `${k} = $${i + 1}`).join(', ')
   const values = entries.map(([, v]) => v)
 
-  await query(
+  await queryMarketplace(
     `UPDATE jobs SET ${sets}, updated_at = NOW() WHERE job_id = $${entries.length + 1} AND source_contract = $${entries.length + 2}`,
     [...values, jobId.toString(), sourceContract]
   )
@@ -211,7 +211,7 @@ export async function insertJobEvent(params: {
   logIndex: number
   sourceContract: string
 }) {
-  await query(
+  await queryMarketplace(
     `INSERT INTO job_events (job_id, event_name, event_data, block_number, block_timestamp, tx_hash, log_index, source_contract)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT DO NOTHING`,
@@ -259,7 +259,7 @@ export async function recordSyncError(contractAddress: string, error: string) {
 // ─── Job Helpers ──────────────────────────────────────────────────────────────
 
 export async function getJobProviderAgent(jobId: bigint, sourceContract: string): Promise<string | null> {
-  const { rows } = await query(
+  const { rows } = await queryMarketplace(
     `SELECT provider_agent_id FROM jobs WHERE job_id = $1 AND source_contract = $2`,
     [jobId.toString(), sourceContract]
   )
@@ -300,7 +300,7 @@ export async function markMetadataFailed(agentId: bigint, error: string) {
 }
 
 export async function completeMarketplaceJob(onchainJobId: string, txHash: string, completedAt: Date) {
-  await query(
+  await queryMarketplace(
     `UPDATE open_jobs SET status = 'completed', completed_tx = $2, completed_at = $3, updated_at = NOW()
      WHERE onchain_job_id = $1 AND status != 'completed'`,
     [onchainJobId, txHash, completedAt]

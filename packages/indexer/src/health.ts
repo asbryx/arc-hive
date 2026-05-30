@@ -1,5 +1,5 @@
 import { createServer } from 'node:http'
-import { query } from './db/client.js'
+import { query, queryMarketplace } from './db/client.js'
 import { getSyncProgress } from './sync/historical.js'
 import { isLiveSyncRunning } from './sync/live.js'
 
@@ -12,14 +12,16 @@ export function startHealthServer(): void {
         const syncProgress = getSyncProgress()
         const liveRunning = isLiveSyncRunning()
 
-        // Get DB stats
-        const stats = await query(`
-          SELECT
-            (SELECT COUNT(*) FROM agents) as agents,
-            (SELECT COUNT(*) FROM reputation_events) as reputation_events,
-            (SELECT COUNT(*) FROM validations) as validations,
-            (SELECT COUNT(*) FROM jobs) as jobs
-        `)
+        // Get DB stats from both databases
+        const [agentStats, jobStats] = await Promise.all([
+          query(`
+            SELECT
+              (SELECT COUNT(*) FROM agents) as agents,
+              (SELECT COUNT(*) FROM reputation_events) as reputation_events,
+              (SELECT COUNT(*) FROM validations) as validations
+          `),
+          queryMarketplace(`SELECT (SELECT COUNT(*) FROM jobs) as jobs`),
+        ])
 
         const syncStates = await query(`SELECT contract_name, last_synced_block, total_events_processed, last_sync_at, error_count FROM sync_state`)
 
@@ -28,7 +30,7 @@ export function startHealthServer(): void {
           status: 'ok',
           timestamp: new Date().toISOString(),
           liveSync: liveRunning,
-          db: stats.rows[0],
+          db: { ...agentStats.rows[0], ...jobStats.rows[0] },
           contracts: syncStates.rows,
           historicalProgress: syncProgress.map(p => ({
             name: p.name,

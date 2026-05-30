@@ -1,6 +1,6 @@
 export const CONFIG = {
   RPC_URL: process.env.ARC_RPC_URL || 'https://rpc.testnet.arc.network',
-  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://archiveagents:archiveagents@localhost:5432/archiveagents',
+  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://archiveagents:archiveagents@localhost:5432/archivehub',
   EVALUATOR_PRIVATE_KEY: process.env.EVALUATOR_PRIVATE_KEY || '',
   PROVIDER_PRIVATE_KEY: process.env.PROVIDER_PRIVATE_KEY || '',
   LLM_API_KEY: process.env.LLM_API_KEY || '',
