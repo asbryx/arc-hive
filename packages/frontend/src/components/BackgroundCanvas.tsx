@@ -3,16 +3,9 @@ import { useEffect, useRef } from 'react'
 function getThemeColors() {
   const theme = document.documentElement.getAttribute('data-theme')
   if (theme === 'light') {
-    return { base: 'rgba(0, 0, 0,', lineAlpha: 0.12, dotAlpha: 0.18, arcAlpha: 0.12, arcDotAlpha: 0.3 }
+    return { base: 'rgba(0, 0, 0,', arcAlpha: 0.1, dotAlpha: 0.25 }
   }
-  return { base: 'rgba(255, 255, 255,', lineAlpha: 0.07, dotAlpha: 0.1, arcAlpha: 0.08, arcDotAlpha: 0.2 }
-}
-
-interface Point {
-  x: number
-  y: number
-  vx: number
-  vy: number
+  return { base: 'rgba(255, 255, 255,', arcAlpha: 0.08, dotAlpha: 0.2 }
 }
 
 export default function BackgroundCanvas() {
@@ -33,21 +26,6 @@ export default function BackgroundCanvas() {
     canvas.width = width
     canvas.height = height
 
-    // Constellation points
-    const POINT_COUNT = Math.floor((width * height) / 35000)
-    const CONNECTION_DIST = 130
-    const points: Point[] = []
-
-    for (let i = 0; i < POINT_COUNT; i++) {
-      points.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.12,
-        vy: (Math.random() - 0.5) * 0.12,
-      })
-    }
-
-    // Orbital arcs
     const arcs = [
       { cx: width * 0.5, cy: height * 0.45, rx: width * 0.4, ry: height * 0.28, rotation: -0.25, speed: 0.0004, offset: 0, parallax: 0.3 },
       { cx: width * 0.5, cy: height * 0.45, rx: width * 0.3, ry: height * 0.2, rotation: 0.5, speed: -0.0003, offset: Math.PI * 0.5, parallax: 0.5 },
@@ -73,44 +51,6 @@ export default function BackgroundCanvas() {
 
       const scroll = scrollRef.current
 
-      // Update constellation
-      for (const p of points) {
-        p.x += p.vx
-        p.y += p.vy
-        if (p.x < 0) p.x = width
-        if (p.x > width) p.x = 0
-        if (p.y < 0) p.y = height
-        if (p.y > height) p.y = 0
-      }
-
-      // Draw connections
-      for (let i = 0; i < points.length; i++) {
-        for (let j = i + 1; j < points.length; j++) {
-          const dx = points[i].x - points[j].x
-          const dy = points[i].y - points[j].y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-
-          if (dist < CONNECTION_DIST) {
-            const alpha = (1 - dist / CONNECTION_DIST) * colors.lineAlpha
-            ctx!.beginPath()
-            ctx!.moveTo(points[i].x, points[i].y)
-            ctx!.lineTo(points[j].x, points[j].y)
-            ctx!.strokeStyle = `${colors.base} ${alpha})`
-            ctx!.lineWidth = 0.8
-            ctx!.stroke()
-          }
-        }
-      }
-
-      // Draw points
-      for (const p of points) {
-        ctx!.beginPath()
-        ctx!.arc(p.x, p.y, 1.5, 0, Math.PI * 2)
-        ctx!.fillStyle = `${colors.base} ${colors.dotAlpha})`
-        ctx!.fill()
-      }
-
-      // Draw orbital arcs
       for (const arc of arcs) {
         const currentRotation = arc.rotation + time * arc.speed + arc.offset
         const yOffset = -scroll * arc.parallax
@@ -130,14 +70,14 @@ export default function BackgroundCanvas() {
         const dotY = arc.ry * Math.sin(endAngle)
         ctx!.beginPath()
         ctx!.arc(dotX, dotY, 4, 0, Math.PI * 2)
-        ctx!.fillStyle = `${colors.base} ${colors.arcDotAlpha})`
+        ctx!.fillStyle = `${colors.base} ${colors.dotAlpha})`
         ctx!.fill()
 
         const startX = arc.rx * Math.cos(0)
         const startY = arc.ry * Math.sin(0)
         ctx!.beginPath()
         ctx!.arc(startX, startY, 3, 0, Math.PI * 2)
-        ctx!.fillStyle = `${colors.base} ${colors.arcDotAlpha * 0.6})`
+        ctx!.fillStyle = `${colors.base} ${colors.dotAlpha * 0.6})`
         ctx!.fill()
 
         ctx!.restore()
