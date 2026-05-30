@@ -23,23 +23,6 @@ export default function BackgroundCanvas() {
     canvas.width = width
     canvas.height = height
 
-    // Dot grid
-    const gridSpacing = 50
-    const dots: { x: number; y: number; speed: number; delay: number; parallax: number }[] = []
-
-    for (let x = gridSpacing; x < width; x += gridSpacing) {
-      for (let y = gridSpacing; y < height * 2; y += gridSpacing) {
-        dots.push({
-          x,
-          y,
-          speed: 0.002 + Math.random() * 0.004,
-          delay: Math.random() * Math.PI * 2,
-          parallax: 0.1 + Math.random() * 0.3,
-        })
-      }
-    }
-
-    // Orbital arcs
     const arcs = [
       { cx: width * 0.5, cy: height * 0.45, rx: width * 0.4, ry: height * 0.28, rotation: -0.25, speed: 0.0004, offset: 0, parallax: 0.3 },
       { cx: width * 0.5, cy: height * 0.45, rx: width * 0.3, ry: height * 0.2, rotation: 0.5, speed: -0.0003, offset: Math.PI * 0.5, parallax: 0.5 },
@@ -53,7 +36,6 @@ export default function BackgroundCanvas() {
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
 
-    // Watch for theme changes
     let colorBase = getLineColor()
     const observer = new MutationObserver(() => {
       colorBase = getLineColor()
@@ -66,22 +48,6 @@ export default function BackgroundCanvas() {
 
       const scroll = scrollRef.current
 
-      // Draw dot grid
-      for (const dot of dots) {
-        const pulseVal = Math.sin(time * dot.speed + dot.delay)
-        const alpha = pulseVal > 0.7 ? 0.12 + pulseVal * 0.15 : 0.04
-        const radius = pulseVal > 0.7 ? 2 : 1.2
-
-        const y = dot.y - scroll * dot.parallax
-        if (y < -20 || y > height + 20) continue
-
-        ctx!.beginPath()
-        ctx!.arc(dot.x, y, radius, 0, Math.PI * 2)
-        ctx!.fillStyle = `${colorBase} ${alpha})`
-        ctx!.fill()
-      }
-
-      // Draw orbital arcs
       for (const arc of arcs) {
         const currentRotation = arc.rotation + time * arc.speed + arc.offset
         const yOffset = -scroll * arc.parallax
@@ -96,7 +62,6 @@ export default function BackgroundCanvas() {
         ctx!.lineWidth = 2.5
         ctx!.stroke()
 
-        // Dot at arc endpoint
         const endAngle = Math.PI * 1.4
         const dotX = arc.rx * Math.cos(endAngle)
         const dotY = arc.ry * Math.sin(endAngle)
@@ -105,7 +70,6 @@ export default function BackgroundCanvas() {
         ctx!.fillStyle = `${colorBase} 0.2)`
         ctx!.fill()
 
-        // Dot at start
         const startX = arc.rx * Math.cos(0)
         const startY = arc.ry * Math.sin(0)
         ctx!.beginPath()
