@@ -1,8 +1,11 @@
 import { useEffect, useRef } from 'react'
 
-function getLineColor(): string {
+function getThemeColors() {
   const theme = document.documentElement.getAttribute('data-theme')
-  return theme === 'light' ? 'rgba(0, 0, 0,' : 'rgba(255, 255, 255,'
+  if (theme === 'light') {
+    return { base: 'rgba(0, 0, 0,', lineAlpha: 0.12, dotAlpha: 0.18, arcAlpha: 0.12, arcDotAlpha: 0.3 }
+  }
+  return { base: 'rgba(255, 255, 255,', lineAlpha: 0.07, dotAlpha: 0.1, arcAlpha: 0.08, arcDotAlpha: 0.2 }
 }
 
 interface Point {
@@ -30,7 +33,7 @@ export default function BackgroundCanvas() {
     canvas.width = width
     canvas.height = height
 
-    // Constellation points — sparse, slow drift
+    // Constellation points
     const POINT_COUNT = Math.floor((width * height) / 35000)
     const CONNECTION_DIST = 130
     const points: Point[] = []
@@ -58,9 +61,9 @@ export default function BackgroundCanvas() {
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
 
-    let colorBase = getLineColor()
+    let colors = getThemeColors()
     const observer = new MutationObserver(() => {
-      colorBase = getLineColor()
+      colors = getThemeColors()
     })
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
 
@@ -70,11 +73,10 @@ export default function BackgroundCanvas() {
 
       const scroll = scrollRef.current
 
-      // Update constellation points
+      // Update constellation
       for (const p of points) {
         p.x += p.vx
         p.y += p.vy
-
         if (p.x < 0) p.x = width
         if (p.x > width) p.x = 0
         if (p.y < 0) p.y = height
@@ -89,11 +91,11 @@ export default function BackgroundCanvas() {
           const dist = Math.sqrt(dx * dx + dy * dy)
 
           if (dist < CONNECTION_DIST) {
-            const alpha = (1 - dist / CONNECTION_DIST) * 0.07
+            const alpha = (1 - dist / CONNECTION_DIST) * colors.lineAlpha
             ctx!.beginPath()
             ctx!.moveTo(points[i].x, points[i].y)
             ctx!.lineTo(points[j].x, points[j].y)
-            ctx!.strokeStyle = `${colorBase} ${alpha})`
+            ctx!.strokeStyle = `${colors.base} ${alpha})`
             ctx!.lineWidth = 0.8
             ctx!.stroke()
           }
@@ -104,7 +106,7 @@ export default function BackgroundCanvas() {
       for (const p of points) {
         ctx!.beginPath()
         ctx!.arc(p.x, p.y, 1.5, 0, Math.PI * 2)
-        ctx!.fillStyle = `${colorBase} 0.1)`
+        ctx!.fillStyle = `${colors.base} ${colors.dotAlpha})`
         ctx!.fill()
       }
 
@@ -119,7 +121,7 @@ export default function BackgroundCanvas() {
 
         ctx!.beginPath()
         ctx!.ellipse(0, 0, arc.rx, arc.ry, 0, 0, Math.PI * 1.4)
-        ctx!.strokeStyle = `${colorBase} 0.08)`
+        ctx!.strokeStyle = `${colors.base} ${colors.arcAlpha})`
         ctx!.lineWidth = 2.5
         ctx!.stroke()
 
@@ -128,14 +130,14 @@ export default function BackgroundCanvas() {
         const dotY = arc.ry * Math.sin(endAngle)
         ctx!.beginPath()
         ctx!.arc(dotX, dotY, 4, 0, Math.PI * 2)
-        ctx!.fillStyle = `${colorBase} 0.2)`
+        ctx!.fillStyle = `${colors.base} ${colors.arcDotAlpha})`
         ctx!.fill()
 
         const startX = arc.rx * Math.cos(0)
         const startY = arc.ry * Math.sin(0)
         ctx!.beginPath()
         ctx!.arc(startX, startY, 3, 0, Math.PI * 2)
-        ctx!.fillStyle = `${colorBase} 0.12)`
+        ctx!.fillStyle = `${colors.base} ${colors.arcDotAlpha * 0.6})`
         ctx!.fill()
 
         ctx!.restore()
