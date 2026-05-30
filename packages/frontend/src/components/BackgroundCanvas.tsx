@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 
 export default function BackgroundCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const scrollRef = useRef(0)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -18,67 +19,89 @@ export default function BackgroundCanvas() {
     canvas.height = height
 
     // Dot grid
-    const gridSpacing = 40
-    const dots: { x: number; y: number; pulse: number; speed: number; delay: number }[] = []
+    const gridSpacing = 50
+    const dots: { x: number; y: number; speed: number; delay: number; parallax: number }[] = []
 
     for (let x = gridSpacing; x < width; x += gridSpacing) {
-      for (let y = gridSpacing; y < height; y += gridSpacing) {
+      for (let y = gridSpacing; y < height * 2; y += gridSpacing) {
         dots.push({
           x,
           y,
-          pulse: 0,
-          speed: 0.002 + Math.random() * 0.003,
+          speed: 0.002 + Math.random() * 0.004,
           delay: Math.random() * Math.PI * 2,
+          parallax: 0.1 + Math.random() * 0.3,
         })
       }
     }
 
-    // Orbital arcs
+    // Orbital arcs — bigger, bolder
     const arcs = [
-      { cx: width * 0.5, cy: height * 0.4, rx: width * 0.35, ry: height * 0.25, rotation: -0.3, speed: 0.0003, offset: 0 },
-      { cx: width * 0.5, cy: height * 0.4, rx: width * 0.28, ry: height * 0.18, rotation: 0.4, speed: -0.0002, offset: Math.PI * 0.5 },
-      { cx: width * 0.5, cy: height * 0.4, rx: width * 0.42, ry: height * 0.3, rotation: 0.1, speed: 0.00015, offset: Math.PI },
+      { cx: width * 0.5, cy: height * 0.45, rx: width * 0.4, ry: height * 0.28, rotation: -0.25, speed: 0.0004, offset: 0, parallax: 0.3 },
+      { cx: width * 0.5, cy: height * 0.45, rx: width * 0.3, ry: height * 0.2, rotation: 0.5, speed: -0.0003, offset: Math.PI * 0.5, parallax: 0.5 },
+      { cx: width * 0.5, cy: height * 0.45, rx: width * 0.5, ry: height * 0.35, rotation: 0.15, speed: 0.0002, offset: Math.PI, parallax: 0.2 },
     ]
 
     let time = 0
+
+    // Track scroll
+    const handleScroll = () => {
+      scrollRef.current = window.scrollY
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
 
     function draw() {
       ctx!.clearRect(0, 0, width, height)
       time++
 
-      // Draw dot grid
+      const scroll = scrollRef.current
+
+      // Draw dot grid with scroll parallax
       for (const dot of dots) {
         const pulseVal = Math.sin(time * dot.speed + dot.delay)
-        const alpha = pulseVal > 0.7 ? 0.08 + pulseVal * 0.12 : 0.03
-        const radius = pulseVal > 0.7 ? 1.5 : 1
+        const alpha = pulseVal > 0.7 ? 0.12 + pulseVal * 0.15 : 0.04
+        const radius = pulseVal > 0.7 ? 2 : 1.2
+
+        const y = dot.y - scroll * dot.parallax
+        // Only draw if visible
+        if (y < -20 || y > height + 20) continue
 
         ctx!.beginPath()
-        ctx!.arc(dot.x, dot.y, radius, 0, Math.PI * 2)
-        ctx!.fillStyle = `rgba(39, 63, 79, ${alpha})`
+        ctx!.arc(dot.x, y, radius, 0, Math.PI * 2)
+        ctx!.fillStyle = `rgba(255, 255, 255, ${alpha})`
         ctx!.fill()
       }
 
-      // Draw orbital arcs
+      // Draw orbital arcs with scroll parallax
       for (const arc of arcs) {
         const currentRotation = arc.rotation + time * arc.speed + arc.offset
+        const yOffset = -scroll * arc.parallax
 
         ctx!.save()
-        ctx!.translate(arc.cx, arc.cy)
+        ctx!.translate(arc.cx, arc.cy + yOffset)
         ctx!.rotate(currentRotation)
 
+        // Main arc stroke
         ctx!.beginPath()
         ctx!.ellipse(0, 0, arc.rx, arc.ry, 0, 0, Math.PI * 1.4)
-        ctx!.strokeStyle = 'rgba(39, 63, 79, 0.12)'
-        ctx!.lineWidth = 1
+        ctx!.strokeStyle = 'rgba(255, 255, 255, 0.08)'
+        ctx!.lineWidth = 2.5
         ctx!.stroke()
 
-        // Small dot at arc endpoint
+        // Glowing dot at arc endpoint
         const endAngle = Math.PI * 1.4
         const dotX = arc.rx * Math.cos(endAngle)
         const dotY = arc.ry * Math.sin(endAngle)
         ctx!.beginPath()
-        ctx!.arc(dotX, dotY, 2.5, 0, Math.PI * 2)
-        ctx!.fillStyle = 'rgba(39, 63, 79, 0.25)'
+        ctx!.arc(dotX, dotY, 4, 0, Math.PI * 2)
+        ctx!.fillStyle = 'rgba(255, 255, 255, 0.2)'
+        ctx!.fill()
+
+        // Second dot at start
+        const startX = arc.rx * Math.cos(0)
+        const startY = arc.ry * Math.sin(0)
+        ctx!.beginPath()
+        ctx!.arc(startX, startY, 3, 0, Math.PI * 2)
+        ctx!.fillStyle = 'rgba(255, 255, 255, 0.12)'
         ctx!.fill()
 
         ctx!.restore()
@@ -101,6 +124,7 @@ export default function BackgroundCanvas() {
     return () => {
       cancelAnimationFrame(animId)
       window.removeEventListener('resize', handleResize)
+      window.removeEventListener('scroll', handleScroll)
     }
   }, [])
 
