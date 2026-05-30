@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react'
 
+function getLineColor(): string {
+  const theme = document.documentElement.getAttribute('data-theme')
+  return theme === 'light' ? 'rgba(0, 0, 0,' : 'rgba(255, 255, 255,'
+}
+
 export default function BackgroundCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const scrollRef = useRef(0)
@@ -34,7 +39,7 @@ export default function BackgroundCanvas() {
       }
     }
 
-    // Orbital arcs — bigger, bolder
+    // Orbital arcs
     const arcs = [
       { cx: width * 0.5, cy: height * 0.45, rx: width * 0.4, ry: height * 0.28, rotation: -0.25, speed: 0.0004, offset: 0, parallax: 0.3 },
       { cx: width * 0.5, cy: height * 0.45, rx: width * 0.3, ry: height * 0.2, rotation: 0.5, speed: -0.0003, offset: Math.PI * 0.5, parallax: 0.5 },
@@ -43,11 +48,17 @@ export default function BackgroundCanvas() {
 
     let time = 0
 
-    // Track scroll
     const handleScroll = () => {
       scrollRef.current = window.scrollY
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
+
+    // Watch for theme changes
+    let colorBase = getLineColor()
+    const observer = new MutationObserver(() => {
+      colorBase = getLineColor()
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
 
     function draw() {
       ctx!.clearRect(0, 0, width, height)
@@ -55,23 +66,22 @@ export default function BackgroundCanvas() {
 
       const scroll = scrollRef.current
 
-      // Draw dot grid with scroll parallax
+      // Draw dot grid
       for (const dot of dots) {
         const pulseVal = Math.sin(time * dot.speed + dot.delay)
         const alpha = pulseVal > 0.7 ? 0.12 + pulseVal * 0.15 : 0.04
         const radius = pulseVal > 0.7 ? 2 : 1.2
 
         const y = dot.y - scroll * dot.parallax
-        // Only draw if visible
         if (y < -20 || y > height + 20) continue
 
         ctx!.beginPath()
         ctx!.arc(dot.x, y, radius, 0, Math.PI * 2)
-        ctx!.fillStyle = `rgba(255, 255, 255, ${alpha})`
+        ctx!.fillStyle = `${colorBase} ${alpha})`
         ctx!.fill()
       }
 
-      // Draw orbital arcs with scroll parallax
+      // Draw orbital arcs
       for (const arc of arcs) {
         const currentRotation = arc.rotation + time * arc.speed + arc.offset
         const yOffset = -scroll * arc.parallax
@@ -80,28 +90,27 @@ export default function BackgroundCanvas() {
         ctx!.translate(arc.cx, arc.cy + yOffset)
         ctx!.rotate(currentRotation)
 
-        // Main arc stroke
         ctx!.beginPath()
         ctx!.ellipse(0, 0, arc.rx, arc.ry, 0, 0, Math.PI * 1.4)
-        ctx!.strokeStyle = 'rgba(255, 255, 255, 0.08)'
+        ctx!.strokeStyle = `${colorBase} 0.08)`
         ctx!.lineWidth = 2.5
         ctx!.stroke()
 
-        // Glowing dot at arc endpoint
+        // Dot at arc endpoint
         const endAngle = Math.PI * 1.4
         const dotX = arc.rx * Math.cos(endAngle)
         const dotY = arc.ry * Math.sin(endAngle)
         ctx!.beginPath()
         ctx!.arc(dotX, dotY, 4, 0, Math.PI * 2)
-        ctx!.fillStyle = 'rgba(255, 255, 255, 0.2)'
+        ctx!.fillStyle = `${colorBase} 0.2)`
         ctx!.fill()
 
-        // Second dot at start
+        // Dot at start
         const startX = arc.rx * Math.cos(0)
         const startY = arc.ry * Math.sin(0)
         ctx!.beginPath()
         ctx!.arc(startX, startY, 3, 0, Math.PI * 2)
-        ctx!.fillStyle = 'rgba(255, 255, 255, 0.12)'
+        ctx!.fillStyle = `${colorBase} 0.12)`
         ctx!.fill()
 
         ctx!.restore()
@@ -125,6 +134,7 @@ export default function BackgroundCanvas() {
       cancelAnimationFrame(animId)
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('scroll', handleScroll)
+      observer.disconnect()
     }
   }, [])
 
