@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import Nav from './components/layout/Nav'
 import BottomBar from './components/layout/BottomBar'
+import BackgroundCanvas from './components/BackgroundCanvas'
 import Home from './pages/Home'
 import Agents from './pages/Agents'
 import AgentProfile from './pages/AgentProfile'
@@ -18,6 +19,7 @@ import NotFound from './pages/NotFound'
 export default function App() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <BackgroundCanvas />
       <Nav />
       <main style={{ flex: 1, paddingTop: 48, paddingBottom: 60 }}>
         <Routes>
