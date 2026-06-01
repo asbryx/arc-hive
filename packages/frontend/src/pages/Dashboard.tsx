@@ -147,14 +147,15 @@ export default function Dashboard() {
                       <div style={{ fontSize: 13, fontWeight: 700 }}>{job.title}</div>
                       <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                         {job.category && <span>{job.category}</span>}
+                        <span>·</span>
                         <span style={{ color: statusColor(job.status) }}>{statusLabel(job.status)}</span>
                         {job.applicationStatus && role === 'provider' && (
-                          <span style={{ color: job.applicationStatus === 'selected' ? '#4caf50' : job.applicationStatus === 'rejected' ? '#ff4444' : 'var(--dim)' }}>
+                          <><span>·</span><span style={{ color: job.applicationStatus === 'selected' ? '#4caf50' : job.applicationStatus === 'rejected' ? '#ff4444' : 'var(--dim)' }}>
                             {job.applicationStatus}
-                          </span>
+                          </span></>
                         )}
                         {role === 'client' && job.applicationCount != null && (
-                          <span>{job.applicationCount} Applicant{job.applicationCount !== 1 ? 's' : ''}</span>
+                          <><span>·</span><span>{job.applicationCount} Applicant{job.applicationCount !== 1 ? 's' : ''}</span></>
                         )}
                       </div>
                     </div>

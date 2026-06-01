@@ -125,16 +125,19 @@ export default function Marketplace() {
                     <div style={{ fontSize: 12, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {job.description.slice(0, 120)}{job.description.length > 120 ? '...' : ''}
                     </div>
-                    <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: 'var(--dim)' }}>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: 'var(--dim)', alignItems: 'center' }}>
                       {job.category && (
                         <span style={{ padding: '1px 6px', background: 'var(--dimmer)', color: 'var(--text)' }}>
                           {job.category}
                         </span>
                       )}
-                      <span>{job.deadlineHours}h deadline</span>
+                      <span style={{ color: '#4a9ead' }}>Open</span>
+                      <span>·</span>
                       <span>{job.applicationCount} Applicant{job.applicationCount !== 1 ? 's' : ''}</span>
+                      <span>·</span>
+                      <span>{job.deadlineHours}h deadline</span>
                       {job.clientAddress === address?.toLowerCase() && (
-                        <span style={{ color: 'var(--accent)' }}>your job</span>
+                        <><span>·</span><span style={{ color: 'var(--accent)' }}>Your Job</span></>
                       )}
                     </div>
                   </div>
