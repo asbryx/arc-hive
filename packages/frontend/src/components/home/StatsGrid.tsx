@@ -37,7 +37,7 @@ export default function StatsGrid({ stats, daily }: Props) {
     },
     {
       label: 'Completed',
-      value: stats.totalCompleted || 0,
+      value: stats.completedJobs || 0,
       delta: 0,
       spark: daily?.jobs?.map(d => d.count),
     },
