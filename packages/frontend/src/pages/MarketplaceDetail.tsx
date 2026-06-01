@@ -1000,7 +1000,7 @@ function StatusTimeline({ job, selectedApp }: { job: OpenJob; selectedApp?: Appl
     { label: 'Funded', done: fundedStatuses.includes(job.status), time: job.fundedAt || undefined, detail: job.finalBudget ? `${job.finalBudget} USDC` : undefined },
     { label: 'Delivered', done: evalStatuses.includes(job.status) || job.status === 'delivered' },
     { label: 'Evaluating', done: evalStatuses.includes(job.status), detail: job.status === 'revision_requested' ? 'Revision requested' : job.status === 'evaluating' ? 'In progress...' : undefined },
-    { label: job.status === 'failed' ? 'Failed' : job.status === 'refunded' ? 'Refunded' : job.status === 'expired' ? 'Expired' : 'Completed', done: ['completed', 'failed', 'refunded', 'expired'].includes(job.status), time: job.completedAt || undefined },
+    { label: job.status === 'failed' ? 'Failed' : job.status === 'refunded' ? 'Refunded' : job.status === 'expired' ? 'Expired' : 'Completed', done: ['completed', 'failed', 'refunded', 'expired'].includes(job.status), time: job.completedAt || job.refundedAt || undefined, detail: job.status === 'refunded' && job.refundTx ? `tx: ${job.refundTx.slice(0, 10)}...` : job.status === 'completed' && job.completedTx ? `tx: ${job.completedTx.slice(0, 10)}...` : undefined, txUrl: job.status === 'refunded' && job.refundTx ? `https://testnet.arcscan.app/tx/${job.refundTx}` : job.status === 'completed' && job.completedTx ? `https://testnet.arcscan.app/tx/${job.completedTx}` : undefined },
   ]
 
   return (
@@ -1012,7 +1012,13 @@ function StatusTimeline({ job, selectedApp }: { job: OpenJob; selectedApp?: Appl
           </div>
           <div style={{ flex: 1 }}>
             <span style={{ fontSize: 12, color: step.done ? 'var(--text)' : 'var(--dim)' }}>{step.label}</span>
-            {step.detail && <span style={{ fontSize: 11, color: 'var(--dim)', marginLeft: 8 }}>— {step.detail}</span>}
+            {step.detail && (
+              <span style={{ fontSize: 11, color: 'var(--dim)', marginLeft: 8 }}>
+                — {step.txUrl ? (
+                  <a href={step.txUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>{step.detail} ↗</a>
+                ) : step.detail}
+              </span>
+            )}
             {step.time && <span style={{ fontSize: 10, color: 'var(--dim)', marginLeft: 8 }}>({getTimeAgo(step.time)})</span>}
           </div>
         </div>
