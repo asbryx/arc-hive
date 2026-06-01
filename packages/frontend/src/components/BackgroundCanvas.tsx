@@ -3,9 +3,9 @@ import { useEffect, useRef } from 'react'
 function getThemeColors() {
   const theme = document.documentElement.getAttribute('data-theme')
   if (theme === 'light') {
-    return { base: 'rgba(0, 0, 0,', arcAlpha: 0.1, dotAlpha: 0.25 }
+    return { base: 'rgba(0, 0, 0,', arcAlpha: 0.07, dotAlpha: 0.18, glowAlpha: 0.03 }
   }
-  return { base: 'rgba(255, 255, 255,', arcAlpha: 0.08, dotAlpha: 0.2 }
+  return { base: 'rgba(255, 255, 255,', arcAlpha: 0.06, dotAlpha: 0.15, glowAlpha: 0.025 }
 }
 
 export default function BackgroundCanvas() {
@@ -27,10 +27,18 @@ export default function BackgroundCanvas() {
     canvas.height = height
 
     const arcs = [
-      { cx: width * 0.5, cy: height * 0.45, rx: width * 0.4, ry: height * 0.28, rotation: -0.25, speed: 0.0004, offset: 0, parallax: 0.3 },
-      { cx: width * 0.5, cy: height * 0.45, rx: width * 0.3, ry: height * 0.2, rotation: 0.5, speed: -0.0003, offset: Math.PI * 0.5, parallax: 0.5 },
-      { cx: width * 0.5, cy: height * 0.45, rx: width * 0.5, ry: height * 0.35, rotation: 0.15, speed: 0.0002, offset: Math.PI, parallax: 0.2 },
+      // Large outer arcs
+      { cx: 0.5, cy: 0.45, rx: 0.48, ry: 0.34, rotation: -0.25, speed: 0.0003, offset: 0, parallax: 0.15, width: 1.8 },
+      { cx: 0.5, cy: 0.45, rx: 0.42, ry: 0.3, rotation: 0.15, speed: -0.0002, offset: Math.PI * 0.7, parallax: 0.2, width: 1.5 },
+      // Mid arcs
+      { cx: 0.5, cy: 0.45, rx: 0.32, ry: 0.22, rotation: 0.5, speed: -0.0004, offset: Math.PI * 0.3, parallax: 0.35, width: 2 },
+      { cx: 0.5, cy: 0.45, rx: 0.28, ry: 0.18, rotation: -0.6, speed: 0.00035, offset: Math.PI * 1.2, parallax: 0.4, width: 1.2 },
+      // Inner tight arcs
+      { cx: 0.5, cy: 0.45, rx: 0.18, ry: 0.12, rotation: 0.8, speed: 0.0005, offset: Math.PI * 0.6, parallax: 0.5, width: 2.2 },
+      { cx: 0.5, cy: 0.45, rx: 0.14, ry: 0.09, rotation: -1.0, speed: -0.0006, offset: Math.PI * 1.8, parallax: 0.55, width: 1 },
     ]
+
+    const arcSweep = [1.35, 1.4, 1.3, 1.45, 1.25, 1.5] // how much of the ellipse to draw (in π radians)
 
     let time = 0
 
@@ -51,33 +59,49 @@ export default function BackgroundCanvas() {
 
       const scroll = scrollRef.current
 
-      for (const arc of arcs) {
+      for (let i = 0; i < arcs.length; i++) {
+        const arc = arcs[i]
+        const sweep = arcSweep[i]
+        const cx = arc.cx * width
+        const cy = arc.cy * height
+        const rx = arc.rx * width
+        const ry = arc.ry * height
         const currentRotation = arc.rotation + time * arc.speed + arc.offset
         const yOffset = -scroll * arc.parallax
 
         ctx!.save()
-        ctx!.translate(arc.cx, arc.cy + yOffset)
+        ctx!.translate(cx, cy + yOffset)
         ctx!.rotate(currentRotation)
 
+        // Glow trail — faint wider stroke behind the arc
         ctx!.beginPath()
-        ctx!.ellipse(0, 0, arc.rx, arc.ry, 0, 0, Math.PI * 1.4)
-        ctx!.strokeStyle = `${colors.base} ${colors.arcAlpha})`
-        ctx!.lineWidth = 2.5
+        ctx!.ellipse(0, 0, rx, ry, 0, 0, Math.PI * sweep)
+        ctx!.strokeStyle = `${colors.base} ${colors.glowAlpha})`
+        ctx!.lineWidth = arc.width + 8
+        ctx!.lineCap = 'round'
         ctx!.stroke()
 
-        const endAngle = Math.PI * 1.4
-        const dotX = arc.rx * Math.cos(endAngle)
-        const dotY = arc.ry * Math.sin(endAngle)
+        // Main arc
         ctx!.beginPath()
-        ctx!.arc(dotX, dotY, 4, 0, Math.PI * 2)
+        ctx!.ellipse(0, 0, rx, ry, 0, 0, Math.PI * sweep)
+        ctx!.strokeStyle = `${colors.base} ${colors.arcAlpha})`
+        ctx!.lineWidth = arc.width
+        ctx!.lineCap = 'round'
+        ctx!.stroke()
+
+        // Dot at end of arc
+        const endAngle = Math.PI * sweep
+        const dotX = rx * Math.cos(endAngle)
+        const dotY = ry * Math.sin(endAngle)
+        ctx!.beginPath()
+        ctx!.arc(dotX, dotY, 3, 0, Math.PI * 2)
         ctx!.fillStyle = `${colors.base} ${colors.dotAlpha})`
         ctx!.fill()
 
-        const startX = arc.rx * Math.cos(0)
-        const startY = arc.ry * Math.sin(0)
+        // Faint dot at start
         ctx!.beginPath()
-        ctx!.arc(startX, startY, 3, 0, Math.PI * 2)
-        ctx!.fillStyle = `${colors.base} ${colors.dotAlpha * 0.6})`
+        ctx!.arc(rx, 0, 2, 0, Math.PI * 2)
+        ctx!.fillStyle = `${colors.base} ${colors.dotAlpha * 0.5})`
         ctx!.fill()
 
         ctx!.restore()
