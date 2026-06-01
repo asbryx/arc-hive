@@ -75,7 +75,7 @@ export default function Typewriter() {
   }, [])
 
   return (
-    <div style={{ marginTop: 32, fontSize: 13, color: 'var(--dim)', whiteSpace: 'pre-wrap', minHeight: 80 }}>
+    <div style={{ marginTop: 32, fontSize: 13, color: 'var(--dim)', whiteSpace: 'pre-wrap', height: 90, overflow: 'hidden' }}>
       <span style={{ color: 'var(--text)' }}>$ </span>
       <span>{display}</span>
       <span
