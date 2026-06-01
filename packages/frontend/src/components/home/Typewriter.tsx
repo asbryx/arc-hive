@@ -10,59 +10,43 @@ const COMMANDS = [
 export default function Typewriter() {
   const [display, setDisplay] = useState('')
   const [cursorVisible, setCursorVisible] = useState(true)
-  const phaseRef = useRef<'type' | 'pause' | 'delete'>('type')
   const cmdIdx = useRef(0)
   const charIdx = useRef(0)
-  const allText = useRef('')
+  const phase = useRef<'type' | 'pause' | 'delete'>('type')
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
-
-    // cursor blink
-    const blinkInterval = setInterval(() => {
-      setCursorVisible(v => !v)
-    }, 530)
+    const blinkInterval = setInterval(() => setCursorVisible(v => !v), 530)
 
     function tick() {
-      if (phaseRef.current === 'type') {
-        const cmd = COMMANDS[cmdIdx.current]
+      const cmd = COMMANDS[cmdIdx.current]
+
+      if (phase.current === 'type') {
         charIdx.current++
-        allText.current = allText.current + cmd[charIdx.current - 1]
-        setDisplay(allText.current)
+        setDisplay(cmd.substring(0, charIdx.current))
 
         if (charIdx.current >= cmd.length) {
-          cmdIdx.current++
-          charIdx.current = 0
-          if (cmdIdx.current < COMMANDS.length) {
-            // pause between commands, then newline
-            timer = setTimeout(() => {
-              allText.current += '\n'
-              setDisplay(allText.current)
-              timer = setTimeout(tick, 300)
-            }, 600)
-            return
-          }
-          // all commands typed — pause then delete
-          phaseRef.current = 'pause'
-          timer = setTimeout(tick, 2000)
+          phase.current = 'pause'
+          timer = setTimeout(tick, 1800)
           return
         }
         timer = setTimeout(tick, 35 + Math.random() * 25)
-      } else if (phaseRef.current === 'pause') {
-        phaseRef.current = 'delete'
+
+      } else if (phase.current === 'pause') {
+        phase.current = 'delete'
         timer = setTimeout(tick, 100)
+
       } else {
-        // delete chars
-        if (allText.current.length > 0) {
-          allText.current = allText.current.slice(0, -1)
-          setDisplay(allText.current)
-          timer = setTimeout(tick, 15)
+        // delete
+        if (charIdx.current > 0) {
+          charIdx.current--
+          setDisplay(cmd.substring(0, charIdx.current))
+          timer = setTimeout(tick, 20)
         } else {
-          // reset and loop
-          cmdIdx.current = 0
-          charIdx.current = 0
-          phaseRef.current = 'type'
-          timer = setTimeout(tick, 500)
+          // next command
+          cmdIdx.current = (cmdIdx.current + 1) % COMMANDS.length
+          phase.current = 'type'
+          timer = setTimeout(tick, 400)
         }
       }
     }
@@ -75,7 +59,7 @@ export default function Typewriter() {
   }, [])
 
   return (
-    <div style={{ marginTop: 32, fontSize: 13, color: 'var(--dim)', whiteSpace: 'pre-wrap', height: 90, overflow: 'hidden' }}>
+    <div style={{ marginTop: 32, fontSize: 13, color: 'var(--dim)', whiteSpace: 'pre-wrap', height: 24, overflow: 'hidden' }}>
       <span style={{ color: 'var(--text)' }}>$ </span>
       <span>{display}</span>
       <span
