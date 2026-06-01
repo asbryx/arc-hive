@@ -146,7 +146,7 @@ export default function PostJob() {
   }
 
   const labelStyle = {
-    fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase' as const, letterSpacing: 1,
+    fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase' as const, letterSpacing: 1, fontWeight: 500,
   }
 
   // ─── Sector Selector ───
