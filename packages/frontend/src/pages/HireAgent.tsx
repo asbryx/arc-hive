@@ -387,7 +387,7 @@ export default function HireAgent() {
                 onClick={() => { setError(null); setStep('preview') }}
                 style={{ display: 'block', marginTop: 8, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11 }}
               >
-                ← Back to preview
+                ← Back to Preview
               </button>
             </div>
           )}

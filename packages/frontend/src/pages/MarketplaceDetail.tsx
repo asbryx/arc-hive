@@ -539,7 +539,7 @@ export default function MarketplaceDetail() {
   return (
     <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 700, margin: '0 auto' }}>
       <Link to="/marketplace" style={{ fontSize: 11, color: 'var(--dim)', textDecoration: 'none' }}>
-        ← back to marketplace
+        ← Back to Marketplace
       </Link>
 
       
