@@ -42,6 +42,30 @@ stats.get('/', async (c) => {
   })
 })
 
+// GET /api/stats/marketplace — ArcHive marketplace stats
+stats.get('/marketplace', async (c) => {
+  const result = await query(`
+    SELECT
+      (SELECT COUNT(*) FROM open_jobs) as total_marketplace_jobs,
+      (SELECT COUNT(*) FROM open_jobs WHERE status IN ('open', 'assigned', 'funded', 'in_progress', 'delivered', 'evaluating', 'revision_requested')) as active_marketplace_jobs,
+      (SELECT COUNT(*) FROM open_jobs WHERE status = 'completed') as completed_marketplace_jobs,
+      (SELECT COALESCE(SUM(CAST(final_budget AS BIGINT)), 0) FROM open_jobs WHERE status = 'completed' AND final_budget IS NOT NULL) as marketplace_volume,
+      (SELECT COUNT(*) FROM job_applications) as total_applications,
+      (SELECT COUNT(DISTINCT client_address) FROM open_jobs) as marketplace_clients,
+      (SELECT COUNT(DISTINCT selected_applicant) FROM open_jobs WHERE selected_applicant IS NOT NULL) as marketplace_providers
+  `)
+  const r = result.rows[0]
+  return c.json({
+    totalJobs: parseInt(r.total_marketplace_jobs),
+    activeJobs: parseInt(r.active_marketplace_jobs),
+    completedJobs: parseInt(r.completed_marketplace_jobs),
+    volume: formatUsdc(r.marketplace_volume),
+    totalApplications: parseInt(r.total_applications),
+    clients: parseInt(r.marketplace_clients),
+    providers: parseInt(r.marketplace_providers),
+  })
+})
+
 // GET /api/stats/daily — daily activity for charts
 stats.get('/daily', async (c) => {
   const rawDays = parseInt(c.req.query('days') || '30')

@@ -163,4 +163,16 @@ export const getJobs = (params?: Record<string, string>) => {
 export const getOpenJobs = (page = 1) =>
   fetchApi<PaginatedResponse<Job>>(`/jobs/open?page=${page}`)
 export const getJob = (id: string) => fetchApi<JobDetail>(`/jobs/${id}`)
+export interface MarketplaceStats {
+  totalJobs: number
+  activeJobs: number
+  completedJobs: number
+  volume: string | null
+  totalApplications: number
+  clients: number
+  providers: number
+}
+
+export const getMarketplaceStats = () => fetchApi<MarketplaceStats>('/stats/marketplace')
+
 export const fetchHealth = () => fetchApi<{ syncing: boolean; liveSync: boolean; block: string | null }>('/health')

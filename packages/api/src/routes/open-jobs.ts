@@ -134,7 +134,11 @@ openJobs.get('/my-active-all', async (c) => {
       (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count,
       ja_mine.status as application_status,
       ja_mine.proposed_budget as app_proposed_budget,
-      ja_mine.created_at as applied_at
+      ja_mine.created_at as applied_at,
+      CASE
+        WHEN lower(oj.client_address) = lower($1) THEN 'client'
+        ELSE 'provider'
+      END as role
      FROM open_jobs oj
      LEFT JOIN job_applications ja_mine ON ja_mine.job_id = oj.id AND lower(ja_mine.applicant_address) = lower($1)
      WHERE (
@@ -152,6 +156,7 @@ openJobs.get('/my-active-all', async (c) => {
       applicationStatus: row.application_status,
       appProposedBudget: row.app_proposed_budget ? formatUsdc(row.app_proposed_budget) : null,
       appliedAt: row.applied_at,
+      role: row.role,
     }))
   })
 })
@@ -164,15 +169,19 @@ openJobs.get('/my-history', async (c) => {
 
   const result = await query(
     `SELECT oj.*,
-      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count,
+      CASE
+        WHEN lower(oj.client_address) = lower($1) THEN 'client'
+        ELSE 'provider'
+      END as role
      FROM open_jobs oj
      WHERE (lower(oj.client_address) = lower($1) OR lower(oj.selected_applicant) = lower($1))
-     AND oj.status IN ('completed', 'failed', 'rejected', 'refunded', 'cancelled')
+     AND oj.status IN ('completed', 'failed', 'rejected', 'refunded', 'cancelled', 'expired')
      ORDER BY oj.updated_at DESC`,
     [address]
   )
 
-  return c.json({ data: result.rows.map(formatOpenJob) })
+  return c.json({ data: result.rows.map(row => ({ ...formatOpenJob(row), role: row.role })) })
 })
 
 // GET /api/open-jobs/my-completed?address=0x...

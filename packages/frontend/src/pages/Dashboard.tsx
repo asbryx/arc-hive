@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAccount } from 'wagmi'
-import { useStats } from '@/api/hooks'
+import { useMarketplaceStats } from '@/api/hooks'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
-type Tab = 'posted' | 'applications' | 'history'
+type Tab = 'posted' | 'provider'
 
 interface JobRow {
   id: number
@@ -24,15 +24,24 @@ interface JobRow {
   appProposedBudget?: string | null
   appliedAt?: string
   applicationCount?: number
+  role?: string
 }
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount()
-  const { data: stats } = useStats()
+  const navigate = useNavigate()
+  const { data: mStats } = useMarketplaceStats()
   const [tab, setTab] = useState<Tab>('posted')
   const [activeJobs, setActiveJobs] = useState<JobRow[]>([])
   const [historyJobs, setHistoryJobs] = useState<JobRow[]>([])
   const [loading, setLoading] = useState(false)
+
+  // Redirect to home if not connected
+  useEffect(() => {
+    if (!isConnected) {
+      navigate('/', { replace: true })
+    }
+  }, [isConnected, navigate])
 
   useEffect(() => {
     if (address) fetchAll()
@@ -58,19 +67,16 @@ export default function Dashboard() {
     setLoading(false)
   }
 
-  if (!isConnected) {
-    return (
-      <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 800, margin: '0 auto', textAlign: 'center', minHeight: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontSize: 13, color: 'var(--dim)' }}>Connect wallet to view your dashboard</div>
-      </div>
-    )
-  }
+  if (!isConnected) return null
 
-  const myAddr = address?.toLowerCase()
-  const posted = activeJobs.filter(j => j.clientAddress?.toLowerCase() === myAddr)
-  const applications = activeJobs.filter(j => j.clientAddress?.toLowerCase() !== myAddr)
+  // Split by role from API
+  const posted = activeJobs.filter(j => j.role === 'client')
+  const providerActive = activeJobs.filter(j => j.role === 'provider')
+  const providerHistory = historyJobs.filter(j => j.role === 'provider')
+  const allProvider = [...providerActive, ...providerHistory]
+  const hasProviderActivity = allProvider.length > 0
 
-  const currentList = tab === 'posted' ? posted : tab === 'applications' ? applications : historyJobs
+  const currentList = tab === 'posted' ? posted : allProvider
 
   return (
     <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 800, margin: '0 auto', minHeight: 'calc(100vh - 160px)' }}>
@@ -79,37 +85,44 @@ export default function Dashboard() {
         // dashboard
       </div>
 
-      {/* Quick stats */}
-      {stats && (
+      {/* Marketplace stats */}
+      {mStats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
-          <StatCard label="Network Agents" value={stats.totalAgents.toLocaleString()} />
-          <StatCard label="Network Jobs" value={stats.totalJobs.toLocaleString()} />
-          <StatCard label="Completed" value={stats.completedJobs.toLocaleString()} />
-          <StatCard label="Volume" value={`$${Math.round(parseInt(stats.totalVolume || '0') / 1_000_000).toLocaleString()}`} />
+          <StatCard label="Marketplace Jobs" value={mStats.totalJobs.toLocaleString()} />
+          <StatCard label="Active Jobs" value={mStats.activeJobs.toLocaleString()} />
+          <StatCard label="Completed" value={mStats.completedJobs.toLocaleString()} />
+          <StatCard label="Volume" value={mStats.volume ? `$${parseFloat(mStats.volume).toLocaleString()}` : '$0'} />
         </div>
       )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--dimmer)', marginBottom: 24 }}>
-        {([
-          { key: 'posted' as Tab, label: 'Posted', count: posted.length },
-          { key: 'applications' as Tab, label: 'Applications', count: applications.length },
-          { key: 'history' as Tab, label: 'History', count: historyJobs.length },
-        ]).map(t => (
+        <button
+          onClick={() => setTab('posted')}
+          style={{
+            padding: '10px 20px', fontSize: 12, fontWeight: tab === 'posted' ? 700 : 400,
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: tab === 'posted' ? 'var(--text)' : 'var(--dim)',
+            borderBottom: tab === 'posted' ? '2px solid var(--accent)' : '2px solid transparent',
+            marginBottom: -1,
+          }}
+        >
+          Posted ({posted.length})
+        </button>
+        {hasProviderActivity && (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => setTab('provider')}
             style={{
-              padding: '10px 20px', fontSize: 12, fontWeight: tab === t.key ? 700 : 400,
+              padding: '10px 20px', fontSize: 12, fontWeight: tab === 'provider' ? 700 : 400,
               background: 'transparent', border: 'none', cursor: 'pointer',
-              color: tab === t.key ? 'var(--text)' : 'var(--dim)',
-              borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
+              color: tab === 'provider' ? 'var(--text)' : 'var(--dim)',
+              borderBottom: tab === 'provider' ? '2px solid var(--accent)' : '2px solid transparent',
               marginBottom: -1,
             }}
           >
-            {t.label} ({t.count})
+            Applications ({allProvider.length})
           </button>
-        ))}
+        )}
       </div>
 
       {/* Job list */}
@@ -117,7 +130,7 @@ export default function Dashboard() {
         <div style={{ fontSize: 12, color: 'var(--dim)' }}>Loading...</div>
       ) : currentList.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--dim)', fontSize: 12 }}>
-          {tab === 'posted' ? 'No posted jobs yet.' : tab === 'applications' ? 'No applications yet.' : 'No history yet.'}
+          {tab === 'posted' ? 'No posted jobs yet.' : 'No applications yet.'}
           {tab === 'posted' && (
             <div style={{ marginTop: 12 }}>
               <Link to="/post-job" style={{ color: 'var(--accent)', fontSize: 12 }}>+ Post a job</Link>
@@ -127,7 +140,7 @@ export default function Dashboard() {
       ) : (
         <div>
           {currentList.map(job => {
-            const role = job.clientAddress?.toLowerCase() === myAddr ? 'client' : 'agent'
+            const role = job.role || (job.clientAddress?.toLowerCase() === address?.toLowerCase() ? 'client' : 'provider')
             return (
               <Link
                 key={`${job.id}-${job.applicationStatus || ''}`}
@@ -144,9 +157,9 @@ export default function Dashboard() {
                       <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                         {job.category && <span>{job.category}</span>}
                         <span style={{ color: statusColor(job.status) }}>{statusLabel(job.status)}</span>
-                        {job.applicationStatus && role === 'agent' && (
+                        {job.applicationStatus && role === 'provider' && (
                           <span style={{ color: job.applicationStatus === 'selected' ? '#4caf50' : job.applicationStatus === 'rejected' ? '#ff4444' : 'var(--dim)' }}>
-                            app: {job.applicationStatus}
+                            {job.applicationStatus}
                           </span>
                         )}
                         {role === 'client' && job.applicationCount != null && (

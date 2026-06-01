@@ -65,10 +65,10 @@ export default function Agents() {
             fontSize: 11,
           }}
         >
-          <option value="score_desc">score ↓</option>
-          <option value="newest">newest</option>
-          <option value="earnings_desc">earnings ↓</option>
-          <option value="jobs_desc">jobs ↓</option>
+          <option value="score_desc">Score ↓</option>
+          <option value="newest">Newest</option>
+          <option value="earnings_desc">Earnings ↓</option>
+          <option value="jobs_desc">Jobs ↓</option>
         </select>
       </div>
 

@@ -37,7 +37,7 @@ export default function Jobs() {
             borderColor: status === '' ? 'var(--dim)' : 'var(--dimmer)',
           }}
         >
-          all
+          All
         </button>
         {JOB_STATUSES.map((s) => (
           <button
@@ -51,7 +51,7 @@ export default function Jobs() {
               borderColor: status === s.toLowerCase() ? 'var(--dim)' : 'var(--dimmer)',
             }}
           >
-            {s.toLowerCase()}
+            {s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()}
           </button>
         ))}
         <select
@@ -66,10 +66,10 @@ export default function Jobs() {
             fontSize: 11,
           }}
         >
-          <option value="newest">newest</option>
-          <option value="oldest">oldest</option>
-          <option value="budget_desc">budget ↓</option>
-          <option value="budget_asc">budget ↑</option>
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="budget_desc">Budget ↓</option>
+          <option value="budget_asc">Budget ↑</option>
         </select>
       </div>
 

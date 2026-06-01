@@ -9,6 +9,14 @@ export function useStats() {
   })
 }
 
+export function useMarketplaceStats() {
+  return useQuery({
+    queryKey: ['stats', 'marketplace'],
+    queryFn: api.getMarketplaceStats,
+    refetchInterval: 30_000,
+  })
+}
+
 export function useDailyStats(days = 30) {
   return useQuery({
     queryKey: ['stats', 'daily', days],

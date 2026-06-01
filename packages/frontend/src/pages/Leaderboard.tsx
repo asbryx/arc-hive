@@ -21,9 +21,9 @@ export default function Leaderboard() {
       {/* Sort tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 32 }}>
         {[
-          { key: 'score', label: 'score' },
-          { key: 'earnings', label: 'earnings' },
-          { key: 'jobs', label: 'jobs' },
+          { key: 'score', label: 'Score' },
+          { key: 'earnings', label: 'Earnings' },
+          { key: 'jobs', label: 'Jobs' },
         ].map((tab) => (
           <button
             key={tab.key}
