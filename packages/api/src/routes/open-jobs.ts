@@ -695,32 +695,46 @@ openJobs.post('/:id/deliver', async (c) => {
 // GET /api/open-jobs/:id/deliverables — list deliverables for a job
 openJobs.get('/:id/deliverables', async (c) => {
   const id = c.req.param('id')
+  const requester = c.req.query('requester')?.toLowerCase() || null
 
   const jobResult = await query(
-    `SELECT id FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
+    `SELECT id, client_address, selected_applicant, status FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
     [id]
   )
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found' }, 404)
   }
 
+  const job = jobResult.rows[0]
+  const isClient = requester && job.client_address && requester === job.client_address.toLowerCase()
+  const isProvider = requester && job.selected_applicant && requester === job.selected_applicant.toLowerCase()
+
   const result = await query(
     `SELECT * FROM marketplace_deliverables WHERE open_job_id = $1 ORDER BY version DESC`,
-    [jobResult.rows[0].id]
+    [job.id]
   )
 
   return c.json({
-    data: result.rows.map(row => ({
-      id: row.id,
-      providerAddress: row.provider_address,
-      content: row.content,
-      link: row.link,
-      notes: row.notes,
-      version: row.version,
-      status: row.status,
-      clientFeedback: row.client_feedback,
-      createdAt: row.created_at,
-    }))
+    data: result.rows.map(row => {
+      const isApproved = row.status === 'approved'
+      const isRejected = row.status === 'revision_requested' || row.status === 'rejected'
+      // Hide content from client unless approved or client is also the provider
+      const showContent = isApproved || isProvider || (!isClient)
+      // Hide content for rejected deliverables too — only show after approval
+      const hideFromClient = isClient && !isApproved && !isRejected
+
+      return {
+        id: row.id,
+        providerAddress: row.provider_address,
+        content: (isClient && !isApproved) ? null : row.content,
+        link: (isClient && !isApproved) ? null : row.link,
+        notes: (isClient && !isApproved) ? null : row.notes,
+        version: row.version,
+        status: row.status,
+        clientFeedback: row.client_feedback,
+        createdAt: row.created_at,
+      }
+    })
   })
 })
 

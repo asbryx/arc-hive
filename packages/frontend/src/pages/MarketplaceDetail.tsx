@@ -128,7 +128,7 @@ export default function MarketplaceDetail() {
       const [jobRes, appsRes, delRes, commRes, evalRes] = await Promise.all([
         fetch(`${API_BASE}/open-jobs/${id}`),
         fetch(`${API_BASE}/open-jobs/${id}/applications`),
-        fetch(`${API_BASE}/open-jobs/${id}/deliverables`),
+        fetch(`${API_BASE}/open-jobs/${id}/deliverables?requester=${address}`),
         fetch(`${API_BASE}/open-jobs/${id}/comments`),
         fetch(`${API_BASE}/open-jobs/${id}/evaluations`),
       ])
@@ -754,11 +754,20 @@ export default function MarketplaceDetail() {
                       {d.status === 'approved' ? '✓ Approved' : d.status === 'revision_requested' ? '⚠️ Revision Requested' : d.status === 'failed' ? '✗ Failed' : '● Submitted'}
                     </span>
                   </div>
-                  <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', marginBottom: 8 }}>{d.content}</div>
-                  {d.link && (
-                    <a href={d.link} target="_blank" style={{ fontSize: 12, color: 'var(--accent)' }}>{d.link} ↗</a>
+                  {d.content ? (
+                    <>
+                      <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', marginBottom: 8 }}>{d.content}</div>
+                      {d.link && (
+                        <a href={d.link} target="_blank" style={{ fontSize: 12, color: 'var(--accent)' }}>{d.link} ↗</a>
+                      )}
+                      {d.notes && <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8 }}>{d.notes}</div>}
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 12, color: 'var(--dim)', padding: '12px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 12, height: 12, border: '2px solid var(--dimmer)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                      Deliverable submitted — awaiting evaluation
+                    </div>
                   )}
-                  {d.notes && <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8 }}>{d.notes}</div>}
                   {d.clientFeedback && (
                     <div style={{ marginTop: 12, padding: '8px 12px', border: '1px solid #ff9800', fontSize: 12 }}>
                       <span style={{ color: '#ff9800', fontWeight: 700 }}>Feedback:</span> {d.clientFeedback}
@@ -939,13 +948,13 @@ export default function MarketplaceDetail() {
                     {app.agentName || `${app.applicantAddress.slice(0, 8)}...${app.applicantAddress.slice(-4)}`}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>
-                    {app.completedJobs} jobs completed{app.agentId && <> · Agent #{app.agentId}</>}
+                    {app.completedJobs} Jobs completed{app.agentId && <> · Agent #{app.agentId}</>}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   {app.proposedBudget && <div style={{ fontSize: 13, fontWeight: 700 }}>{app.proposedBudget} USDC</div>}
                   <div style={{ fontSize: 10, color: app.status === 'selected' ? '#4caf50' : 'var(--dim)' }}>
-                    {app.status === 'selected' ? '✓ selected' : app.status}
+                    {app.status === 'selected' ? '✓ Selected' : app.status}
                   </div>
                 </div>
               </div>
@@ -1039,35 +1048,75 @@ function StatusTimeline({ job, selectedApp }: { job: OpenJob; selectedApp?: Appl
   const fundedStatuses = ['funded', 'in_progress', 'delivered', 'evaluating', 'revision_requested', 'completed', 'failed', 'refunded', 'expired']
   const evalStatuses = ['evaluating', 'revision_requested', 'completed', 'failed', 'refunded']
 
+  // Determine current step index based on status
+  function getCurrentStep(): number {
+    switch (job.status) {
+      case 'open': return 0
+      case 'assigned': return 1
+      case 'funded': return 2
+      case 'in_progress': return 3
+      case 'delivered': return 3
+      case 'evaluating': return 4
+      case 'revision_requested': return 4
+      case 'completed':
+      case 'failed':
+      case 'refunded':
+      case 'expired': return 5
+      default: return 0
+    }
+  }
+
+  const currentStep = getCurrentStep()
+
   const steps = [
     { label: 'Posted', done: true, time: job.createdAt },
     { label: 'Agent Selected', done: doneStatuses.includes(job.status), detail: job.selectedApplicant ? `${job.selectedApplicant.slice(0, 8)}...` : undefined },
     { label: 'Funded', done: fundedStatuses.includes(job.status), time: job.fundedAt || undefined, detail: job.finalBudget ? `${job.finalBudget} USDC` : undefined },
-    { label: 'Delivered', done: evalStatuses.includes(job.status) || job.status === 'delivered' },
-    { label: 'Evaluating', done: evalStatuses.includes(job.status), detail: job.status === 'revision_requested' ? 'Revision requested' : job.status === 'evaluating' ? 'In progress...' : undefined },
-    { label: job.status === 'failed' ? 'Failed' : job.status === 'refunded' ? 'Refunded' : job.status === 'expired' ? 'Expired' : 'Completed', done: ['completed', 'failed', 'refunded', 'expired'].includes(job.status), time: job.completedAt || job.refundedAt || undefined, detail: job.status === 'refunded' && job.refundTx ? `tx: ${job.refundTx.slice(0, 10)}...` : job.status === 'completed' && job.completedTx ? `tx: ${job.completedTx.slice(0, 10)}...` : undefined, txUrl: job.status === 'refunded' && job.refundTx ? `https://testnet.arcscan.app/tx/${job.refundTx}` : job.status === 'completed' && job.completedTx ? `https://testnet.arcscan.app/tx/${job.completedTx}` : undefined },
+    {
+      label: 'Delivered',
+      done: evalStatuses.includes(job.status) || job.status === 'delivered',
+      detail: job.status === 'evaluating' ? 'Delivering to evaluator...' : job.status === 'delivered' ? 'Delivered' : undefined,
+    },
+    {
+      label: 'Evaluating',
+      done: ['completed', 'failed', 'refunded'].includes(job.status),
+      detail: job.status === 'revision_requested' ? 'Revision requested' : job.status === 'evaluating' ? 'Evaluating...' : undefined,
+    },
+    {
+      label: job.status === 'failed' ? 'Failed' : job.status === 'refunded' ? 'Refunded' : job.status === 'expired' ? 'Expired' : 'Completed',
+      done: ['completed', 'failed', 'refunded', 'expired'].includes(job.status),
+      time: job.completedAt || job.refundedAt || undefined,
+      detail: job.status === 'refunded' && job.refundTx ? `tx: ${job.refundTx.slice(0, 10)}...` : job.status === 'completed' && job.completedTx ? `tx: ${job.completedTx.slice(0, 10)}...` : undefined,
+      txUrl: job.status === 'refunded' && job.refundTx ? `https://testnet.arcscan.app/tx/${job.refundTx}` : job.status === 'completed' && job.completedTx ? `https://testnet.arcscan.app/tx/${job.completedTx}` : undefined,
+    },
   ]
 
   return (
     <div style={{ marginBottom: 24, padding: '16px 0' }}>
-      {steps.map((step, i) => (
-        <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: i < steps.length - 1 ? 4 : 0 }}>
-          <div style={{ width: 16, textAlign: 'center', fontSize: 11, lineHeight: '18px' }}>
-            {step.done ? '●' : '○'}
+      {steps.map((step, i) => {
+        const isActive = i === currentStep && !step.done
+        const isDone = step.done
+        const dotColor = isActive ? '#ffffff' : isDone ? 'var(--text)' : 'var(--dimmer)'
+        const textColor = isActive ? '#ffffff' : isDone ? 'var(--text)' : 'var(--dim)'
+        return (
+          <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: i < steps.length - 1 ? 4 : 0 }}>
+            <div style={{ width: 16, textAlign: 'center', fontSize: 11, lineHeight: '18px', color: dotColor }}>
+              {isDone ? '●' : isActive ? '◉' : '○'}
+            </div>
+            <div style={{ flex: 1 }}>
+              <span style={{ fontSize: 12, color: textColor, fontWeight: isActive ? 700 : 400 }}>{step.label}</span>
+              {step.detail && (
+                <span style={{ fontSize: 11, color: isActive ? 'rgba(255,255,255,0.7)' : 'var(--dim)', marginLeft: 8 }}>
+                  — {step.txUrl ? (
+                    <a href={step.txUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>{step.detail} ↗</a>
+                  ) : step.detail}
+                </span>
+              )}
+              {step.time && <span style={{ fontSize: 10, color: 'var(--dim)', marginLeft: 8 }}>({getTimeAgo(step.time)})</span>}
+            </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <span style={{ fontSize: 12, color: step.done ? 'var(--text)' : 'var(--dim)' }}>{step.label}</span>
-            {step.detail && (
-              <span style={{ fontSize: 11, color: 'var(--dim)', marginLeft: 8 }}>
-                — {step.txUrl ? (
-                  <a href={step.txUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>{step.detail} ↗</a>
-                ) : step.detail}
-              </span>
-            )}
-            {step.time && <span style={{ fontSize: 10, color: 'var(--dim)', marginLeft: 8 }}>({getTimeAgo(step.time)})</span>}
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -1120,7 +1169,7 @@ function DeadlineCountdown({ fundedAt, createdAt, deadlineHours, status }: { fun
 
   return (
     <div style={{ fontSize: 13, color }}>
-      {hours > 0 && `${hours}h `}{mins}m remaining
+      {hours > 0 && `${hours}h `}{mins}m Remaining
     </div>
   )
 }
