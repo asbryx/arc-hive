@@ -91,7 +91,7 @@ export default function Marketplace() {
               cursor: 'pointer',
             }}
           >
-            {cat || 'all'}
+            {cat || 'All'}
           </button>
         ))}
       </div>
