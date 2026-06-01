@@ -1,6 +1,6 @@
 import type { Stats, DailyStats } from '@/api/client'
 import AnimatedCounter from '@/components/graphics/AnimatedCounter'
-import Sparkline from '@/components/graphics/Sparkline'
+import MiniBarChart from '@/components/graphics/MiniBarChart'
 import Skeleton from '@/components/graphics/Skeleton'
 
 interface Props {
@@ -23,25 +23,59 @@ export default function StatsGrid({ stats, daily }: Props) {
   }
 
   const items = [
-    { label: 'Agents', value: stats.totalAgents, spark: daily?.agents?.map(d => d.count) },
-    { label: 'Jobs', value: stats.totalJobs, spark: daily?.jobs?.map(d => d.count) },
-    { label: 'Rep Events', value: stats.totalReputationEvents, spark: daily?.reputation?.map(d => d.count) },
-    { label: 'USDC Paid', value: stats.totalVolume ? Math.round(parseFloat(stats.totalVolume)) : 0, spark: daily?.volume?.map(d => d.count) },
+    {
+      label: 'Agents',
+      value: stats.totalAgents,
+      delta: stats.last7Days?.newAgents || 0,
+      spark: daily?.agents?.map(d => d.count),
+    },
+    {
+      label: 'Jobs',
+      value: stats.totalJobs,
+      delta: stats.last7Days?.newJobs || 0,
+      spark: daily?.jobs?.map(d => d.count),
+    },
+    {
+      label: 'Completed',
+      value: stats.totalCompleted || 0,
+      delta: 0,
+      spark: daily?.jobs?.map(d => d.count),
+    },
+    {
+      label: 'USDC Volume',
+      value: stats.totalVolume ? Math.round(parseFloat(stats.totalVolume)) : 0,
+      delta: 0,
+      spark: daily?.volume?.map(d => d.count),
+    },
   ]
 
-
   return (
-    <div className="stats-grid">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--dimmer)' }}>
       {items.map((item, i) => (
-        <div key={item.label} className="card-glow stagger-in stat-card" style={{ animationDelay: `${i * 100}ms` }}>
-          <div className="stat-label">
+        <div
+          key={item.label}
+          className="card-glow stagger-in"
+          style={{
+            padding: '20px 16px',
+            background: 'var(--bg)',
+            animationDelay: `${i * 100}ms`,
+          }}
+        >
+          <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
             {item.label}
           </div>
-          <div className="stat-value">
+          <div style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--font)', lineHeight: 1 }}>
             <AnimatedCounter target={item.value} />
           </div>
+          {item.delta > 0 && (
+            <div style={{ fontSize: 11, color: '#4caf50', marginTop: 6, fontFamily: 'var(--font)' }}>
+              +{item.delta.toLocaleString()} this week
+            </div>
+          )}
           {item.spark && item.spark.length > 1 && (
-            <Sparkline data={item.spark} width={100} height={20} />
+            <div style={{ marginTop: 10 }}>
+              <MiniBarChart data={item.spark} width={120} height={28} />
+            </div>
           )}
         </div>
       ))}
