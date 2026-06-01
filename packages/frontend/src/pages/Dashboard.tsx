@@ -200,7 +200,7 @@ function statusColor(status: string): string {
     case 'refunded': return '#4caf50'
     case 'cancelled': return '#666'
     case 'revision_requested': return '#ff9800'
-    case 'expired': return '#666'
+    case 'expired': return '#ff4444'
     default: return 'var(--dim)'
   }
 }

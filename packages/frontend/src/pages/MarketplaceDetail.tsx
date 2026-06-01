@@ -1038,7 +1038,7 @@ function statusColor(status: string): string {
     case 'delivered': return '#9c27b0'
     case 'completed': return '#4caf50'
     case 'cancelled': return '#ff4444'
-    case 'expired': return '#666'
+    case 'expired': return '#ff4444'
     case 'refunded': return '#4caf50'
     case 'failed': return '#ff4444'
     default: return 'var(--dim)'
