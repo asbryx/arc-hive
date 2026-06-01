@@ -34,6 +34,11 @@
   filter: brightness(0.3) contrast(1.2);
 }
 
+[data-theme="light"] .nav,
+[data-theme="light"] .bottomLinks {
+  background: rgba(240, 237, 232, 0.75);
+}
+
 html, body {
   background: var(--bg);
   color: var(--text);
