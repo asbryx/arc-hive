@@ -213,12 +213,12 @@ function statusLabel(status: string): string {
     case 'in_progress': return 'In Progress'
     case 'delivered': return 'Delivered'
     case 'evaluating': return 'Evaluating'
-    case 'completed': return '✓ completed'
-    case 'failed': return '✗ failed'
-    case 'rejected': return '✗ rejected'
-    case 'refunded': return '↩ refunded'
+    case 'completed': return '✓ Completed'
+    case 'failed': return '✗ Failed'
+    case 'rejected': return '✗ Rejected'
+    case 'refunded': return '↩ Refunded'
     case 'cancelled': return 'Cancelled'
-    case 'revision_requested': return '⚠ revision'
+    case 'revision_requested': return '⚠ Revision'
     case 'expired': return 'Expired'
     default: return status
   }

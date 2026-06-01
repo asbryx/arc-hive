@@ -706,7 +706,7 @@ export default function MarketplaceDetail() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                     <span style={{ fontSize: 11, color: 'var(--dim)' }}>v{d.version} · {getTimeAgo(d.createdAt)}</span>
                     <span style={{ fontSize: 10, color: d.status === 'approved' ? '#4caf50' : d.status === 'revision_requested' ? '#ff9800' : 'var(--dim)' }}>
-                      {d.status === 'approved' ? '✓ approved' : d.status === 'revision_requested' ? '⚠️ revision requested' : d.status === 'failed' ? '✗ failed' : '● submitted'}
+                      {d.status === 'approved' ? '✓ Approved' : d.status === 'revision_requested' ? '⚠️ Revision Requested' : d.status === 'failed' ? '✗ Failed' : '● Submitted'}
                     </span>
                   </div>
                   <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', marginBottom: 8 }}>{d.content}</div>
