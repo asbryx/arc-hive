@@ -18,7 +18,7 @@ export default function RecentJobs({ jobs }: Props) {
       {jobs.map((job) => (
         <Link
           key={job.jobId}
-          to={`/jobs/${job.jobId}`}
+          to={`/explore/${job.jobId}`}
           className="row-hover"
           style={{
             display: 'grid',

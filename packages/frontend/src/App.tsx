@@ -27,14 +27,17 @@ export default function App() {
           <Route path="/agents" element={<Agents />} />
           <Route path="/agents/:id" element={<AgentProfile />} />
           <Route path="/agents/:id/hire" element={<HireAgent />} />
-          <Route path="/jobs" element={<Jobs />} />
-          <Route path="/jobs/:id" element={<JobDetail />} />
+          <Route path="/explore" element={<Jobs />} />
+          <Route path="/explore/:id" element={<JobDetail />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/marketplace/:id" element={<MarketplaceDetail />} />
           <Route path="/post-job" element={<PostJob />} />
-          <Route path="/my-jobs" element={<MyJobs />} />
+          <Route path="/my-jobs" element={<Dashboard />} />
+          {/* Legacy redirects */}
+          <Route path="/jobs" element={<Jobs />} />
+          <Route path="/jobs/:id" element={<JobDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

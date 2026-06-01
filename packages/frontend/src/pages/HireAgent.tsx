@@ -479,7 +479,7 @@ export default function HireAgent() {
           </div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
             <Link
-              to={`/jobs/${jobId?.toString()}`}
+              to={`/explore/${jobId?.toString()}`}
               style={{
                 padding: '10px 20px', fontSize: 12,
                 background: 'var(--accent)', color: '#ffffff', textDecoration: 'none',

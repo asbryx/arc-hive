@@ -22,7 +22,7 @@ export default function Jobs() {
     <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 900, margin: '0 auto' }}>
       {/* Header */}
       <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24 }}>
-        // jobs
+        // explore
       </div>
 
       {/* Status tabs */}
@@ -113,7 +113,7 @@ export default function Jobs() {
           {data?.data.map((job) => (
             <Link
               key={job.jobId}
-              to={`/jobs/${job.jobId}`}
+              to={`/explore/${job.jobId}`}
               className="row-hover"
               style={{
                 display: 'grid',

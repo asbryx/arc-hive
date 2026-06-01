@@ -30,12 +30,11 @@ export default function Nav() {
 
   const navLinks = (
     <>
-      <li><NavLink to="/" className={({ isActive }) => isActive ? styles.active : ''}>dashboard</NavLink></li>
+      <li><NavLink to="/dashboard" className={({ isActive }) => isActive ? styles.active : ''}>dashboard</NavLink></li>
       <li><NavLink to="/marketplace" className={({ isActive }) => isActive ? styles.active : ''}>marketplace</NavLink></li>
+      <li><NavLink to="/explore" className={({ isActive }) => isActive ? styles.active : ''}>explore</NavLink></li>
       <li><NavLink to="/agents" className={({ isActive }) => isActive ? styles.active : ''}>agents</NavLink></li>
-      <li><NavLink to="/jobs" className={({ isActive }) => isActive ? styles.active : ''}>jobs</NavLink></li>
       <li><NavLink to="/leaderboard" className={({ isActive }) => isActive ? styles.active : ''}>leaderboard</NavLink></li>
-      <li><NavLink to="/my-jobs" className={({ isActive }) => isActive ? styles.active : ''}>my jobs</NavLink></li>
     </>
   )
 
