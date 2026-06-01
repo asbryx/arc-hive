@@ -5,7 +5,7 @@ import {
   getExpiredFundedJobs, getExpiredAssignedJobs
 } from './db.js'
 import { evaluateDeliverable, EvalResult } from './evaluate.js'
-import { executeSubmit, executeComplete, executeReject, executeClaimRefund, getOnchainJobStatus } from './execute.js'
+import { executeSubmit, executeComplete, executeReject, executeClaimRefund, getOnchainJobStatus, getOnchainJob } from './execute.js'
 
 export async function initWatcher() {
   console.log('[evaluator] Watcher initialized — polling DB for deliverables to evaluate')
@@ -52,10 +52,9 @@ export async function pollForRefunds() {
 
     for (const job of expiredFunded) {
       const openJobId = job.id
-      const jobId = job.job_id // on-chain job ID
+      const jobId = job.job_id
 
       if (!jobId) {
-        // No on-chain job — just expire in marketplace
         const { query } = await import('./db.js')
         await query(`UPDATE open_jobs SET status = 'expired', updated_at = NOW() WHERE id = $1`, [openJobId])
         console.log(`[deadline] Expired marketplace job ${openJobId} (no on-chain job)`)
@@ -67,12 +66,16 @@ export async function pollForRefunds() {
       }
 
       try {
-        // Check on-chain status
         const onchainStatus = await getOnchainJobStatus(BigInt(jobId))
 
-        if (onchainStatus === 5) {
-          // On-chain expired — claim refund
-          console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) expired on-chain, claiming refund...`)
+        // If on-chain deadline has passed, claim refund regardless of status
+        // The contract status only updates to Expired when claimRefund() is called
+        const onchainJob = await getOnchainJob(BigInt(jobId))
+        const onchainExpired = onchainJob && Number(onchainJob.expiredAt) * 1000 < Date.now()
+
+        if (onchainExpired && (onchainStatus === 1 || onchainStatus === 5)) {
+          // Funded or Expired on-chain and deadline passed — claim refund
+          console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) deadline passed (expiredAt=${new Date(Number(onchainJob.expiredAt) * 1000).toISOString()}), claiming refund...`)
           const txHash = await executeClaimRefund(BigInt(jobId))
           console.log(`[deadline] Refund claimed for job ${openJobId} — tx=${txHash}`)
 
@@ -91,14 +94,13 @@ export async function pollForRefunds() {
               `"${job.title}" expired — deadline passed, USDC refunded to client.`)
           }
         } else if (onchainStatus === 1) {
-          // Still funded on-chain (deadline not reached there yet) — skip
-          console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) still funded on-chain, skipping`)
+          // Funded on-chain, deadline NOT passed yet
+          console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) still funded on-chain, deadline not passed yet`)
         } else if (onchainStatus === 2) {
-          // Submitted on-chain but no marketplace deliverable — the agent submitted directly
-          // Don't expire, let evaluator handle it
+          // Submitted on-chain — let evaluator handle it
           console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) submitted on-chain, skipping`)
         } else {
-          // Completed/Rejected/Expired on-chain — just sync marketplace status
+          // Completed/Rejected on-chain — sync marketplace status
           const { query } = await import('./db.js')
           const statusMap: Record<number, string> = { 3: 'completed', 4: 'failed', 5: 'refunded' }
           const newStatus = statusMap[onchainStatus] || 'expired'

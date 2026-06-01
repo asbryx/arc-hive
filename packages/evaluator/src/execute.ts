@@ -45,6 +45,21 @@ export async function getOnchainJobStatus(jobId: bigint): Promise<number> {
   return jobData.status
 }
 
+// Get full on-chain job data (including expiredAt)
+export async function getOnchainJob(jobId: bigint) {
+  const publicClient = getPublicClient()
+  try {
+    return await publicClient.readContract({
+      address: CONFIG.AGENTIC_COMMERCE,
+      abi: ABI,
+      functionName: 'getJob',
+      args: [jobId],
+    })
+  } catch {
+    return null
+  }
+}
+
 // Provider submits deliverable on-chain (required before complete/reject)
 export async function executeSubmit(jobId: bigint, deliverableContent: string): Promise<string> {
   const providerWallet = getProviderWallet()
