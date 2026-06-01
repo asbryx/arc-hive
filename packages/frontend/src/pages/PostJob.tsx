@@ -328,7 +328,10 @@ export default function PostJob() {
       {/* Submitting */}
       {step === 'submitting' && (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <div style={{ margin: '0 auto', width: 24, height: 24, border: '2px solid var(--dimmer)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+          <div style={{ position: 'relative', margin: '0 auto', width: 32, height: 32 }}>
+            <div style={{ position: 'absolute', inset: 0, border: '2px solid rgba(255,255,255,0.15)', borderTopColor: '#ffffff', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+            <div style={{ position: 'absolute', inset: 6, border: '2px solid transparent', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 1.5s linear infinite reverse' }} />
+          </div>
           <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
           <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 16 }}>Creating job on-chain... confirm in wallet</div>
         </div>
