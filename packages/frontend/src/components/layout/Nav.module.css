@@ -7,7 +7,7 @@
   align-items: center;
   gap: 16px;
   background: var(--nav-bg);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(4px);
   border-bottom: 1px solid var(--dimmer);
   height: 48px;
   overflow: visible;
@@ -68,7 +68,7 @@
   display: flex;
   justify-content: space-around;
   background: var(--nav-bg);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(4px);
   border-top: 1px solid var(--dimmer);
   padding: 14px 4px;
   z-index: 100;
