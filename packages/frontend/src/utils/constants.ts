@@ -17,9 +17,9 @@ export const STATUS_COLORS: Record<string, string> = {
 export const JOB_STATUSES = ['Open', 'Funded', 'Submitted', 'Completed', 'Rejected', 'Expired']
 
 export const EXTERNAL_LINKS = {
-  docs: 'https://docs.arc.io',
-  explorer: 'https://testnet.arcscan.app',
-  github: 'https://github.com/asbryx/arc-hive',
-  x: 'https://x.com/Arcs_Hives',
-  discord: 'https://discord.gg/arc',
+  Docs: 'https://docs.arc.io',
+  Explorer: 'https://testnet.arcscan.app',
+  Github: 'https://github.com/asbryx/arc-hive',
+  X: 'https://x.com/Arcs_Hives',
+  Discord: 'https://discord.gg/arc',
 }

@@ -175,7 +175,7 @@ export default function Agents() {
                 disabled={page === 1}
                 style={{ fontSize: 11, color: page === 1 ? 'var(--dimmer)' : 'var(--dim)', padding: '4px 8px', border: '1px solid var(--dimmer)' }}
               >
-                prev
+                Prev
               </button>
               <span style={{ fontSize: 11, color: 'var(--dim)', padding: '4px 8px' }}>
                 {page} / {data.pages}
@@ -185,7 +185,7 @@ export default function Agents() {
                 disabled={page === data.pages}
                 style={{ fontSize: 11, color: page === data.pages ? 'var(--dimmer)' : 'var(--dim)', padding: '4px 8px', border: '1px solid var(--dimmer)' }}
               >
-                next
+                Next
               </button>
             </div>
           )}

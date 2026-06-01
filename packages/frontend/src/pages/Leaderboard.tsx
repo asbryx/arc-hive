@@ -122,7 +122,7 @@ export default function Leaderboard() {
                   color: 'var(--dim)',
                 }}
               >
-                show more
+                Show More
               </button>
             </div>
           )}
