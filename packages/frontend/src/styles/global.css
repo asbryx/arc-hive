@@ -8,8 +8,8 @@
 :root {
   --bg: #000000;
   --text: #ffffff;
-  --dim: #666666;
-  --dimmer: #333333;
+  --dim: #8a8a8a;
+  --dimmer: #444444;
   --accent: #273F4F;
   --accent-light: #3a5f6f;
   --accent-dark: #1a2f3a;
@@ -22,8 +22,8 @@
 [data-theme="light"] {
   --bg: #f0ede8;
   --text: #111111;
-  --dim: #555555;
-  --dimmer: #c8c4bf;
+  --dim: #4a4a4a;
+  --dimmer: #b8b4af;
   --accent: #273F4F;
   --accent-light: #3a5f6f;
   --accent-dark: #1a2f3a;
@@ -227,6 +227,7 @@ input, select { font-family: var(--font); }
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 8px;
+  font-weight: 500;
 }
 
 .stat-value {
