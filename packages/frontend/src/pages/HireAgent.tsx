@@ -376,7 +376,7 @@ export default function HireAgent() {
               color: txStep >= 1 ? 'var(--text)' : 'var(--dimmer)',
             }}>
               {txStep > 1 ? '✓' : '◌'} Creating job...
-              {txStep === 1 && <span style={{ color: 'var(--dim)', marginLeft: 8 }}>confirm in wallet</span>}
+              {txStep === 1 && <span style={{ color: 'var(--dim)', marginLeft: 8 }}>Confirm in wallet</span>}
             </div>
           </div>
 
@@ -455,7 +455,7 @@ export default function HireAgent() {
               color: txStep >= 1 ? 'var(--text)' : 'var(--dimmer)',
             }}>
               {txStep > 1 ? '✓' : txStep === 1 ? '◌' : '○'} Approving USDC...
-              {txStep === 1 && <span style={{ color: 'var(--dim)', marginLeft: 8 }}>confirm in wallet</span>}
+              {txStep === 1 && <span style={{ color: 'var(--dim)', marginLeft: 8 }}>Confirm in wallet</span>}
             </div>
             <div style={{
               padding: '10px 0',
@@ -463,7 +463,7 @@ export default function HireAgent() {
               color: txStep >= 2 ? 'var(--text)' : 'var(--dimmer)',
             }}>
               {txStep > 2 ? '✓' : txStep === 2 ? '◌' : '○'} Funding escrow...
-              {txStep === 2 && <span style={{ color: 'var(--dim)', marginLeft: 8 }}>confirm in wallet</span>}
+              {txStep === 2 && <span style={{ color: 'var(--dim)', marginLeft: 8 }}>Confirm in wallet</span>}
             </div>
           </div>
         </div>

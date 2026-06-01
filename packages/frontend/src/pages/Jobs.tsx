@@ -103,10 +103,10 @@ export default function Jobs() {
               letterSpacing: 1,
               borderBottom: '1px solid var(--dimmer)',
             }}>
-              <span>status</span>
-              <span>id</span>
-              <span>description</span>
-              <span style={{ textAlign: 'right' }}>budget</span>
+              <span>Status</span>
+              <span>ID</span>
+              <span>Description</span>
+              <span style={{ textAlign: 'right' }}>Budget</span>
             </div>
           )}
 

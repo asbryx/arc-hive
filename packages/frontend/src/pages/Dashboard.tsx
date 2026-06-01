@@ -207,19 +207,19 @@ function statusColor(status: string): string {
 
 function statusLabel(status: string): string {
   switch (status) {
-    case 'open': return 'open'
-    case 'assigned': return 'assigned'
-    case 'funded': return 'funded'
-    case 'in_progress': return 'in progress'
-    case 'delivered': return 'delivered'
-    case 'evaluating': return 'evaluating'
+    case 'open': return 'Open'
+    case 'assigned': return 'Assigned'
+    case 'funded': return 'Funded'
+    case 'in_progress': return 'In Progress'
+    case 'delivered': return 'Delivered'
+    case 'evaluating': return 'Evaluating'
     case 'completed': return '✓ completed'
     case 'failed': return '✗ failed'
     case 'rejected': return '✗ rejected'
     case 'refunded': return '↩ refunded'
-    case 'cancelled': return 'cancelled'
+    case 'cancelled': return 'Cancelled'
     case 'revision_requested': return '⚠ revision'
-    case 'expired': return 'expired'
+    case 'expired': return 'Expired'
     default: return status
   }
 }
@@ -228,7 +228,7 @@ function getTimeAgo(dateStr: string | null | undefined): string {
   if (!dateStr) return ''
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
+  if (mins < 1) return 'Just now'
   if (mins < 60) return `${mins}m ago`
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours}h ago`

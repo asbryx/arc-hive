@@ -597,7 +597,7 @@ export default function MarketplaceDetail() {
       {/* Client info */}
       <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 32 }}>
         Posted by {job.clientAddress.slice(0, 6)}...{job.clientAddress.slice(-4)}
-        {job.onChainTx && <> · <a href={`https://testnet.arcscan.app/tx/${job.onChainTx}`} target="_blank" style={{ color: 'var(--accent)' }}>on-chain ↗</a></>}
+        {job.onChainTx && <> · <a href={`https://testnet.arcscan.app/tx/${job.onChainTx}`} target="_blank" style={{ color: 'var(--accent)' }}>On-chain ↗</a></>}
       </div>
 
       {/* ═══ CLIENT: Fund Button (after selection, before funding) ═══ */}
@@ -730,7 +730,7 @@ export default function MarketplaceDetail() {
                     <div style={{ padding: 16, border: `1px solid ${evStatusColor}33`, background: `${evStatusColor}08`, marginBottom: 12 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 10, color: 'var(--dim)' }}>evaluation</span>
+                          <span style={{ fontSize: 10, color: 'var(--dim)' }}>Evaluation</span>
                           <span style={{ fontSize: 11, color: evStatusColor, fontWeight: 700 }}>{statusLabel}</span>
                         </div>
                         <span style={{ fontSize: 22, fontWeight: 800, color: scoreColor }}>{ev.score}<span style={{ fontSize: 11, color: 'var(--dim)' }}>/100</span></span>
@@ -928,7 +928,7 @@ export default function MarketplaceDetail() {
         <div style={{ borderTop: '1px solid var(--dimmer)', paddingTop: 24, marginBottom: 24 }}>
           <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>On-chain Settlement</div>
           <div style={{ fontSize: 12, lineHeight: 2 }}>
-            {job.onchainJobId && <div>Job ID: #{job.onchainJobId} · <a href={`https://testnet.arcscan.app/tx/${job.fundedTx}`} target="_blank" style={{ color: 'var(--accent)' }}>fund tx ↗</a></div>}
+            {job.onchainJobId && <div>Job ID: #{job.onchainJobId} · <a href={`https://testnet.arcscan.app/tx/${job.fundedTx}`} target="_blank" style={{ color: 'var(--accent)' }}>Fund TX ↗</a></div>}
             {job.finalBudget && <div>Payment: {job.finalBudget} USDC → {job.selectedApplicant?.slice(0, 8)}...</div>}
             {job.completedTx && <div>Completed: <a href={`https://testnet.arcscan.app/tx/${job.completedTx}`} target="_blank" style={{ color: 'var(--accent)' }}>tx ↗</a></div>}
           </div>
@@ -1083,7 +1083,7 @@ function DeadlineCountdown({ fundedAt, createdAt, deadlineHours, status }: { fun
 function getTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
+  if (mins < 1) return 'Just now'
   if (mins < 60) return `${mins}m ago`
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours}h ago`

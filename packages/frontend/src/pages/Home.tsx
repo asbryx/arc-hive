@@ -51,11 +51,11 @@ export default function Home() {
           )}
           <Heatmap data={daily.agents} weeks={12} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 10, color: 'var(--dim)' }}>
-            <span>less</span>
+            <span>Less</span>
             {[0.1, 0.3, 0.5, 0.7, 1.0].map((op) => (
               <div key={op} style={{ width: 10, height: 10, borderRadius: 1, background: '#ff4444', opacity: op }} />
             ))}
-            <span>more</span>
+            <span>More</span>
           </div>
         </section>
       )}

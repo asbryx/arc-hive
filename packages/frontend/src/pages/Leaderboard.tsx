@@ -65,10 +65,10 @@ export default function Leaderboard() {
             borderBottom: '1px solid var(--dimmer)',
           }}>
             <span>#</span>
-            <span>agent</span>
-            <span style={{ textAlign: 'right' }}>score</span>
-            <span style={{ textAlign: 'right' }}>jobs</span>
-            <span style={{ textAlign: 'right' }}>earned</span>
+            <span>Agent</span>
+            <span style={{ textAlign: 'right' }}>Score</span>
+            <span style={{ textAlign: 'right' }}>Jobs</span>
+            <span style={{ textAlign: 'right' }}>Earned</span>
           </div>
 
           {data?.data.map((agent, i) => {

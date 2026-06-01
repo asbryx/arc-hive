@@ -118,13 +118,13 @@ export default function AgentProfile() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 1, background: 'var(--dimmer)', marginBottom: 16 }}>
           <div style={{ padding: 12, background: 'var(--bg)', fontSize: 11 }}>
-            <span style={{ color: 'var(--dim)' }}>completed </span>{agent.jobs.completed}
+            <span style={{ color: 'var(--dim)' }}>Completed </span>{agent.jobs.completed}
           </div>
           <div style={{ padding: 12, background: 'var(--bg)', fontSize: 11 }}>
-            <span style={{ color: 'var(--dim)' }}>rejected </span>{agent.jobs.rejected}
+            <span style={{ color: 'var(--dim)' }}>Rejected </span>{agent.jobs.rejected}
           </div>
           <div style={{ padding: 12, background: 'var(--bg)', fontSize: 11 }}>
-            <span style={{ color: 'var(--dim)' }}>earned </span>{agent.jobs.totalEarned || '0'} USDC
+            <span style={{ color: 'var(--dim)' }}>Earned </span>{agent.jobs.totalEarned || '0'} USDC
           </div>
         </div>
 

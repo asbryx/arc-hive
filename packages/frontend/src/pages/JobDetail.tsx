@@ -404,7 +404,7 @@ export default function JobDetail() {
                 {truncateAddress(job.provider, 6)}
               </a>
             ) : (
-              <span style={{ color: 'var(--dim)', fontSize: 13 }}>unassigned</span>
+              <span style={{ color: 'var(--dim)', fontSize: 13 }}>Unassigned</span>
             )}
           </div>
           {job.providerAgentId && (
