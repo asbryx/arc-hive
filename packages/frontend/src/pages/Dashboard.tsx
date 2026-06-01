@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAccount } from 'wagmi'
-import { useMarketplaceStats } from '@/api/hooks'
 import { getSector } from '@/lib/sectors'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 type Tab = 'open' | 'history'
+
+interface WalletStats {
+  posted: number
+  activeAsClient: number
+  completedAsClient: number
+  spent: string | null
+  activeAsProvider: number
+  completedAsProvider: number
+  earned: string | null
+  applications: number
+}
 
 interface JobRow {
   id: number
@@ -32,7 +42,7 @@ interface JobRow {
 export default function Dashboard() {
   const { address, isConnected } = useAccount()
   const navigate = useNavigate()
-  const { data: mStats } = useMarketplaceStats()
+  const [walletStats, setWalletStats] = useState<WalletStats | null>(null)
   const [tab, setTab] = useState<Tab>('open')
   const [activeJobs, setActiveJobs] = useState<JobRow[]>([])
   const [historyJobs, setHistoryJobs] = useState<JobRow[]>([])
@@ -53,9 +63,10 @@ export default function Dashboard() {
     if (!address) return
     setLoading(true)
     try {
-      const [activeRes, historyRes] = await Promise.all([
+      const [activeRes, historyRes, statsRes] = await Promise.all([
         fetch(`${API_BASE}/open-jobs/my-active-all?address=${address}`),
         fetch(`${API_BASE}/open-jobs/my-history?address=${address}`),
+        fetch(`${API_BASE}/stats/wallet?address=${address}`),
       ])
       if (activeRes.ok) {
         const d = await activeRes.json()
@@ -64,6 +75,9 @@ export default function Dashboard() {
       if (historyRes.ok) {
         const d = await historyRes.json()
         setHistoryJobs(d.data || [])
+      }
+      if (statsRes.ok) {
+        setWalletStats(await statsRes.json())
       }
     } catch {}
     setLoading(false)
@@ -80,13 +94,18 @@ export default function Dashboard() {
         // dashboard
       </div>
 
-      {/* Marketplace stats */}
-      {mStats && (
+      {/* Wallet stats */}
+      {walletStats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 32 }}>
-          <StatCard label="Marketplace Jobs" value={mStats.totalJobs.toLocaleString()} />
-          <StatCard label="Active Jobs" value={mStats.activeJobs.toLocaleString()} />
-          <StatCard label="Completed" value={mStats.completedJobs.toLocaleString()} />
-          <StatCard label="Volume" value={mStats.volume ? `$${parseFloat(mStats.volume).toLocaleString()}` : '$0'} />
+          <StatCard label="My Posted" value={walletStats.posted.toLocaleString()} />
+          <StatCard label="My Active" value={(walletStats.activeAsClient + walletStats.activeAsProvider).toLocaleString()} />
+          <StatCard label="My Completed" value={(walletStats.completedAsClient + walletStats.completedAsProvider).toLocaleString()} />
+          <StatCard label="My Volume" value={(() => {
+            const spent = walletStats.spent ? parseFloat(walletStats.spent) : 0
+            const earned = walletStats.earned ? parseFloat(walletStats.earned) : 0
+            const total = spent + earned
+            return total > 0 ? `$${total.toLocaleString()}` : '$0'
+          })()} />
         </div>
       )}
 

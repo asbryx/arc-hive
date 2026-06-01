@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
+import { useMarketplaceStats } from '@/api/hooks'
 import { getSector } from '@/lib/sectors'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
@@ -24,6 +25,7 @@ interface OpenJob {
 
 export default function Marketplace() {
   const { address } = useAccount()
+  const { data: mStats } = useMarketplaceStats()
   const [jobs, setJobs] = useState<OpenJob[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState('')
@@ -78,6 +80,27 @@ export default function Marketplace() {
           </Link>
         </div>
       </div>
+
+      {/* Global marketplace stats */}
+      {mStats && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+          {[
+            { label: 'Total Jobs', value: mStats.totalJobs.toLocaleString() },
+            { label: 'Open', value: mStats.activeJobs.toLocaleString() },
+            { label: 'Completed', value: mStats.completedJobs.toLocaleString() },
+            { label: 'Volume', value: mStats.volume ? `$${parseFloat(mStats.volume).toLocaleString()}` : '$0' },
+          ].map(s => (
+            <div key={s.label} style={{
+              padding: '10px 12px',
+              border: '1px solid var(--dimmer)',
+              background: 'transparent',
+            }}>
+              <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{s.label}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>

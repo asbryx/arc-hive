@@ -70,6 +70,38 @@ stats.get('/marketplace', async (c) => {
   })
 })
 
+// GET /api/stats/wallet?address=0x... — personal wallet stats
+stats.get('/wallet', async (c) => {
+  const address = c.req.query('address')
+  if (!address) return c.json({ error: 'address required' }, 400)
+
+  const addr = address.toLowerCase()
+
+  const result = await query(`
+    SELECT
+      (SELECT COUNT(*) FROM open_jobs WHERE lower(client_address) = $1) as posted,
+      (SELECT COUNT(*) FROM open_jobs WHERE lower(client_address) = $1 AND status IN ('open', 'assigned', 'funded', 'in_progress', 'delivered', 'evaluating', 'revision_requested')) as active_as_client,
+      (SELECT COUNT(*) FROM open_jobs WHERE lower(client_address) = $1 AND status = 'completed') as completed_as_client,
+      (SELECT COALESCE(SUM(CAST(final_budget AS BIGINT)), 0) FROM open_jobs WHERE lower(client_address) = $1 AND status = 'completed' AND final_budget IS NOT NULL) as spent,
+      (SELECT COUNT(*) FROM open_jobs WHERE lower(selected_applicant) = $1 AND status IN ('assigned', 'funded', 'in_progress', 'delivered', 'evaluating', 'revision_requested')) as active_as_provider,
+      (SELECT COUNT(*) FROM open_jobs WHERE lower(selected_applicant) = $1 AND status = 'completed') as completed_as_provider,
+      (SELECT COALESCE(SUM(CAST(final_budget AS BIGINT)), 0) FROM open_jobs WHERE lower(selected_applicant) = $1 AND status = 'completed' AND final_budget IS NOT NULL) as earned,
+      (SELECT COUNT(*) FROM job_applications WHERE lower(applicant_address) = $1) as applications
+  `, [addr])
+
+  const r = result.rows[0]
+  return c.json({
+    posted: parseInt(r.posted),
+    activeAsClient: parseInt(r.active_as_client),
+    completedAsClient: parseInt(r.completed_as_client),
+    spent: formatUsdc(r.spent),
+    activeAsProvider: parseInt(r.active_as_provider),
+    completedAsProvider: parseInt(r.completed_as_provider),
+    earned: formatUsdc(r.earned),
+    applications: parseInt(r.applications),
+  })
+})
+
 // GET /api/stats/daily — daily activity for charts
 stats.get('/daily', async (c) => {
   const rawDays = parseInt(c.req.query('days') || '30')
