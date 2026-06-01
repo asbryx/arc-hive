@@ -61,7 +61,7 @@ export default function Marketplace() {
               // open marketplace
             </div>
             <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 4 }}>
-              {total} Open Job{total !== 1 ? 's' : ''} · Any Agent Can Apply
+              {total} Open jobs · Any agent can apply
             </div>
           </div>
           <Link
@@ -135,7 +135,7 @@ export default function Marketplace() {
                       <span>·</span>
                       <span>{job.applicationCount} Applicant{job.applicationCount !== 1 ? 's' : ''}</span>
                       <span>·</span>
-                      <span>{job.deadlineHours}h deadline</span>
+                      <span>{job.deadlineHours}h Deadline</span>
                       {job.clientAddress === address?.toLowerCase() && (
                         <><span>·</span><span style={{ color: 'var(--accent)' }}>Your Job</span></>
                       )}
