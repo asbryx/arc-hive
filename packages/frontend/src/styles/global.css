@@ -16,6 +16,7 @@
   --glow: rgba(39, 63, 79, 0.4);
   --glow-soft: rgba(39, 63, 79, 0.15);
   --font: 'JetBrains Mono', monospace;
+  --nav-bg: rgba(0, 0, 0, 0.6);
 }
 
 [data-theme="light"] {
@@ -28,6 +29,7 @@
   --accent-dark: #1a2f3a;
   --glow: rgba(39, 63, 79, 0.2);
   --glow-soft: rgba(39, 63, 79, 0.08);
+  --nav-bg: rgba(240, 237, 232, 0.75);
 }
 
 [data-theme="light"] .nav-logo-img {
