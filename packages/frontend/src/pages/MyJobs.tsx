@@ -119,7 +119,7 @@ export default function MyJobs() {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 13, fontWeight: 700 }}>
-                        {job.finalBudget ? `${job.finalBudget} USDC` : job.appProposedBudget ? `${job.appProposedBudget} USDC` : job.budgetMin && job.budgetMax ? `${job.budgetMin}–${job.budgetMax}` : '—'}
+                        {job.finalBudget ? `${job.finalBudget} USDC` : job.appProposedBudget ? `${job.appProposedBudget} USDC` : job.budgetMin && job.budgetMax ? `${job.budgetMin} – ${job.budgetMax}` : '—'}
                       </div>
                       <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>
                         {getTimeAgo(job.completedAt || job.appliedAt || job.createdAt)}

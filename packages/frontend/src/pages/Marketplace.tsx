@@ -141,7 +141,7 @@ export default function Marketplace() {
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 700 }}>
                       {job.budgetMin && job.budgetMax
-                        ? `${job.budgetMin}–${job.budgetMax}`
+                        ? `${job.budgetMin} – ${job.budgetMax}`
                         : job.budgetMax || job.budgetMin || '—'}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--dim)' }}>USDC</div>

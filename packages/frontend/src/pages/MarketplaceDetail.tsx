@@ -561,7 +561,7 @@ export default function MarketplaceDetail() {
           <div>
             <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase' }}>Budget</div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>
-              {job.finalBudget ? `${job.finalBudget} USDC` : job.budgetMin && job.budgetMax ? `${job.budgetMin}–${job.budgetMax} USDC` : `${job.budgetMax || job.budgetMin || 'Open'} USDC`}
+              {job.finalBudget ? `${job.finalBudget} USDC` : job.budgetMin && job.budgetMax ? `${job.budgetMin} – ${job.budgetMax} USDC` : `${job.budgetMax || job.budgetMin || 'Open'} USDC`}
             </div>
           </div>
           <div>

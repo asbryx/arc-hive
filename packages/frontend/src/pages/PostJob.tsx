@@ -68,7 +68,7 @@ export default function PostJob() {
       const deadlineH = parseInt(form.deadlineHours) || 72
       const expiredAt = BigInt(Math.floor(Date.now() / 1000) + deadlineH * 3600)
       const evaluatorAddr = '0xC1FEf538dc6357435372CEb69970D4078F4d3528' as `0x${string}`
-      const onChainDesc = `[OPEN] ${form.title} | Budget: ${form.budgetMin || '?'}–${form.budgetMax || '?'} USDC`
+      const onChainDesc = `[OPEN] ${form.title} | Budget: ${form.budgetMin || '?'} – ${form.budgetMax || '?'} USDC`
 
       const createHash = await writeContractAsync({
         address: AGENTIC_COMMERCE,
@@ -346,7 +346,7 @@ export default function PostJob() {
             {form.title}
           </div>
           <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 24 }}>
-            Job #{jobId?.toString()} · Open for applications · {form.budgetMin}–{form.budgetMax} USDC
+            Job #{jobId?.toString()} · Open for applications · {form.budgetMin} – {form.budgetMax} USDC
           </div>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
