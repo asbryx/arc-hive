@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useMarketplaceStats } from '@/api/hooks'
+import { getSector } from '@/lib/sectors'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -20,6 +21,7 @@ interface JobRow {
   selectedApplicant: string | null
   createdAt: string
   completedAt: string | null
+  sectorConfig?: { sector?: string; details?: Record<string, string> } | null
   applicationStatus?: string
   appProposedBudget?: string | null
   appliedAt?: string
@@ -146,7 +148,10 @@ export default function Dashboard() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 700 }}>{job.title}</div>
                       <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        {job.category && <span>{job.category}</span>}
+                        {job.category && (() => {
+                          const sector = getSector(job.category)
+                          return <span>{sector?.icon ? `${sector.icon} ` : ''}{job.category}</span>
+                        })()}
                         <span>·</span>
                         <span style={{ color: statusColor(job.status) }}>{statusLabel(job.status)}</span>
                         {job.applicationStatus && role === 'provider' && (

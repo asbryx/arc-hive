@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
+import { getSector } from '@/lib/sectors'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -19,6 +20,7 @@ interface JobRow {
   selectedApplicant: string | null
   createdAt: string
   completedAt: string | null
+  sectorConfig?: { sector?: string; details?: Record<string, string> } | null
   applicationStatus?: string
   appProposedBudget?: string | null
   appliedAt?: string
@@ -105,7 +107,10 @@ export default function MyJobs() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 700 }}>{job.title}</div>
                       <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        {job.category && <span>{job.category}</span>}
+                        {job.category && (() => {
+                          const sector = getSector(job.category)
+                          return <span>{sector?.icon ? `${sector.icon} ` : ''}{job.category}</span>
+                        })()}
                         <span style={{ color: statusColor(job.status) }}>{statusLabel(job.status)}</span>
                         <span style={{ fontSize: 9, padding: '1px 5px', border: '1px solid var(--dimmer)', color: 'var(--dim)' }}>
                           {role}
