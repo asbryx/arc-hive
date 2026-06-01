@@ -566,7 +566,7 @@ export default function MarketplaceDetail() {
           </div>
           <div>
             <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase' }}>Deadline</div>
-            <div style={{ fontSize: 13 }}>{job.deadlineHours}h</div>
+            <DeadlineCountdown fundedAt={job.fundedAt} createdAt={job.createdAt} deadlineHours={job.deadlineHours} status={job.status} />
           </div>
           <div>
             <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase' }}>Applicants</div>
@@ -1039,10 +1039,47 @@ function statusColor(status: string): string {
   }
 }
 
+function DeadlineCountdown({ fundedAt, createdAt, deadlineHours, status }: { fundedAt: string | null; createdAt: string; deadlineHours: number; status: string }) {
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Terminal statuses — deadline no longer relevant
+  if (['completed', 'failed', 'refunded', 'expired', 'cancelled', 'rejected'].includes(status)) {
+    return <div style={{ fontSize: 13, color: 'var(--dim)' }}>{deadlineHours}h (ended)</div>
+  }
+
+  // Calculate deadline from fundedAt (or createdAt if not funded yet)
+  const startTime = fundedAt ? new Date(fundedAt).getTime() : new Date(createdAt).getTime()
+  const deadlineMs = startTime + deadlineHours * 3600 * 1000
+  const remaining = deadlineMs - now
+
+  if (remaining <= 0) {
+    return <div style={{ fontSize: 13, color: '#ff4444' }}>Deadline passed</div>
+  }
+
+  const totalMins = Math.floor(remaining / 60000)
+  const hours = Math.floor(totalMins / 60)
+  const mins = totalMins % 60
+
+  const color = hours < 1 ? '#ff4444' : hours < 6 ? '#ff9800' : 'var(--text)'
+
+  return (
+    <div style={{ fontSize: 13, color }}>
+      {hours > 0 && `${hours}h `}{mins}m remaining
+    </div>
+  )
+}
+
 function getTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
-  const hours = Math.floor(diff / 3600000)
-  if (hours < 1) return 'just now'
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
   return `${days}d ago`
