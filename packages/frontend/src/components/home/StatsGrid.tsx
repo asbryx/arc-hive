@@ -1,6 +1,6 @@
 import type { Stats, DailyStats } from '@/api/client'
 import AnimatedCounter from '@/components/graphics/AnimatedCounter'
-import MiniBarChart from '@/components/graphics/MiniBarChart'
+import SparklineArea from '@/components/graphics/SparklineArea'
 import Skeleton from '@/components/graphics/Skeleton'
 
 interface Props {
@@ -74,7 +74,7 @@ export default function StatsGrid({ stats, daily }: Props) {
           )}
           {item.spark && item.spark.length > 1 && (
             <div style={{ marginTop: 10 }}>
-              <MiniBarChart data={item.spark} width={120} height={28} />
+              <SparklineArea data={item.spark} width={120} height={28} />
             </div>
           )}
         </div>
