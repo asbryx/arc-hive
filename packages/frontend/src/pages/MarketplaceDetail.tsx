@@ -990,8 +990,8 @@ export default function MarketplaceDetail() {
 // ─── Status Timeline Component ───────────────────────────────────────────────
 
 function StatusTimeline({ job, selectedApp }: { job: OpenJob; selectedApp?: Application | null }) {
-  const doneStatuses = ['assigned', 'funded', 'in_progress', 'delivered', 'evaluating', 'revision_requested', 'completed', 'failed', 'refunded']
-  const fundedStatuses = ['funded', 'in_progress', 'delivered', 'evaluating', 'revision_requested', 'completed', 'failed', 'refunded']
+  const doneStatuses = ['assigned', 'funded', 'in_progress', 'delivered', 'evaluating', 'revision_requested', 'completed', 'failed', 'refunded', 'expired']
+  const fundedStatuses = ['funded', 'in_progress', 'delivered', 'evaluating', 'revision_requested', 'completed', 'failed', 'refunded', 'expired']
   const evalStatuses = ['evaluating', 'revision_requested', 'completed', 'failed', 'refunded']
 
   const steps = [
@@ -1000,7 +1000,7 @@ function StatusTimeline({ job, selectedApp }: { job: OpenJob; selectedApp?: Appl
     { label: 'Funded', done: fundedStatuses.includes(job.status), time: job.fundedAt || undefined, detail: job.finalBudget ? `${job.finalBudget} USDC` : undefined },
     { label: 'Delivered', done: evalStatuses.includes(job.status) || job.status === 'delivered' },
     { label: 'Evaluating', done: evalStatuses.includes(job.status), detail: job.status === 'revision_requested' ? 'Revision requested' : job.status === 'evaluating' ? 'In progress...' : undefined },
-    { label: job.status === 'failed' ? 'Failed' : job.status === 'refunded' ? 'Refunded' : 'Completed', done: ['completed', 'failed', 'refunded'].includes(job.status), time: job.completedAt || undefined },
+    { label: job.status === 'failed' ? 'Failed' : job.status === 'refunded' ? 'Refunded' : job.status === 'expired' ? 'Expired' : 'Completed', done: ['completed', 'failed', 'refunded', 'expired'].includes(job.status), time: job.completedAt || undefined },
   ]
 
   return (
@@ -1032,6 +1032,9 @@ function statusColor(status: string): string {
     case 'delivered': return '#9c27b0'
     case 'completed': return '#4caf50'
     case 'cancelled': return '#ff4444'
+    case 'expired': return '#666'
+    case 'refunded': return '#4caf50'
+    case 'failed': return '#ff4444'
     default: return 'var(--dim)'
   }
 }

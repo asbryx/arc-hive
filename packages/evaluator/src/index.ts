@@ -26,8 +26,9 @@ async function main() {
   setInterval(pollForEvaluations, CONFIG.POLL_INTERVAL_MS)
   await pollForEvaluations()
 
-  // Refund poll loop (every 5 min)
-  setInterval(pollForRefunds, 5 * 60 * 1000)
+  // Deadline + refund checker (every 1 hour)
+  setInterval(pollForRefunds, 60 * 60 * 1000)
+  await pollForRefunds()
 
   console.log('[evaluator] Running...')
 }

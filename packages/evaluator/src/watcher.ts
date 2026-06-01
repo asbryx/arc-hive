@@ -1,10 +1,11 @@
 import { CONFIG } from './config.js'
 import {
   getPendingEvaluations, getPreviousEvaluations, storeEvaluation,
-  updateJobAfterEvaluation, notifyAgent, recordRefund
+  updateJobAfterEvaluation, notifyAgent, recordRefund,
+  getExpiredFundedJobs, getExpiredAssignedJobs
 } from './db.js'
 import { evaluateDeliverable, EvalResult } from './evaluate.js'
-import { executeSubmit, executeComplete, executeReject, getOnchainJobStatus } from './execute.js'
+import { executeSubmit, executeComplete, executeReject, executeClaimRefund, getOnchainJobStatus } from './execute.js'
 
 export async function initWatcher() {
   console.log('[evaluator] Watcher initialized — polling DB for deliverables to evaluate')
@@ -26,9 +27,91 @@ export async function pollForEvaluations() {
 }
 
 export async function pollForRefunds() {
-  // No-op: contract's reject() auto-refunds USDC to client.
-  // Refund is recorded at reject time in processEvaluation.
-  // This function kept for backward compatibility but does nothing.
+  try {
+    // 1. Expire assigned jobs (unfunded, past deadline)
+    const expiredAssigned = await getExpiredAssignedJobs()
+    if (expiredAssigned.length > 0) {
+      console.log(`[deadline] Expired ${expiredAssigned.length} unfunded assigned job(s)`)
+      for (const job of expiredAssigned) {
+        if (job.selected_applicant) {
+          await notifyAgent(job.selected_applicant, 'job_expired', job.id,
+            `"${job.title}" expired — client did not fund in time.`)
+        }
+        if (job.client_address) {
+          await notifyAgent(job.client_address, 'job_expired', job.id,
+            `"${job.title}" expired — deadline passed without funding.`)
+        }
+      }
+    }
+
+    // 2. Check funded/in_progress jobs past deadline
+    const expiredFunded = await getExpiredFundedJobs()
+    if (expiredFunded.length === 0) return
+
+    console.log(`[deadline] Found ${expiredFunded.length} funded job(s) past deadline`)
+
+    for (const job of expiredFunded) {
+      const openJobId = job.id
+      const jobId = job.job_id // on-chain job ID
+
+      if (!jobId) {
+        // No on-chain job — just expire in marketplace
+        const { query } = await import('./db.js')
+        await query(`UPDATE open_jobs SET status = 'expired', updated_at = NOW() WHERE id = $1`, [openJobId])
+        console.log(`[deadline] Expired marketplace job ${openJobId} (no on-chain job)`)
+        if (job.client_address) {
+          await notifyAgent(job.client_address, 'job_expired', openJobId,
+            `"${job.title}" expired — deadline passed, no on-chain escrow.`)
+        }
+        continue
+      }
+
+      try {
+        // Check on-chain status
+        const onchainStatus = await getOnchainJobStatus(BigInt(jobId))
+
+        if (onchainStatus === 5) {
+          // On-chain expired — claim refund
+          console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) expired on-chain, claiming refund...`)
+          const txHash = await executeClaimRefund(BigInt(jobId))
+          console.log(`[deadline] Refund claimed for job ${openJobId} — tx=${txHash}`)
+
+          const { query } = await import('./db.js')
+          await query(
+            `UPDATE open_jobs SET status = 'refunded', refund_tx = $2, refunded_at = NOW(), updated_at = NOW() WHERE id = $1`,
+            [openJobId, txHash]
+          )
+
+          if (job.client_address) {
+            await notifyAgent(job.client_address, 'job_refunded', openJobId,
+              `"${job.title}" expired. USDC refunded. tx: ${txHash}`)
+          }
+          if (job.selected_applicant) {
+            await notifyAgent(job.selected_applicant, 'job_expired', openJobId,
+              `"${job.title}" expired — deadline passed, USDC refunded to client.`)
+          }
+        } else if (onchainStatus === 1) {
+          // Still funded on-chain (deadline not reached there yet) — skip
+          console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) still funded on-chain, skipping`)
+        } else if (onchainStatus === 2) {
+          // Submitted on-chain but no marketplace deliverable — the agent submitted directly
+          // Don't expire, let evaluator handle it
+          console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) submitted on-chain, skipping`)
+        } else {
+          // Completed/Rejected/Expired on-chain — just sync marketplace status
+          const { query } = await import('./db.js')
+          const statusMap: Record<number, string> = { 3: 'completed', 4: 'failed', 5: 'refunded' }
+          const newStatus = statusMap[onchainStatus] || 'expired'
+          await query(`UPDATE open_jobs SET status = $2, updated_at = NOW() WHERE id = $1`, [openJobId, newStatus])
+          console.log(`[deadline] Synced job ${openJobId} to status ${newStatus} (on-chain status=${onchainStatus})`)
+        }
+      } catch (err: any) {
+        console.error(`[deadline] Error processing job ${openJobId} (on-chain ${jobId}):`, err.message)
+      }
+    }
+  } catch (err) {
+    console.error('[deadline] Poll error:', (err as Error).message)
+  }
 }
 
 async function processEvaluation(job: any) {

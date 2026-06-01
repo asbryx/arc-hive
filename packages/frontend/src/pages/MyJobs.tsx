@@ -150,6 +150,7 @@ function statusColor(status: string): string {
     case 'refunded': return '#4caf50'
     case 'cancelled': return '#666'
     case 'revision_requested': return '#ff9800'
+    case 'expired': return '#666'
     default: return 'var(--dim)'
   }
 }
@@ -168,6 +169,7 @@ function statusLabel(status: string): string {
     case 'refunded': return '↩ refunded'
     case 'cancelled': return 'cancelled'
     case 'revision_requested': return '⚠ revision'
+    case 'expired': return 'expired'
     default: return status
   }
 }

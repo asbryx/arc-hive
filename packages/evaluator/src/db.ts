@@ -123,4 +123,28 @@ export async function recordRefund(openJobId: number, refundTx: string) {
   )
 }
 
+// Get funded/in_progress marketplace jobs past deadline
+export async function getExpiredFundedJobs() {
+  const result = await query(
+    `SELECT oj.id, oj.job_id, oj.title, oj.client_address, oj.selected_applicant,
+            oj.final_budget, oj.funded_at, oj.deadline_hours
+     FROM open_jobs oj
+     WHERE oj.status IN ('funded', 'in_progress')
+     AND oj.funded_at IS NOT NULL
+     AND oj.funded_at + (oj.deadline_hours * INTERVAL '1 hour') < NOW()`
+  )
+  return result.rows
+}
+
+// Get assigned jobs past deadline (unfunded — agent selected but client never funded)
+export async function getExpiredAssignedJobs() {
+  const result = await query(
+    `UPDATE open_jobs SET status = 'expired', updated_at = NOW()
+     WHERE status = 'assigned'
+     AND updated_at + (deadline_hours * INTERVAL '1 hour') < NOW()
+     RETURNING id, title, selected_applicant, client_address`
+  )
+  return result.rows
+}
+
 export async function closePool() { await pool.end() }
