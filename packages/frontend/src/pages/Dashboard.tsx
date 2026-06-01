@@ -5,7 +5,7 @@ import { useMarketplaceStats } from '@/api/hooks'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
-type Tab = 'posted' | 'provider'
+type Tab = 'open' | 'history'
 
 interface JobRow {
   id: number
@@ -31,7 +31,7 @@ export default function Dashboard() {
   const { address, isConnected } = useAccount()
   const navigate = useNavigate()
   const { data: mStats } = useMarketplaceStats()
-  const [tab, setTab] = useState<Tab>('posted')
+  const [tab, setTab] = useState<Tab>('open')
   const [activeJobs, setActiveJobs] = useState<JobRow[]>([])
   const [historyJobs, setHistoryJobs] = useState<JobRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -69,16 +69,7 @@ export default function Dashboard() {
 
   if (!isConnected) return null
 
-  // Split by role from API
-  const postedActive = activeJobs.filter(j => j.role === 'client')
-  const postedHistory = historyJobs.filter(j => j.role === 'client')
-  const allPosted = [...postedActive, ...postedHistory]
-  const providerActive = activeJobs.filter(j => j.role === 'provider')
-  const providerHistory = historyJobs.filter(j => j.role === 'provider')
-  const allProvider = [...providerActive, ...providerHistory]
-  const hasProviderActivity = allProvider.length > 0
-
-  const currentList = tab === 'posted' ? allPosted : allProvider
+  const currentList = tab === 'open' ? activeJobs : historyJobs
 
   return (
     <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 800, margin: '0 auto', minHeight: 'calc(100vh - 160px)' }}>
@@ -100,31 +91,29 @@ export default function Dashboard() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--dimmer)', marginBottom: 24 }}>
         <button
-          onClick={() => setTab('posted')}
+          onClick={() => setTab('open')}
           style={{
-            padding: '10px 20px', fontSize: 12, fontWeight: tab === 'posted' ? 700 : 400,
+            padding: '10px 20px', fontSize: 12, fontWeight: tab === 'open' ? 700 : 400,
             background: 'transparent', border: 'none', cursor: 'pointer',
-            color: tab === 'posted' ? 'var(--text)' : 'var(--dim)',
-            borderBottom: tab === 'posted' ? '2px solid var(--accent)' : '2px solid transparent',
+            color: tab === 'open' ? 'var(--text)' : 'var(--dim)',
+            borderBottom: tab === 'open' ? '2px solid var(--accent)' : '2px solid transparent',
             marginBottom: -1,
           }}
         >
-          Posted ({allPosted.length})
+          Open ({activeJobs.length})
         </button>
-        {hasProviderActivity && (
-          <button
-            onClick={() => setTab('provider')}
-            style={{
-              padding: '10px 20px', fontSize: 12, fontWeight: tab === 'provider' ? 700 : 400,
-              background: 'transparent', border: 'none', cursor: 'pointer',
-              color: tab === 'provider' ? 'var(--text)' : 'var(--dim)',
-              borderBottom: tab === 'provider' ? '2px solid var(--accent)' : '2px solid transparent',
-              marginBottom: -1,
-            }}
-          >
-            Applications ({allProvider.length})
-          </button>
-        )}
+        <button
+          onClick={() => setTab('history')}
+          style={{
+            padding: '10px 20px', fontSize: 12, fontWeight: tab === 'history' ? 700 : 400,
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: tab === 'history' ? 'var(--text)' : 'var(--dim)',
+            borderBottom: tab === 'history' ? '2px solid var(--accent)' : '2px solid transparent',
+            marginBottom: -1,
+          }}
+        >
+          History ({historyJobs.length})
+        </button>
       </div>
 
       {/* Job list */}
@@ -132,8 +121,8 @@ export default function Dashboard() {
         <div style={{ fontSize: 12, color: 'var(--dim)' }}>Loading...</div>
       ) : currentList.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--dim)', fontSize: 12 }}>
-          {tab === 'posted' ? 'No posted jobs yet.' : 'No applications yet.'}
-          {tab === 'posted' && (
+          {tab === 'open' ? 'No active jobs.' : 'No completed jobs yet.'}
+          {tab === 'open' && (
             <div style={{ marginTop: 12 }}>
               <Link to="/post-job" style={{ color: 'var(--accent)', fontSize: 12 }}>+ Post a job</Link>
             </div>
