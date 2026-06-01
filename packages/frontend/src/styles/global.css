@@ -282,3 +282,10 @@ input, select { font-family: var(--font); }
     grid-template-columns: 1fr;
   }
 }
+
+/* Mobile bottom nav safe area — prevent content hiding behind fixed bottom bar */
+@media (max-width: 768px) {
+  .page-enter {
+    padding-bottom: 80px !important;
+  }
+}

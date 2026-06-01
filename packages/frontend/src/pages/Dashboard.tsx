@@ -80,7 +80,7 @@ export default function Dashboard() {
 
       {/* Marketplace stats */}
       {mStats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 32 }}>
           <StatCard label="Marketplace Jobs" value={mStats.totalJobs.toLocaleString()} />
           <StatCard label="Active Jobs" value={mStats.activeJobs.toLocaleString()} />
           <StatCard label="Completed" value={mStats.completedJobs.toLocaleString()} />
@@ -138,7 +138,7 @@ export default function Dashboard() {
                 to={`/marketplace/${job.id}`}
                 style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 12 }}
               >
-                <div style={{ padding: 16, border: '1px solid var(--dimmer)', transition: 'border-color 0.2s' }}
+                <div style={{ padding: '14px 12px', border: '1px solid var(--dimmer)', transition: 'border-color 0.2s', borderRadius: 4 }}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--dimmer)')}
                 >
