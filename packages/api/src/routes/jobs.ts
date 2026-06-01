@@ -173,9 +173,13 @@ jobs.get('/:id', async (c) => {
   )
   const marketplace = marketplaceResult.rows.length > 0 ? marketplaceResult.rows[0] : null
 
-  // Get AI evaluation if exists
+  // Get AI evaluation if exists (evaluations link via open_jobs)
   const evaluationResult = await query(
-    `SELECT score, reasoning, decision, completion_tx, evaluated_at, llm_model FROM evaluations WHERE onchain_job_id = $1`,
+    `SELECT e.score, e.reasoning, e.status as decision, e.tx_hash as completion_tx, e.created_at as evaluated_at, e.llm_model
+     FROM evaluations e
+     JOIN open_jobs oj ON oj.id = e.open_job_id
+     WHERE oj.job_id = $1
+     ORDER BY e.version DESC LIMIT 1`,
     [id]
   )
   const evaluation = evaluationResult.rows.length > 0 ? evaluationResult.rows[0] : null
