@@ -165,7 +165,7 @@ export async function upsertJob(params: {
   createdTx: string
   sourceContract: string
 }) {
-  await query(
+  await queryMarketplace(
     `INSERT INTO jobs (job_id, client_address, provider_address, evaluator_address, description, expired_at, hook_address, created_block, created_timestamp, created_tx, source_contract)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      ON CONFLICT (job_id, source_contract) DO UPDATE SET
