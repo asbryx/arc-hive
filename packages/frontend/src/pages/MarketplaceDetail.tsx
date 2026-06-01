@@ -1031,7 +1031,7 @@ function StatusTimeline({ job, selectedApp }: { job: OpenJob; selectedApp?: Appl
 
 function statusColor(status: string): string {
   switch (status) {
-    case 'open': return 'var(--dim)'
+    case 'open': return '#4a9ead'
     case 'assigned': return '#ff9800'
     case 'funded': return '#2196f3'
     case 'in_progress': return '#2196f3'

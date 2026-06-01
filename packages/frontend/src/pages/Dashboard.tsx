@@ -154,7 +154,7 @@ export default function Dashboard() {
                           </span>
                         )}
                         {role === 'client' && job.applicationCount != null && (
-                          <span>{job.applicationCount} applicant{job.applicationCount !== 1 ? 's' : ''}</span>
+                          <span>{job.applicationCount} Applicant{job.applicationCount !== 1 ? 's' : ''}</span>
                         )}
                       </div>
                     </div>
@@ -188,7 +188,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
 
 function statusColor(status: string): string {
   switch (status) {
-    case 'open': return 'var(--dim)'
+    case 'open': return '#4a9ead'
     case 'assigned': return '#ff9800'
     case 'funded': return '#2196f3'
     case 'in_progress': return '#2196f3'

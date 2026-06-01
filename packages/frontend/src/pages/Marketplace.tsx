@@ -132,7 +132,7 @@ export default function Marketplace() {
                         </span>
                       )}
                       <span>{job.deadlineHours}h deadline</span>
-                      <span>{job.applicationCount} applicant{job.applicationCount !== 1 ? 's' : ''}</span>
+                      <span>{job.applicationCount} Applicant{job.applicationCount !== 1 ? 's' : ''}</span>
                       {job.clientAddress === address?.toLowerCase() && (
                         <span style={{ color: 'var(--accent)' }}>your job</span>
                       )}
