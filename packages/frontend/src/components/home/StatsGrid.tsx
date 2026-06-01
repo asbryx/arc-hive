@@ -13,7 +13,7 @@ export default function StatsGrid({ stats, daily }: Props) {
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
         {[...Array(4)].map((_, i) => (
-          <div key={i} style={{ padding: 20, background: 'transparent', border: '1px solid var(--dimmer)', borderRadius: 6 }}>
+          <div key={i} style={{ padding: 20, background: 'transparent' }}>
             <Skeleton width={60} height={10} style={{ marginBottom: 8 }} />
             <Skeleton width={80} height={28} />
           </div>
@@ -58,8 +58,6 @@ export default function StatsGrid({ stats, daily }: Props) {
           style={{
             padding: '20px 16px',
             background: 'transparent',
-            border: '1px solid var(--dimmer)',
-            borderRadius: 6,
             animationDelay: `${i * 100}ms`,
           }}
         >

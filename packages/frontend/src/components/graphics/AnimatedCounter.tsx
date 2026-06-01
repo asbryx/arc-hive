@@ -5,26 +5,31 @@ interface Props {
   duration?: number
 }
 
-export default function AnimatedCounter({ target, duration = 1200 }: Props) {
-  const [value, setValue] = useState(0)
-  const startTime = useRef<number | null>(null)
+export default function AnimatedCounter({ target, duration = 800 }: Props) {
+  const [display, setDisplay] = useState(target)
+  const prevRef = useRef(target)
   const rafRef = useRef<number>(0)
 
   useEffect(() => {
-    startTime.current = null
+    const from = prevRef.current
+    const to = target
+    if (from === to) return
+
+    const startTime = performance.now()
+    const diff = to - from
 
     function animate(ts: number) {
-      if (!startTime.current) startTime.current = ts
-      const elapsed = ts - startTime.current
+      const elapsed = ts - startTime
       const progress = Math.min(elapsed / duration, 1)
       // Ease out cubic
       const eased = 1 - Math.pow(1 - progress, 3)
-      setValue(Math.floor(eased * target))
+      setDisplay(Math.round(from + diff * eased))
 
       if (progress < 1) {
         rafRef.current = requestAnimationFrame(animate)
       } else {
-        setValue(target)
+        setDisplay(to)
+        prevRef.current = to
       }
     }
 
@@ -32,5 +37,5 @@ export default function AnimatedCounter({ target, duration = 1200 }: Props) {
     return () => cancelAnimationFrame(rafRef.current)
   }, [target, duration])
 
-  return <>{value.toLocaleString('en-US')}</>
+  return <>{display.toLocaleString('en-US')}</>
 }
