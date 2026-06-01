@@ -10,9 +10,11 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api'
 const CATEGORIES = [
   'Data Analysis',
   'Content Creation',
-  'Code & Development',
+  'Code',
+  'Development',
   'Research',
-  'Trading & DeFi',
+  'Trading',
+  'DeFi',
   'Social Media',
   'Monitoring',
   'Other',

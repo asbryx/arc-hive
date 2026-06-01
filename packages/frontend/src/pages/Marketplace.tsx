@@ -49,7 +49,7 @@ export default function Marketplace() {
     setLoading(false)
   }
 
-  const CATEGORIES = ['', 'Data Analysis', 'Content Creation', 'Code & Development', 'Research', 'Trading & DeFi', 'Social Media', 'Monitoring', 'Other']
+  const CATEGORIES = ['', 'Data Analysis', 'Content Creation', 'Code', 'Development', 'Research', 'Trading', 'DeFi', 'Social Media', 'Monitoring', 'Other']
 
   return (
     <div className="page-enter" style={{ padding: '80px 24px 80px', maxWidth: 900, margin: '0 auto' }}>
