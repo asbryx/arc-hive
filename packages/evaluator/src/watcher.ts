@@ -141,6 +141,11 @@ async function processEvaluation(job: any) {
   const prevEvals = await getPreviousEvaluations(openJobId)
   const revisionNumber = prevEvals.length // 0 = first attempt, 1 = first revision, etc.
 
+  // Parse sector_config if stored as string (pg JSONB should auto-parse, but safety)
+  const sectorConfig = typeof job.sector_config === 'string'
+    ? JSON.parse(job.sector_config)
+    : job.sector_config || null
+
   // Call LLM
   let result: EvalResult
   try {
@@ -157,6 +162,8 @@ async function processEvaluation(job: any) {
         reasoning: e.reasoning,
         suggestions: e.suggestions,
       })),
+      category: job.category || null,
+      sectorConfig,
     }, job.max_revisions || CONFIG.MAX_REVISIONS)
   } catch (err) {
     console.error(`[evaluator] LLM error for job ${openJobId}:`, (err as Error).message)

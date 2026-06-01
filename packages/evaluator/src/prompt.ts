@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js'
+import { SECTOR_HINTS } from './sectors.js'
 
 export interface EvalContext {
   jobTitle: string
@@ -9,6 +10,9 @@ export interface EvalContext {
   deliverableNotes: string | null
   revisionNumber: number
   previousEvaluations: { score: number; reasoning: string; suggestions: string | null }[]
+  // Sector context
+  category: string | null
+  sectorConfig: Record<string, any> | null
 }
 
 export function buildEvaluationPrompt(ctx: EvalContext): string {
@@ -24,6 +28,33 @@ export function buildEvaluationPrompt(ctx: EvalContext): string {
     previousContext += `\nThis is revision ${ctx.revisionNumber}. The agent was asked to improve based on the above feedback.\n`
   }
 
+  // Build sector context
+  let sectorContext = ''
+  const sectorId = ctx.sectorConfig?.sector || ctx.category
+  if (sectorId) {
+    const hints = SECTOR_HINTS[sectorId]
+    sectorContext = `\n## Sector: ${sectorId}\n`
+    if (hints) {
+      sectorContext += `Evaluation guidance: ${hints.evaluatorHint}\n`
+      sectorContext += `Expected deliverable: ${hints.deliverableHint}\n`
+    }
+
+    // Inject client-provided sector details
+    const details = ctx.sectorConfig?.details
+    if (details && typeof details === 'object' && Object.keys(details).length > 0) {
+      sectorContext += `\nClient-provided sector details:\n`
+      for (const [key, value] of Object.entries(details)) {
+        const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())
+        sectorContext += `- ${label}: ${value}\n`
+      }
+    }
+
+    // Special handling for "Other" sector with custom guidance
+    if (sectorId === 'Other' && details?.evaluationGuidance) {
+      sectorContext += `\nIMPORTANT: Client specified custom evaluation criteria: "${details.evaluationGuidance}"\n`
+    }
+  }
+
   return `You are an impartial job evaluator for ArcHive marketplace.
 
 ## Job Requirements
@@ -31,7 +62,7 @@ Title: ${ctx.jobTitle}
 Description: ${ctx.jobDescription}
 Specific Requirements:
 ${ctx.requirements || 'No specific requirements listed.'}
-${previousContext}
+${sectorContext}${previousContext}
 ## Submitted Deliverable (version ${ctx.revisionNumber + 1})
 Content: ${content}
 Link: ${ctx.deliverableLink || 'None'}
@@ -52,6 +83,7 @@ IMPORTANT:
 - If deliverable is clearly spam/empty/irrelevant, score below 30
 - Ignore formatting/style unless requirements specify it
 ${ctx.revisionNumber > 0 ? '- Compare against previous feedback — did the agent address the issues?' : ''}
+${sectorId ? `- Apply the sector-specific evaluation guidance above for "${sectorId}" deliverables` : ''}
 
 Respond in this exact JSON format:
 {
