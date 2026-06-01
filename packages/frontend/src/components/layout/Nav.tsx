@@ -1,7 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
-import { useStats, useIndexerHealth } from '@/api/hooks'
 import { useTheme } from '@/hooks/useTheme'
 import { useState, useEffect } from 'react'
 import styles from './Nav.module.css'
@@ -23,16 +22,11 @@ function useIsMobile() {
 }
 
 export default function Nav() {
-  const { data: stats } = useStats()
-  const { data: health } = useIndexerHealth()
   const { address, isConnected } = useAccount()
   const { openConnectModal } = useConnectModal()
   const { disconnect } = useDisconnect()
   const { theme, toggle } = useTheme()
   const isMobile = useIsMobile()
-
-  const isLive = !!stats
-  const isSyncing = health?.syncing ?? false
 
   const navLinks = (
     <>
@@ -125,10 +119,6 @@ export default function Nav() {
       <ul className={styles.links}>
         {navLinks}
       </ul>
-      <div className={styles.status}>
-        <span className={isLive ? 'pulse-live' : ''} style={{ color: isLive ? '#00ff00' : '#ff4444' }}>●</span>
-        {' '}{isSyncing ? 'syncing' : isLive ? 'live' : 'offline'} · {stats ? `${stats.totalAgents.toLocaleString()} agents` : '...'}
-      </div>
       {actions}
     </nav>
   )
