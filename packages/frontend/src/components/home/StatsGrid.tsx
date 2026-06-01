@@ -11,9 +11,9 @@ interface Props {
 export default function StatsGrid({ stats, daily }: Props) {
   if (!stats) {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--dimmer)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
         {[...Array(4)].map((_, i) => (
-          <div key={i} style={{ padding: 20, background: 'var(--bg)' }}>
+          <div key={i} style={{ padding: 20, background: 'transparent', border: '1px solid var(--dimmer)', borderRadius: 6 }}>
             <Skeleton width={60} height={10} style={{ marginBottom: 8 }} />
             <Skeleton width={80} height={28} />
           </div>
@@ -50,14 +50,16 @@ export default function StatsGrid({ stats, daily }: Props) {
   ]
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--dimmer)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
       {items.map((item, i) => (
         <div
           key={item.label}
           className="card-glow stagger-in"
           style={{
             padding: '20px 16px',
-            background: 'var(--bg)',
+            background: 'transparent',
+            border: '1px solid var(--dimmer)',
+            borderRadius: 6,
             animationDelay: `${i * 100}ms`,
           }}
         >
