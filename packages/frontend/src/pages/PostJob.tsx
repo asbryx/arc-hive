@@ -4,21 +4,9 @@ import { useAccount, useWriteContract } from 'wagmi'
 import { zeroAddress } from 'viem'
 import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI } from '@/lib/contracts'
 import { arcTestnet } from '@/lib/wagmi'
+import { SECTOR_LIST, getSector, type SectorConfig, type SectorDetailField } from '@/lib/sectors'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
-
-const CATEGORIES = [
-  'Data Analysis',
-  'Content Creation',
-  'Code',
-  'Development',
-  'Research',
-  'Trading',
-  'DeFi',
-  'Social Media',
-  'Monitoring',
-  'Other',
-]
 
 interface JobForm {
   title: string
@@ -28,6 +16,7 @@ interface JobForm {
   budgetMin: string
   budgetMax: string
   deadlineHours: string
+  sectorDetails: Record<string, any>
 }
 
 type Step = 'form' | 'preview' | 'submitting' | 'done'
@@ -38,6 +27,7 @@ export default function PostJob() {
   const { writeContractAsync } = useWriteContract()
 
   const [step, setStep] = useState<Step>('form')
+  const [showDetails, setShowDetails] = useState(false)
   const [form, setForm] = useState<JobForm>({
     title: '',
     description: '',
@@ -46,6 +36,7 @@ export default function PostJob() {
     budgetMin: '',
     budgetMax: '',
     deadlineHours: '72',
+    sectorDetails: {},
   })
   const [error, setError] = useState<string | null>(null)
   const [jobId, setJobId] = useState<bigint | null>(null)
@@ -59,14 +50,18 @@ export default function PostJob() {
     )
   }
 
+  const sector = getSector(form.category)
   const isValid = form.title.length >= 5 && form.description.length >= 20 && form.category && (form.budgetMin || form.budgetMax) && parseInt(form.deadlineHours) > 0
+
+  function updateDetail(key: string, value: any) {
+    setForm({ ...form, sectorDetails: { ...form.sectorDetails, [key]: value } })
+  }
 
   async function handleSubmit() {
     setStep('submitting')
     setError(null)
 
     try {
-      // Step 1: Create job on-chain with provider = zero (open job)
       const deadlineH = parseInt(form.deadlineHours) || 72
       const expiredAt = BigInt(Math.floor(Date.now() / 1000) + deadlineH * 3600)
       const evaluatorAddr = '0xC1FEf538dc6357435372CEb69970D4078F4d3528' as `0x${string}`
@@ -77,7 +72,7 @@ export default function PostJob() {
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'createJob',
         args: [
-          zeroAddress, // open — no provider yet
+          zeroAddress,
           evaluatorAddr,
           expiredAt,
           onChainDesc,
@@ -88,7 +83,6 @@ export default function PostJob() {
 
       const receipt = await waitForTx(createHash)
 
-      // Parse jobId from event log
       const jobCreatedLog = receipt.logs?.find(
         (log: any) => log.topics?.[0] === '0xb0f0239bfdd96453e24733e18bfc24b70d8fadf123dd977473518dd577ee79b9'
       )
@@ -97,7 +91,22 @@ export default function PostJob() {
         : null
       setJobId(newJobId)
 
-      // Step 2: Save detailed metadata to API
+      // Build sector_config from filled details only
+      const sectorConfig: Record<string, any> = {}
+      if (sector) {
+        sectorConfig.sector = sector.id
+        const filledDetails: Record<string, string> = {}
+        for (const field of sector.detailFields) {
+          const val = form.sectorDetails[field.key]
+          if (val !== undefined && val !== '' && val !== false) {
+            filledDetails[field.key] = typeof val === 'boolean' ? 'yes' : String(val)
+          }
+        }
+        if (Object.keys(filledDetails).length > 0) {
+          sectorConfig.details = filledDetails
+        }
+      }
+
       const res = await fetch(`${API_BASE}/open-jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -112,6 +121,7 @@ export default function PostJob() {
           deadlineHours: form.deadlineHours,
           clientAddress: address,
           onChainTx: createHash,
+          sectorConfig: Object.keys(sectorConfig).length > 0 ? sectorConfig : null,
         }),
       })
 
@@ -139,6 +149,108 @@ export default function PostJob() {
     fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase' as const, letterSpacing: 1,
   }
 
+  // ─── Sector Selector ───
+  const sectorCardStyle = (active: boolean) => ({
+    padding: '10px 12px',
+    border: `1px solid ${active ? 'var(--accent)' : 'var(--dimmer)'}`,
+    background: active ? 'rgba(39,63,79,0.15)' : 'transparent',
+    color: active ? 'var(--text)' : 'var(--dim)',
+    cursor: 'pointer' as const,
+    fontSize: 12,
+    fontFamily: 'var(--font)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    transition: 'all 0.15s',
+  })
+
+  function renderDetailField(field: SectorDetailField) {
+    const value = form.sectorDetails[field.key]
+
+    if (field.type === 'checkbox') {
+      return (
+        <label key={field.key} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 16 }}>
+          <input
+            type="checkbox"
+            checked={!!value}
+            onChange={(e) => updateDetail(field.key, e.target.checked)}
+            style={{ accentColor: 'var(--accent)' }}
+          />
+          <span style={{ fontSize: 12, color: 'var(--text)' }}>{field.label}</span>
+        </label>
+      )
+    }
+
+    if (field.type === 'select') {
+      return (
+        <label key={field.key} style={{ display: 'block', marginBottom: 16 }}>
+          <span style={labelStyle}>{field.label}</span>
+          <select
+            value={value || ''}
+            onChange={(e) => updateDetail(field.key, e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Any / No preference</option>
+            {field.options?.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </label>
+      )
+    }
+
+    if (field.type === 'multiselect') {
+      const selected: string[] = Array.isArray(value) ? value : []
+      return (
+        <div key={field.key} style={{ marginBottom: 16 }}>
+          <span style={labelStyle}>{field.label}</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+            {field.options?.map(opt => {
+              const isActive = selected.includes(opt)
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => {
+                    const next = isActive
+                      ? selected.filter(s => s !== opt)
+                      : [...selected, opt]
+                    updateDetail(field.key, next)
+                  }}
+                  style={{
+                    padding: '5px 10px',
+                    fontSize: 11,
+                    fontFamily: 'var(--font)',
+                    border: `1px solid ${isActive ? 'var(--accent)' : 'var(--dimmer)'}`,
+                    background: isActive ? 'rgba(39,63,79,0.15)' : 'transparent',
+                    color: isActive ? 'var(--text)' : 'var(--dim)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {opt}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )
+    }
+
+    // text (default)
+    return (
+      <label key={field.key} style={{ display: 'block', marginBottom: 16 }}>
+        <span style={labelStyle}>{field.label}</span>
+        <input
+          type="text"
+          value={value || ''}
+          onChange={(e) => updateDetail(field.key, e.target.value)}
+          placeholder={field.placeholder}
+          style={inputStyle}
+        />
+      </label>
+    )
+  }
+
   return (
     <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 700, margin: '0 auto' }}>
       <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24 }}>
@@ -148,8 +260,30 @@ export default function PostJob() {
       {/* Form */}
       {step === 'form' && (
         <div>
+          {/* Sector Selector */}
+          <div style={{ marginBottom: 24 }}>
+            <span style={labelStyle}>Sector *</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 8 }}>
+              {SECTOR_LIST.map(s => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    setForm({ ...form, category: s.id, sectorDetails: {} })
+                    setShowDetails(false)
+                  }}
+                  style={sectorCardStyle(form.category === s.id)}
+                >
+                  <span style={{ fontSize: 14 }}>{s.icon}</span>
+                  <span>{s.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Title */}
           <label style={{ display: 'block', marginBottom: 20 }}>
-            <span style={labelStyle}>Job Title *</span>
+            <span style={labelStyle}>Job title *</span>
             <input
               type="text"
               value={form.title}
@@ -160,26 +294,13 @@ export default function PostJob() {
             />
           </label>
 
-          <label style={{ display: 'block', marginBottom: 20 }}>
-            <span style={labelStyle}>Category *</span>
-            <select
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
-              style={inputStyle}
-            >
-              <option value="">Select category...</option>
-              {CATEGORIES.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </label>
-
+          {/* Description — dynamic placeholder */}
           <label style={{ display: 'block', marginBottom: 20 }}>
             <span style={labelStyle}>Description * (what needs to be done)</span>
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Describe the task in detail. What's the expected output? What data sources should be used? Any specific format requirements?"
+              placeholder={sector?.descriptionPlaceholder || 'Describe the task in detail. What\'s the expected output? What data sources should be used?'}
               style={{ ...inputStyle, minHeight: 140, resize: 'vertical' as const }}
             />
             <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4 }}>
@@ -187,16 +308,59 @@ export default function PostJob() {
             </div>
           </label>
 
+          {/* Sector Details — optional, collapsed */}
+          {sector && sector.detailFields.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <button
+                type="button"
+                onClick={() => setShowDetails(!showDetails)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--dim)',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font)',
+                  fontSize: 11,
+                  textTransform: 'uppercase',
+                  letterSpacing: 1,
+                  padding: 0,
+                }}
+              >
+                <span style={{ transform: showDetails ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s', fontSize: 10 }}>▶</span>
+                {sector.label} details (optional)
+              </button>
+
+              {showDetails && (
+                <div style={{
+                  marginTop: 12,
+                  padding: '16px',
+                  border: '1px solid var(--dimmer)',
+                  background: 'rgba(39,63,79,0.04)',
+                }}>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 16 }}>
+                    These fields help agents understand your needs better. All optional — skip any you don't need.
+                  </div>
+                  {sector.detailFields.map(field => renderDetailField(field))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Requirements */}
           <label style={{ display: 'block', marginBottom: 20 }}>
             <span style={labelStyle}>Requirements (skills, tools, access needed)</span>
             <textarea
               value={form.requirements}
               onChange={(e) => setForm({ ...form, requirements: e.target.value })}
-              placeholder="e.g. Must have access to Dune Analytics API. Experience with ERC-20 token analysis. Output as CSV + summary report."
+              placeholder="e.g. Must have access to Dune Analytics API. Experience with ERC-20 token analysis."
               style={{ ...inputStyle, minHeight: 80, resize: 'vertical' as const }}
             />
           </label>
 
+          {/* Budget */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
             <label>
               <span style={labelStyle}>Budget Min (USDC)</span>
@@ -224,6 +388,7 @@ export default function PostJob() {
             </label>
           </div>
 
+          {/* Deadline */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
             <label>
               <span style={labelStyle}>Deadline (hours)</span>
@@ -238,6 +403,7 @@ export default function PostJob() {
             </label>
           </div>
 
+          {/* Info box */}
           <div style={{ padding: '12px 16px', border: '1px solid var(--dimmer)', marginBottom: 24, fontSize: 11, color: 'var(--dim)' }}>
             Open jobs are visible to all agents. Agents apply with a proposed budget and message. You pick the best applicant, then fund the job. An AI evaluator reviews deliverables automatically.
           </div>
@@ -261,13 +427,45 @@ export default function PostJob() {
         <div>
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{form.title}</div>
-            <div style={{ display: 'inline-block', padding: '2px 8px', fontSize: 10, background: 'var(--dimmer)', color: 'var(--text)', marginBottom: 16 }}>
-              {form.category}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ display: 'inline-block', padding: '2px 8px', fontSize: 10, background: 'var(--dimmer)', color: 'var(--text)' }}>
+                {sector?.icon} {form.category}
+              </div>
+              {sector?.deliverableHint && (
+                <div style={{ fontSize: 10, color: 'var(--dim)' }}>
+                  {sector.deliverableHint}
+                </div>
+              )}
             </div>
 
             <div style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 16, whiteSpace: 'pre-wrap' }}>
               {form.description}
             </div>
+
+            {/* Sector details preview */}
+            {sector && Object.keys(form.sectorDetails).length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', marginBottom: 6 }}>{sector.label} details</div>
+                <div style={{ fontSize: 12, padding: '10px 12px', border: '1px solid var(--dimmer)' }}>
+                  {sector.detailFields
+                    .filter(f => {
+                      const v = form.sectorDetails[f.key]
+                      return v !== undefined && v !== '' && v !== false && (!Array.isArray(v) || v.length > 0)
+                    })
+                    .map(f => {
+                      const v = form.sectorDetails[f.key]
+                      const display = typeof v === 'boolean' ? 'Yes' : Array.isArray(v) ? v.join(', ') : String(v)
+                      return (
+                        <div key={f.key} style={{ marginBottom: 4 }}>
+                          <span style={{ color: 'var(--dim)', fontSize: 10, textTransform: 'uppercase' }}>{f.label}: </span>
+                          <span>{display}</span>
+                        </div>
+                      )
+                    })
+                  }
+                </div>
+              </div>
+            )}
 
             {form.requirements && (
               <div style={{ marginBottom: 16 }}>
@@ -346,6 +544,11 @@ export default function PostJob() {
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Job Posted</div>
           <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8 }}>
             {form.title}
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 8 }}>
+            <span style={{ display: 'inline-block', padding: '2px 8px', fontSize: 10, background: 'var(--dimmer)', color: 'var(--text)' }}>
+              {sector?.icon} {form.category}
+            </span>
           </div>
           <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 24 }}>
             Job #{jobId?.toString()} · Open for applications · {form.budgetMin} – {form.budgetMax} USDC

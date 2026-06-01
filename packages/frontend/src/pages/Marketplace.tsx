@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
+import { getSector } from '@/lib/sectors'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -126,11 +127,14 @@ export default function Marketplace() {
                       {job.description.slice(0, 120)}{job.description.length > 120 ? '...' : ''}
                     </div>
                     <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: 'var(--dim)', alignItems: 'center' }}>
-                      {job.category && (
-                        <span style={{ padding: '1px 6px', background: 'var(--dimmer)', color: 'var(--text)' }}>
-                          {job.category}
-                        </span>
-                      )}
+                      {job.category && (() => {
+                        const sector = getSector(job.category)
+                        return (
+                          <span style={{ padding: '1px 6px', background: 'var(--dimmer)', color: 'var(--text)' }}>
+                            {sector?.icon ? `${sector.icon} ` : ''}{job.category}
+                          </span>
+                        )
+                      })()}
                       <span style={{ color: '#4a9ead' }}>Open</span>
                       <span>·</span>
                       <span>{job.applicationCount} Applicant{job.applicationCount !== 1 ? 's' : ''}</span>

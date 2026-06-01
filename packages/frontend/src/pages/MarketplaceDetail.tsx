@@ -5,6 +5,7 @@ import { readContract, waitForTransactionReceipt } from '@wagmi/core'
 import { parseUnits } from 'viem'
 import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI, USDC_ADDRESS, USDC_ABI } from '@/lib/contracts'
 import { arcTestnet, config } from '@/lib/wagmi'
+import { getSector } from '@/lib/sectors'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -34,6 +35,7 @@ interface OpenJob {
   finalBudget: string | null
   maxRevisions: number
   revisionCount: number
+  sectorConfig: { sector?: string; details?: Record<string, string> } | null
   createdAt: string
 }
 
@@ -546,16 +548,30 @@ export default function MarketplaceDetail() {
 
       {/* Job Header */}
       <div style={{ marginTop: 20, marginBottom: 24 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-          {job.category && (
-            <span style={{ padding: '2px 8px', fontSize: 10, background: 'var(--dimmer)', color: 'var(--text)' }}>
-              {job.category}
-            </span>
-          )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+          {job.category && (() => {
+            const sector = getSector(job.category)
+            return (
+              <span style={{ padding: '2px 8px', fontSize: 10, background: 'var(--dimmer)', color: 'var(--text)' }}>
+                {sector?.icon ? `${sector.icon} ` : ''}{job.category}
+              </span>
+            )
+          })()}
           <span style={{ fontSize: 10, color: statusColor(job.status) }}>● {job.status.charAt(0).toUpperCase() + job.status.slice(1).replace(/_/g, ' ')}</span>
           <span style={{ fontSize: 10, color: 'var(--dim)' }}>· {timeAgo}</span>
         </div>
         <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>{job.title}</div>
+
+        {/* Sector deliverable hint */}
+        {job.category && (() => {
+          const sector = getSector(job.category)
+          if (!sector?.deliverableHint) return null
+          return (
+            <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 12, padding: '6px 10px', border: '1px solid var(--dimmer)', display: 'inline-block' }}>
+              {sector.deliverableHint}
+            </div>
+          )
+        })()}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, padding: '12px 0', borderTop: '1px solid var(--dimmer)', borderBottom: '1px solid var(--dimmer)', marginBottom: 20 }}>
           <div>
@@ -583,6 +599,28 @@ export default function MarketplaceDetail() {
         <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Description</div>
         <div style={{ fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{job.description}</div>
       </div>
+
+      {/* Sector Details */}
+      {job.sectorConfig?.details && Object.keys(job.sectorConfig.details).length > 0 && (() => {
+        const sector = getSector(job.category || '')
+        if (!sector) return null
+        return (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{sector.label} details</div>
+            <div style={{ fontSize: 12, lineHeight: 1.6, padding: '12px 16px', border: '1px solid var(--dimmer)' }}>
+              {Object.entries(job.sectorConfig.details).map(([key, value]) => {
+                const field = sector.detailFields.find(f => f.key === key)
+                return (
+                  <div key={key} style={{ marginBottom: 4 }}>
+                    <span style={{ color: 'var(--dim)', fontSize: 10, textTransform: 'uppercase' }}>{field?.label || key}: </span>
+                    <span>{value}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Requirements */}
       {job.requirements && (

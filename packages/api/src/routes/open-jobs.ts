@@ -17,7 +17,7 @@ export const openJobs = new Hono()
 // POST /api/open-jobs — create an open job listing
 openJobs.post('/', async (c) => {
   const body = await c.req.json()
-  const { title, description, category, requirements, budgetMin, budgetMax, deadlineHours, clientAddress, jobId, onChainTx } = body
+  const { title, description, category, requirements, budgetMin, budgetMax, deadlineHours, clientAddress, jobId, onChainTx, sectorConfig } = body
 
   if (!title || !description || !clientAddress) {
     return c.json({ error: 'title, description, and clientAddress required' }, 400)
@@ -31,10 +31,10 @@ openJobs.post('/', async (c) => {
   const budgetMaxRaw = budgetMax ? BigInt(Math.round(parseFloat(budgetMax) * 1_000_000)).toString() : null
 
   const result = await query(
-    `INSERT INTO open_jobs (job_id, title, description, category, requirements, budget_min, budget_max, deadline_hours, client_address, on_chain_tx)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `INSERT INTO open_jobs (job_id, title, description, category, requirements, budget_min, budget_max, deadline_hours, client_address, on_chain_tx, sector_config)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      RETURNING id`,
-    [jobId || null, title, description, category || null, requirements || null, budgetMinRaw, budgetMaxRaw, deadlineHours || 72, clientAddress.toLowerCase(), onChainTx || null]
+    [jobId || null, title, description, category || null, requirements || null, budgetMinRaw, budgetMaxRaw, deadlineHours || 72, clientAddress.toLowerCase(), onChainTx || null, sectorConfig ? JSON.stringify(sectorConfig) : '{}']
   )
 
   return c.json({ id: result.rows[0].id, jobId }, 201)
@@ -1040,6 +1040,7 @@ function formatOpenJob(row: any) {
     finalBudget: formatUsdc(row.final_budget),
     maxRevisions: row.max_revisions || 2,
     revisionCount: row.revision_count || 0,
+    sectorConfig: row.sector_config || null,
     createdAt: row.created_at,
   }
 }
