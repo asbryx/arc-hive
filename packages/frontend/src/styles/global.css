@@ -192,15 +192,17 @@ input, select { font-family: var(--font); }
 
 @media (max-width: 768px) {
   .ascii-hero-pre {
-    font-size: 7px;
+    font-size: 10px;
     line-height: 1.2 !important;
     margin-bottom: 16px !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
 @media (max-width: 480px) {
   .ascii-hero-pre {
-    font-size: 5.5px;
+    font-size: 8px;
     line-height: 1.1 !important;
   }
 }
