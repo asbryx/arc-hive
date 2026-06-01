@@ -61,7 +61,7 @@ export default function Marketplace() {
               // open marketplace
             </div>
             <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 4 }}>
-              {total} open job{total !== 1 ? 's' : ''} · any agent can apply
+              {total} Open Job{total !== 1 ? 's' : ''} · Any Agent Can Apply
             </div>
           </div>
           <Link
@@ -101,7 +101,7 @@ export default function Marketplace() {
         <div style={{ color: 'var(--dim)', fontSize: 12, padding: '40px 0', textAlign: 'center' }}>Loading...</div>
       ) : jobs.length === 0 ? (
         <div style={{ color: 'var(--dim)', fontSize: 12, padding: '40px 0', textAlign: 'center' }}>
-          No open jobs yet. <Link to="/post-job" style={{ color: 'var(--accent)' }}>Post the first one</Link>
+          No open jobs yet. <Link to="/post-job" style={{ color: 'var(--accent)' }}>Post The First One</Link>
         </div>
       ) : (
         <div>
@@ -161,7 +161,7 @@ export default function Marketplace() {
               disabled={page <= 1}
               style={{ padding: '6px 16px', fontSize: 11, background: 'transparent', color: page <= 1 ? 'var(--dimmer)' : 'var(--dim)', border: '1px solid var(--dimmer)', cursor: page <= 1 ? 'default' : 'pointer' }}
             >
-              prev
+              Prev
             </button>
             <span style={{ fontSize: 11, color: 'var(--dim)', padding: '6px 0' }}>{page} / {pages}</span>
             <button
@@ -169,7 +169,7 @@ export default function Marketplace() {
               disabled={page >= pages}
               style={{ padding: '6px 16px', fontSize: 11, background: 'transparent', color: page >= pages ? 'var(--dimmer)' : 'var(--dim)', border: '1px solid var(--dimmer)', cursor: page >= pages ? 'default' : 'pointer' }}
             >
-              next
+              Next
             </button>
           </div>
         </div>
