@@ -48,6 +48,14 @@ export default function BackgroundCanvas() {
     const sweeps = mobile ? MOBILE_INDICES.map(i => ALL_SWEEPS[i]) : ALL_SWEEPS
 
     let time = 0
+    let fadeMode = false
+    let opacityMult = 1.0 // 1.0 = normal, fades toward 0.03
+
+    // Listen for fade signals
+    const handleFade = () => { fadeMode = true }
+    const handleRestore = () => { fadeMode = false }
+    window.addEventListener('arcs:clear', handleFade)
+    window.addEventListener('arcs:restore', handleRestore)
 
     const handleScroll = () => {
       scrollRef.current = window.scrollY
@@ -63,6 +71,11 @@ export default function BackgroundCanvas() {
     function draw() {
       ctx!.clearRect(0, 0, width, height)
       time++
+
+      // Lerp opacity
+      const fadeTarget = fadeMode ? 0.03 : 1.0
+      opacityMult += (fadeTarget - opacityMult) * 0.06
+      if (Math.abs(opacityMult - fadeTarget) < 0.001) opacityMult = fadeTarget
 
       const scroll = scrollRef.current
 
@@ -84,7 +97,7 @@ export default function BackgroundCanvas() {
         if (!mobile) {
           ctx!.beginPath()
           ctx!.ellipse(0, 0, rx, ry, 0, 0, Math.PI * sweep)
-          ctx!.strokeStyle = `${colors.base} ${colors.glowAlpha})`
+          ctx!.strokeStyle = `${colors.base} ${colors.glowAlpha * opacityMult})`
           ctx!.lineWidth = arc.width + 8
           ctx!.lineCap = 'round'
           ctx!.stroke()
@@ -93,7 +106,7 @@ export default function BackgroundCanvas() {
         // Main arc
         ctx!.beginPath()
         ctx!.ellipse(0, 0, rx, ry, 0, 0, Math.PI * sweep)
-        ctx!.strokeStyle = `${colors.base} ${colors.arcAlpha})`
+          ctx!.strokeStyle = `${colors.base} ${colors.arcAlpha * opacityMult})`
         ctx!.lineWidth = mobile ? arc.width * 0.8 : arc.width
         ctx!.lineCap = 'round'
         ctx!.stroke()
@@ -105,14 +118,14 @@ export default function BackgroundCanvas() {
         const dotR = mobile ? 2 : 3
         ctx!.beginPath()
         ctx!.arc(dotX, dotY, dotR, 0, Math.PI * 2)
-        ctx!.fillStyle = `${colors.base} ${colors.dotAlpha})`
+        ctx!.fillStyle = `${colors.base} ${colors.dotAlpha * opacityMult})`
         ctx!.fill()
 
         // Faint dot at start — skip on mobile
         if (!mobile) {
           ctx!.beginPath()
           ctx!.arc(rx, 0, 2, 0, Math.PI * 2)
-          ctx!.fillStyle = `${colors.base} ${colors.dotAlpha * 0.5})`
+          ctx!.fillStyle = `${colors.base} ${colors.dotAlpha * 0.5 * opacityMult})`
           ctx!.fill()
         }
 
@@ -137,6 +150,8 @@ export default function BackgroundCanvas() {
       cancelAnimationFrame(animId)
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('arcs:clear', handleFade)
+      window.removeEventListener('arcs:restore', handleRestore)
       observer.disconnect()
     }
   }, [])
