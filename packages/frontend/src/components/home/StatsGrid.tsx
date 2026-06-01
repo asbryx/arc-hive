@@ -38,13 +38,13 @@ export default function StatsGrid({ stats, daily }: Props) {
     {
       label: 'Completed',
       value: stats.completedJobs || 0,
-      delta: 0,
-      spark: daily?.jobs?.map(d => d.count),
+      delta: stats.last7Days?.completedJobs || 0,
+      spark: daily?.completed?.map(d => d.count),
     },
     {
       label: 'USDC Volume',
       value: stats.totalVolume ? Math.round(parseFloat(stats.totalVolume)) : 0,
-      delta: 0,
+      delta: stats.last7Days?.volume || 0,
       spark: daily?.volume?.map(d => d.count),
     },
   ]

@@ -118,6 +118,8 @@ export interface Stats {
   last7Days: {
     newAgents: number
     newJobs: number
+    completedJobs: number
+    volume: number
   }
 }
 
@@ -126,6 +128,7 @@ export interface DailyStats {
   jobs: { day: string; count: number }[]
   reputation: { day: string; count: number }[]
   volume: { day: string; count: number }[]
+  completed: { day: string; count: number }[]
 }
 
 async function fetchApi<T>(path: string): Promise<T> {

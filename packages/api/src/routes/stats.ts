@@ -20,7 +20,9 @@ stats.get('/', async (c) => {
         (SELECT COALESCE(SUM(payment_released), 0) FROM jobs) as total_volume,
         (SELECT COUNT(DISTINCT client_address) FROM jobs) as unique_clients,
         (SELECT COUNT(DISTINCT provider_address) FROM jobs WHERE provider_address IS NOT NULL) as unique_providers,
-        (SELECT COUNT(*) FROM jobs WHERE created_timestamp > NOW() - INTERVAL '7 days') as jobs_last_7d
+        (SELECT COUNT(*) FROM jobs WHERE created_timestamp > NOW() - INTERVAL '7 days') as jobs_last_7d,
+        (SELECT COUNT(*) FROM jobs WHERE status = 3 AND completed_at > NOW() - INTERVAL '7 days') as completed_last_7d,
+        (SELECT COALESCE(SUM(payment_released), 0) FROM jobs WHERE completed_at > NOW() - INTERVAL '7 days') as volume_last_7d
     `),
   ])
 
@@ -38,6 +40,8 @@ stats.get('/', async (c) => {
     last7Days: {
       newAgents: parseInt(a.agents_last_7d),
       newJobs: parseInt(m.jobs_last_7d),
+      completedJobs: parseInt(m.completed_last_7d),
+      volume: Math.round(parseInt(m.volume_last_7d) / 1_000_000),
     },
   })
 })
@@ -71,7 +75,7 @@ stats.get('/daily', async (c) => {
   const rawDays = parseInt(c.req.query('days') || '30')
   const days = Number.isFinite(rawDays) ? Math.min(90, Math.max(1, rawDays)) : 30
 
-  const [agentsDaily, jobsDaily, reputationDaily, volumeDaily] = await Promise.all([
+  const [agentsDaily, jobsDaily, reputationDaily, volumeDaily, completedDaily] = await Promise.all([
     queryAgents(`
       SELECT DATE(registered_at) as day, COUNT(*) as count
       FROM agents
@@ -100,6 +104,13 @@ stats.get('/daily', async (c) => {
       GROUP BY DATE(completed_at)
       ORDER BY day
     `),
+    query(`
+      SELECT DATE(completed_at) as day, COUNT(*) as count
+      FROM jobs
+      WHERE completed_at > NOW() - INTERVAL '${days} days' AND status = 3
+      GROUP BY DATE(completed_at)
+      ORDER BY day
+    `),
   ])
 
   return c.json({
@@ -107,6 +118,7 @@ stats.get('/daily', async (c) => {
     jobs: jobsDaily.rows.map(r => ({ day: r.day, count: parseInt(r.count) })),
     reputation: reputationDaily.rows.map(r => ({ day: r.day, count: parseInt(r.count) })),
     volume: volumeDaily.rows.map(r => ({ day: r.day, count: Math.round(parseInt(r.total) / 1_000_000) })),
+    completed: completedDaily.rows.map(r => ({ day: r.day, count: parseInt(r.count) })),
   })
 })
 
