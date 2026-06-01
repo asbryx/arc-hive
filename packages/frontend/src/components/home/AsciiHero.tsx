@@ -65,8 +65,7 @@ export default function AsciiHero() {
           rafRef.current = requestAnimationFrame(render)
         } else {
           setText('\n' + ARC_HIVE_ART.join('\n') + '\n')
-          // Wait 3s then loop
-          timerRef.current = setTimeout(startReveal, 3000)
+          // Done — stay revealed, no loop
         }
       }
 

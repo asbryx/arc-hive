@@ -102,3 +102,9 @@
 @media (max-width: 1280px) {
   .status { display: none; }
 }
+
+/* Light theme — warm parchment glass */
+:global([data-theme="light"]) .nav,
+:global([data-theme="light"]) .bottomLinks {
+  background: rgba(240, 237, 232, 0.75);
+}
