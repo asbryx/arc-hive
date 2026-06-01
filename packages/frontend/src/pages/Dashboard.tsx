@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useMarketplaceStats } from '@/api/hooks'
 
@@ -29,7 +29,6 @@ interface JobRow {
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount()
-  const navigate = useNavigate()
   const { data: mStats } = useMarketplaceStats()
   const [tab, setTab] = useState<Tab>('open')
   const [activeJobs, setActiveJobs] = useState<JobRow[]>([])
@@ -37,11 +36,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
 
   // Redirect to home if not connected
-  useEffect(() => {
-    if (!isConnected) {
-      navigate('/', { replace: true })
-    }
-  }, [isConnected, navigate])
+  // (removed — show connect prompt instead)
 
   useEffect(() => {
     if (address) fetchAll()
@@ -67,7 +62,16 @@ export default function Dashboard() {
     setLoading(false)
   }
 
-  if (!isConnected) return null
+  if (!isConnected) return (
+    <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 800, margin: '0 auto', minHeight: 'calc(100vh - 160px)' }}>
+      <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24 }}>
+        // dashboard
+      </div>
+      <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--dim)' }}>
+        <div style={{ fontSize: 14, marginBottom: 16 }}>Connect your wallet to view your jobs and applications</div>
+      </div>
+    </div>
+  )
 
   const currentList = tab === 'open' ? activeJobs : historyJobs
 
