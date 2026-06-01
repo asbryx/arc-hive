@@ -9,41 +9,36 @@ const COMMANDS = [
 
 export default function Typewriter() {
   const [display, setDisplay] = useState('')
+  const [done, setDone] = useState(false)
   const cmdIdx = useRef(0)
   const charIdx = useRef(0)
-  const deleting = useRef(false)
-  const pause = useRef(0)
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
 
     function tick() {
       const cmd = COMMANDS[cmdIdx.current]
+      charIdx.current++
+      setDisplay(cmd.substring(0, charIdx.current))
 
-      if (pause.current > 0) {
-        pause.current--
-        timer = setTimeout(tick, 60)
+      if (charIdx.current >= cmd.length) {
+        // move to next command
+        cmdIdx.current++
+        charIdx.current = 0
+        if (cmdIdx.current < COMMANDS.length) {
+          // pause then newline + next cmd
+          timer = setTimeout(() => {
+            setDisplay(prev => prev + '\n')
+            setTimeout(tick, 400)
+          }, 800)
+          return
+        }
+        // all done
+        setDone(true)
         return
       }
 
-      if (!deleting.current) {
-        charIdx.current++
-        setDisplay(cmd.substring(0, charIdx.current))
-        if (charIdx.current >= cmd.length) {
-          deleting.current = true
-          pause.current = 30
-        }
-      } else {
-        charIdx.current--
-        setDisplay(cmd.substring(0, charIdx.current))
-        if (charIdx.current <= 0) {
-          deleting.current = false
-          cmdIdx.current = (cmdIdx.current + 1) % COMMANDS.length
-          pause.current = 10
-        }
-      }
-
-      timer = setTimeout(tick, deleting.current ? 25 : 65)
+      timer = setTimeout(tick, 40 + Math.random() * 30)
     }
 
     tick()
@@ -51,7 +46,7 @@ export default function Typewriter() {
   }, [])
 
   return (
-    <div style={{ marginTop: 32, fontSize: 13, color: 'var(--dim)' }}>
+    <div style={{ marginTop: 32, fontSize: 13, color: 'var(--dim)', whiteSpace: 'pre-wrap' }}>
       <span style={{ color: 'var(--text)' }}>$ </span>
       <span>{display}</span>
       <span
@@ -61,7 +56,8 @@ export default function Typewriter() {
           height: 14,
           background: 'var(--text)',
           verticalAlign: 'middle',
-          animation: 'blink 1s steps(1) infinite',
+          animation: done ? 'blink 1s steps(1) infinite' : 'none',
+          opacity: done ? 1 : 1,
         }}
       />
       <style>{`@keyframes blink { 50% { opacity: 0; } }`}</style>
