@@ -552,7 +552,7 @@ export default function MarketplaceDetail() {
               {job.category}
             </span>
           )}
-          <span style={{ fontSize: 10, color: statusColor(job.status) }}>● {job.status}</span>
+          <span style={{ fontSize: 10, color: statusColor(job.status) }}>● {job.status.charAt(0).toUpperCase() + job.status.slice(1).replace(/_/g, ' ')}</span>
           <span style={{ fontSize: 10, color: 'var(--dim)' }}>· {timeAgo}</span>
         </div>
         <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>{job.title}</div>
