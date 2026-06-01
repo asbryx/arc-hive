@@ -11,7 +11,7 @@ interface Props {
 export default function StatsGrid({ stats, daily }: Props) {
   if (!stats) {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+      <div className="stats-grid">
         {[...Array(4)].map((_, i) => (
           <div key={i} style={{ padding: 20, background: 'transparent' }}>
             <Skeleton width={60} height={10} style={{ marginBottom: 8 }} />
@@ -50,7 +50,7 @@ export default function StatsGrid({ stats, daily }: Props) {
   ]
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+    <div className="stats-grid">
       {items.map((item, i) => (
         <div
           key={item.label}

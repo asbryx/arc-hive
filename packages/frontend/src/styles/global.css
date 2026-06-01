@@ -265,3 +265,20 @@ input, select { font-family: var(--font); }
 *, *::before, *::after {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease;
 }
+
+/* Responsive stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 400px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
