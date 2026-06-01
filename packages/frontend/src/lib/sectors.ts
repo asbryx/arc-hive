@@ -312,6 +312,37 @@ export const SECTORS: Record<string, SectorConfig> = {
       'Evaluate as a monitoring deliverable. Check: alert accuracy, latency, false positive rate, dashboard completeness, reliability. Working alerts > fancy dashboards.',
     deliverableHint: 'Expected: monitoring dashboard, alert bot, or uptime report',
   },
+
+  'Other': {
+    id: 'Other',
+    label: 'Other',
+    icon: '🌐',
+    descriptionPlaceholder:
+      'Describe the task in detail. What needs to be done? What\'s the expected output? Any specific requirements?',
+    detailFields: [
+      {
+        key: 'sectorLabel',
+        label: 'What kind of work is this?',
+        type: 'text',
+        placeholder: 'e.g. Translation, Legal Review, Music Production, 3D Modeling',
+      },
+      {
+        key: 'deliverableFormat',
+        label: 'What should the deliverable look like?',
+        type: 'text',
+        placeholder: 'e.g. Translated document in markdown, MP3 audio file, PDF report',
+      },
+      {
+        key: 'evaluationGuidance',
+        label: 'How should quality be judged?',
+        type: 'text',
+        placeholder: 'e.g. Accuracy, natural flow, preserved formatting (optional)',
+      },
+    ],
+    evaluatorHint:
+      'Evaluate based on the client\'s stated requirements and evaluation guidance. If no guidance provided, use general quality standards: completeness, accuracy, effort, and formatting. Benefit of doubt to the agent when requirements are vague.',
+    deliverableHint: 'Expected: as described by the client',
+  },
 }
 
 export const SECTOR_LIST = Object.values(SECTORS)

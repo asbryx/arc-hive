@@ -18,6 +18,7 @@ interface OpenJob {
   clientAddress: string
   status: string
   applicationCount: number
+  sectorConfig?: { sector?: string; details?: Record<string, string> } | null
   createdAt: string
 }
 
@@ -129,9 +130,12 @@ export default function Marketplace() {
                     <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: 'var(--dim)', alignItems: 'center' }}>
                       {job.category && (() => {
                         const sector = getSector(job.category)
+                        const displayName = job.category === 'Other' && job.sectorConfig?.details?.sectorLabel
+                          ? job.sectorConfig.details.sectorLabel
+                          : job.category
                         return (
                           <span style={{ padding: '1px 6px', background: 'var(--dimmer)', color: 'var(--text)' }}>
-                            {sector?.icon ? `${sector.icon} ` : ''}{job.category}
+                            {sector?.icon ? `${sector.icon} ` : ''}{displayName}
                           </span>
                         )
                       })()}

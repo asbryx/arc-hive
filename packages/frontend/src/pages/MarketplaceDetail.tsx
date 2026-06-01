@@ -551,9 +551,12 @@ export default function MarketplaceDetail() {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
           {job.category && (() => {
             const sector = getSector(job.category)
+            const displayName = job.category === 'Other' && job.sectorConfig?.details?.sectorLabel
+              ? job.sectorConfig.details.sectorLabel
+              : job.category
             return (
               <span style={{ padding: '2px 8px', fontSize: 10, background: 'var(--dimmer)', color: 'var(--text)' }}>
-                {sector?.icon ? `${sector.icon} ` : ''}{job.category}
+                {sector?.icon ? `${sector.icon} ` : ''}{displayName}
               </span>
             )
           })()}
@@ -565,10 +568,14 @@ export default function MarketplaceDetail() {
         {/* Sector deliverable hint */}
         {job.category && (() => {
           const sector = getSector(job.category)
-          if (!sector?.deliverableHint) return null
+          const customHint = job.sectorConfig?.details?.deliverableFormat
+            ? `Expected: ${job.sectorConfig.details.deliverableFormat}`
+            : null
+          const hint = customHint || sector?.deliverableHint
+          if (!hint) return null
           return (
             <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 12, padding: '6px 10px', border: '1px solid var(--dimmer)', display: 'inline-block' }}>
-              {sector.deliverableHint}
+              {hint}
             </div>
           )
         })()}

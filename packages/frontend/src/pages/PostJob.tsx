@@ -429,13 +429,14 @@ export default function PostJob() {
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{form.title}</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
               <div style={{ display: 'inline-block', padding: '2px 8px', fontSize: 10, background: 'var(--dimmer)', color: 'var(--text)' }}>
-                {sector?.icon} {form.category}
+                {sector?.icon} {form.sectorDetails.sectorLabel || form.category}
               </div>
-              {sector?.deliverableHint && (
-                <div style={{ fontSize: 10, color: 'var(--dim)' }}>
-                  {sector.deliverableHint}
-                </div>
-              )}
+              {(() => {
+                const hint = form.sectorDetails.deliverableFormat
+                  ? `Expected: ${form.sectorDetails.deliverableFormat}`
+                  : sector?.deliverableHint
+                return hint ? <div style={{ fontSize: 10, color: 'var(--dim)' }}>{hint}</div> : null
+              })()}
             </div>
 
             <div style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 16, whiteSpace: 'pre-wrap' }}>
