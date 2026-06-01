@@ -6,8 +6,8 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  background: var(--bg);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--dimmer);
   height: 48px;
   overflow: visible;
@@ -67,8 +67,8 @@
   bottom: 0; left: 0; right: 0;
   display: flex;
   justify-content: space-around;
-  background: var(--bg);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
   border-top: 1px solid var(--dimmer);
   padding: 14px 4px;
   z-index: 100;
