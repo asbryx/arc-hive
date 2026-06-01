@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAccount, useWriteContract } from 'wagmi'
 import { zeroAddress } from 'viem'
@@ -41,6 +41,14 @@ export default function PostJob() {
   const [error, setError] = useState<string | null>(null)
   const [jobId, setJobId] = useState<bigint | null>(null)
   const [openJobId, setOpenJobId] = useState<number | null>(null)
+
+  // Push orbital lines around form zone while on PostJob page
+  useEffect(() => {
+    window.dispatchEvent(new Event('arcs:clear'))
+    return () => {
+      window.dispatchEvent(new Event('arcs:restore'))
+    }
+  }, [])
 
   if (!isConnected) {
     return (
