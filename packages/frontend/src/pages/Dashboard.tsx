@@ -70,13 +70,15 @@ export default function Dashboard() {
   if (!isConnected) return null
 
   // Split by role from API
-  const posted = activeJobs.filter(j => j.role === 'client')
+  const postedActive = activeJobs.filter(j => j.role === 'client')
+  const postedHistory = historyJobs.filter(j => j.role === 'client')
+  const allPosted = [...postedActive, ...postedHistory]
   const providerActive = activeJobs.filter(j => j.role === 'provider')
   const providerHistory = historyJobs.filter(j => j.role === 'provider')
   const allProvider = [...providerActive, ...providerHistory]
   const hasProviderActivity = allProvider.length > 0
 
-  const currentList = tab === 'posted' ? posted : allProvider
+  const currentList = tab === 'posted' ? allPosted : allProvider
 
   return (
     <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 800, margin: '0 auto', minHeight: 'calc(100vh - 160px)' }}>
@@ -107,7 +109,7 @@ export default function Dashboard() {
             marginBottom: -1,
           }}
         >
-          Posted ({posted.length})
+          Posted ({allPosted.length})
         </button>
         {hasProviderActivity && (
           <button
