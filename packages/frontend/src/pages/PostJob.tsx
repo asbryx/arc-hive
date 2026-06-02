@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAccount, useWriteContract } from 'wagmi'
+import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { zeroAddress } from 'viem'
 import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI } from '@/lib/contracts'
 import { arcTestnet } from '@/lib/wagmi'
@@ -24,6 +25,7 @@ type Step = 'form' | 'preview' | 'submitting' | 'done'
 export default function PostJob() {
   const navigate = useNavigate()
   const { address, isConnected } = useAccount()
+  const { openConnectModal } = useConnectModal()
   const { writeContractAsync } = useWriteContract()
 
   const [step, setStep] = useState<Step>('form')
@@ -53,7 +55,16 @@ export default function PostJob() {
   if (!isConnected) {
     return (
       <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 700, margin: '0 auto', textAlign: 'center', minHeight: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontSize: 14, color: 'var(--dim)' }}>Connect wallet to post a job</div>
+        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 48 }}>
+          // post open job
+        </div>
+        <div style={{ fontSize: 14, color: 'var(--dim)', marginBottom: 24 }}>Connect wallet to post a job</div>
+        <button
+          onClick={() => openConnectModal?.()}
+          style={{ padding: '12px 32px', fontSize: 12, fontWeight: 700, background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer', letterSpacing: 1 }}
+        >
+          CONNECT WALLET
+        </button>
       </div>
     )
   }
