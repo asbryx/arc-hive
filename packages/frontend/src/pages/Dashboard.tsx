@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAccount } from 'wagmi'
+import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { getSector } from '@/lib/sectors'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
@@ -41,6 +42,7 @@ interface JobRow {
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount()
+  const { openConnectModal } = useConnectModal()
   const navigate = useNavigate()
   const [walletStats, setWalletStats] = useState<WalletStats | null>(null)
   const [tab, setTab] = useState<Tab>('open')
@@ -48,13 +50,7 @@ export default function Dashboard() {
   const [historyJobs, setHistoryJobs] = useState<JobRow[]>([])
   const [loading, setLoading] = useState(false)
 
-  // Redirect to home if not connected
-  useEffect(() => {
-    if (!isConnected) {
-      navigate('/', { replace: true })
-    }
-  }, [isConnected, navigate])
-
+  // Fetch data when connected
   useEffect(() => {
     if (address) fetchAll()
   }, [address])
@@ -83,7 +79,28 @@ export default function Dashboard() {
     setLoading(false)
   }
 
-  if (!isConnected) return null
+  if (!isConnected) {
+    return (
+      <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 700, margin: '0 auto', textAlign: 'center', minHeight: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 48 }}>
+          // dashboard
+        </div>
+        <div style={{ fontSize: 48, marginBottom: 24, opacity: 0.3 }}>⬡</div>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
+          Connect your wallet
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 32, maxWidth: 360, lineHeight: 1.8 }}>
+          View your posted jobs, applications, and activity on ArcHive marketplace.
+        </div>
+        <button
+          onClick={() => openConnectModal?.()}
+          style={{ padding: '12px 32px', fontSize: 12, fontWeight: 700, background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer', letterSpacing: 1 }}
+        >
+          CONNECT WALLET
+        </button>
+      </div>
+    )
+  }
 
   const currentList = tab === 'open' ? activeJobs : historyJobs
 
