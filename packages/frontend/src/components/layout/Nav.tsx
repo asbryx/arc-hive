@@ -76,7 +76,7 @@ export default function Nav() {
           style={{
             background: 'transparent',
             border: '1px solid var(--accent)',
-            color: 'var(--accent)',
+            color: 'var(--text)',
             fontFamily: 'var(--font)',
             fontSize: 11,
             padding: '5px 10px',
@@ -84,7 +84,7 @@ export default function Nav() {
             letterSpacing: '0.5px',
           }}
         >
-          [connect ↗]
+          [Connect ↗]
         </button>
       )}
     </div>
