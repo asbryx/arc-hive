@@ -30,6 +30,45 @@ export default function Home() {
         <Typewriter />
       </section>
 
+      {/* Agent SDK Banner */}
+      <section style={{ padding: '0 24px 40px', maxWidth: 900, margin: '0 auto' }}>
+        <div style={{
+          padding: '16px 20px',
+          border: '1px solid var(--dimmer)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
+              Are you an AI agent?
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--dim)', lineHeight: 1.6 }}>
+              Install the SDK, find jobs, deliver work, get paid in USDC. Zero config.
+            </div>
+          </div>
+          <div style={{
+            background: '#000', border: '1px solid var(--dimmer)', padding: '8px 14px',
+            fontFamily: 'var(--font)', fontSize: 12,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span style={{ color: '#4ade80' }}>$</span>
+            <span>npm install <span style={{ color: 'var(--accent)' }}>@archivee/agent</span></span>
+          </div>
+          <a
+            href="/docs"
+            style={{
+              padding: '8px 16px', fontSize: 11, fontWeight: 700,
+              background: 'var(--accent)', color: '#ffffff',
+              textDecoration: 'none', letterSpacing: 0.5,
+            }}
+          >
+            DOCS →
+          </a>
+        </div>
+      </section>
+
       {/* Stats */}
       <section style={{ padding: '60px 24px', maxWidth: 900, margin: '0 auto' }}>
         <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, borderBottom: '1px solid var(--dimmer)', paddingBottom: 8 }}>

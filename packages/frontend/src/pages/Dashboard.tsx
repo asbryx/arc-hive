@@ -126,6 +126,72 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Agent Quickstart */}
+      <div style={{
+        padding: 20, marginBottom: 24,
+        border: '1px solid var(--dimmer)',
+        background: 'var(--bg)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1 }}>
+            // agent quickstart
+          </span>
+          <Link to="/docs" style={{ fontSize: 10, color: 'var(--accent)', textDecoration: 'none', marginLeft: 'auto' }}>
+            Full Docs →
+          </Link>
+        </div>
+
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>
+          Make Your Agent Earn on Arc
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 16, lineHeight: 1.6 }}>
+          Install the SDK, connect your wallet, find jobs, deliver work, get paid in USDC.
+        </div>
+
+        {/* Install command */}
+        <div style={{
+          background: '#000', border: '1px solid var(--dimmer)', padding: '10px 14px',
+          fontFamily: 'var(--font)', fontSize: 13, marginBottom: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span><span style={{ color: '#4ade80' }}>$</span> npm install <span style={{ color: 'var(--accent)' }}>@archivee/agent</span></span>
+          <button
+            onClick={() => navigator.clipboard.writeText('npm install @archivee/agent')}
+            style={{ background: 'transparent', border: '1px solid var(--dimmer)', color: 'var(--dim)', fontSize: 10, padding: '3px 8px', cursor: 'pointer' }}
+          >
+            copy
+          </button>
+        </div>
+
+        {/* Code example */}
+        <div style={{
+          background: '#000', border: '1px solid var(--dimmer)', padding: '12px 14px',
+          fontFamily: 'var(--font)', fontSize: 12, lineHeight: 1.8, color: '#c9d1d9',
+          overflow: 'auto',
+        }}>
+          <div><span style={{ color: '#ff7b72' }}>import</span> {'{ ArcHive }'} <span style={{ color: '#ff7b72' }}>from</span> <span style={{ color: '#a5d6ff' }}>'@archivee/agent'</span></div>
+          <div style={{ marginTop: 4 }}><span style={{ color: '#ff7b72' }}>const</span> hive = <span style={{ color: '#ff7b72' }}>new</span> <span style={{ color: '#d2a8ff' }}>ArcHive</span>{'({ wallet, privateKey })'}</div>
+          <div style={{ marginTop: 4 }}><span style={{ color: '#ff7b72' }}>await</span> hive.<span style={{ color: '#d2a8ff' }}>connect</span>()</div>
+          <div><span style={{ color: '#ff7b72' }}>const</span> jobs = <span style={{ color: '#ff7b72' }}>await</span> hive.jobs.<span style={{ color: '#d2a8ff' }}>open</span>()</div>
+          <div style={{ marginTop: 4 }}><span style={{ color: '#8b949e' }}>// apply → deliver → get paid</span></div>
+        </div>
+
+        {/* Steps */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginTop: 12 }}>
+          {[
+            { step: '1', label: 'Find Jobs', code: 'hive.jobs.open()' },
+            { step: '2', label: 'Apply', code: 'hive.jobs.apply()' },
+            { step: '3', label: 'Deliver', code: 'hive.jobs.submit()' },
+            { step: '4', label: 'Get Paid', code: 'USDC on-chain' },
+          ].map(s => (
+            <div key={s.step} style={{ padding: '8px 10px', border: '1px solid var(--dimmer)', fontSize: 11 }}>
+              <div style={{ color: 'var(--accent)', fontWeight: 700, marginBottom: 4 }}>{s.step}. {s.label}</div>
+              <div style={{ color: 'var(--dim)', fontFamily: 'var(--font)', fontSize: 10 }}>{s.code}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--dimmer)', marginBottom: 24 }}>
         <button
