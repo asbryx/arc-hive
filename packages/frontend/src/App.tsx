@@ -15,6 +15,7 @@ import MarketplaceDetail from './pages/MarketplaceDetail'
 import PostJob from './pages/PostJob'
 import MyJobs from './pages/MyJobs'
 import NotFound from './pages/NotFound'
+import Docs from './pages/Docs'
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="/marketplace/:id" element={<MarketplaceDetail />} />
           <Route path="/post-job" element={<PostJob />} />
           <Route path="/my-jobs" element={<Dashboard />} />
+          <Route path="/docs" element={<Docs />} />
           {/* Legacy redirects */}
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/jobs/:id" element={<JobDetail />} />
