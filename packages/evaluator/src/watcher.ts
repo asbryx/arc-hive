@@ -2,7 +2,8 @@ import { CONFIG } from './config.js'
 import {
   getPendingEvaluations, getPreviousEvaluations, storeEvaluation,
   updateJobAfterEvaluation, notifyAgent, recordRefund,
-  getExpiredFundedJobs, getExpiredAssignedJobs
+  getExpiredFundedJobs, getExpiredAssignedJobs,
+  getStaleOpenJobs, getStaleAssignedUnfundedJobs
 } from './db.js'
 import { evaluateDeliverable, EvalResult } from './evaluate.js'
 import { executeSubmit, executeComplete, executeReject, executeClaimRefund, getOnchainJobStatus, getOnchainJob } from './execute.js'
@@ -28,6 +29,34 @@ export async function pollForEvaluations() {
 
 export async function pollForRefunds() {
   try {
+    // 0. Clean up stale open jobs (no applications after 48 hours)
+    const staleOpen = await getStaleOpenJobs()
+    if (staleOpen.length > 0) {
+      console.log(`[deadline] Closed ${staleOpen.length} stale open job(s) (no applications after 48h)`)
+      for (const job of staleOpen) {
+        if (job.client_address) {
+          await notifyAgent(job.client_address, 'job_expired', job.id,
+            `"${job.title}" closed — no applications received after 48 hours.`)
+        }
+      }
+    }
+
+    // 0b. Clean up stale assigned jobs (selected but not funded after 24 hours)
+    const staleAssigned = await getStaleAssignedUnfundedJobs()
+    if (staleAssigned.length > 0) {
+      console.log(`[deadline] Expired ${staleAssigned.length} stale assigned job(s) (not funded after 24h)`)
+      for (const job of staleAssigned) {
+        if (job.selected_applicant) {
+          await notifyAgent(job.selected_applicant, 'job_expired', job.id,
+            `"${job.title}" expired — client did not fund within 24 hours.`)
+        }
+        if (job.client_address) {
+          await notifyAgent(job.client_address, 'job_expired', job.id,
+            `"${job.title}" expired — you did not fund within 24 hours of selecting an agent.`)
+        }
+      }
+    }
+
     // 1. Expire assigned jobs (unfunded, past deadline)
     const expiredAssigned = await getExpiredAssignedJobs()
     if (expiredAssigned.length > 0) {

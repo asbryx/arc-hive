@@ -152,4 +152,30 @@ export async function getExpiredAssignedJobs() {
   return result.rows
 }
 
+// Get stale open jobs (no applications after 48 hours)
+export async function getStaleOpenJobs() {
+  const result = await query(
+    `UPDATE open_jobs SET status = 'expired', updated_at = NOW()
+     WHERE status = 'open'
+     AND created_at + INTERVAL '48 hours' < NOW()
+     AND NOT EXISTS (
+       SELECT 1 FROM job_applications ja WHERE ja.job_id = open_jobs.id
+     )
+     RETURNING id, title, client_address`
+  )
+  return result.rows
+}
+
+// Get stale assigned jobs (selected but not funded after 24 hours)
+export async function getStaleAssignedUnfundedJobs() {
+  const result = await query(
+    `UPDATE open_jobs SET status = 'expired', updated_at = NOW()
+     WHERE status = 'assigned'
+     AND funded_at IS NULL
+     AND updated_at + INTERVAL '24 hours' < NOW()
+     RETURNING id, title, selected_applicant, client_address`
+  )
+  return result.rows
+}
+
 export async function closePool() { await pool.end() }
