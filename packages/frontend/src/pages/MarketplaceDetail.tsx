@@ -63,6 +63,21 @@ interface Deliverable {
   createdAt: string
 }
 
+interface DeliverableFile {
+  id: number
+  filename: string
+  fileType: string
+  mimeType: string
+  size: number
+  hash: string
+  version: number
+  deliverableStatus: string
+  expired: boolean
+  expiresAt: string | null
+  hoursUntilExpiry: number | null
+  downloadable: boolean
+}
+
 interface Evaluation {
   id: number
   version: number
@@ -110,6 +125,7 @@ export default function MarketplaceDetail() {
   const [fundStep, setFundStep] = useState('')
   const [delivering, setDelivering] = useState(false)
   const [deliverForm, setDeliverForm] = useState({ content: '', link: '', notes: '' })
+  const [deliverFiles, setDeliverFiles] = useState<File[]>([])
   const [deliverError, setDeliverError] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
   const [submittingOnChain, setSubmittingOnChain] = useState(false)
@@ -119,18 +135,21 @@ export default function MarketplaceDetail() {
   const [postingComment, setPostingComment] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
+  const [files, setFiles] = useState<DeliverableFile[]>([])
+  const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null)
 
   useEffect(() => { fetchJob() }, [id])
 
   async function fetchJob() {
     setLoading(true)
     try {
-      const [jobRes, appsRes, delRes, commRes, evalRes] = await Promise.all([
+      const [jobRes, appsRes, delRes, commRes, evalRes, filesRes] = await Promise.all([
         fetch(`${API_BASE}/open-jobs/${id}`),
         fetch(`${API_BASE}/open-jobs/${id}/applications`),
         fetch(`${API_BASE}/open-jobs/${id}/deliverables?requester=${address}`),
         fetch(`${API_BASE}/open-jobs/${id}/comments`),
         fetch(`${API_BASE}/open-jobs/${id}/evaluations`),
+        fetch(`${API_BASE}/open-jobs/${id}/files?requester=${address}`),
       ])
       const jobData = jobRes.ok ? await jobRes.json() : null
       if (jobData) setJob(jobData)
@@ -138,6 +157,7 @@ export default function MarketplaceDetail() {
       if (delRes.ok) { const data = await delRes.json(); setDeliverables(data.data || []) }
       if (commRes.ok) { const data = await commRes.json(); setComments(data.data || []) }
       if (evalRes.ok) { const data = await evalRes.json(); setEvaluations(data.data || []) }
+      if (filesRes.ok) { const data = await filesRes.json(); setFiles(data.data || []) }
     } catch {}
     setLoading(false)
   }
@@ -359,24 +379,67 @@ export default function MarketplaceDetail() {
   }
 
   async function handleDeliver() {
-    if (!address || !deliverForm.content) return
+    if (!address || (!deliverForm.content && deliverFiles.length === 0)) return
     setDeliverError(null)
     try {
-      const res = await fetch(`${API_BASE}/open-jobs/${id}/deliver`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          applicantAddress: address,
-          content: deliverForm.content,
-          link: deliverForm.link || null,
-          notes: deliverForm.notes || null,
-        }),
-      })
+      let res: Response
+      if (deliverFiles.length > 0) {
+        // Multipart form data with files
+        const formData = new FormData()
+        formData.append('applicantAddress', address)
+        if (deliverForm.content) formData.append('content', deliverForm.content)
+        if (deliverForm.link) formData.append('link', deliverForm.link)
+        if (deliverForm.notes) formData.append('notes', deliverForm.notes)
+        for (const file of deliverFiles) {
+          formData.append('files', file)
+        }
+        res = await fetch(`${API_BASE}/open-jobs/${id}/deliver`, {
+          method: 'POST',
+          body: formData,
+        })
+      } else {
+        // Backward compatible JSON mode (no files)
+        res = await fetch(`${API_BASE}/open-jobs/${id}/deliver`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            applicantAddress: address,
+            content: deliverForm.content,
+            link: deliverForm.link || null,
+            notes: deliverForm.notes || null,
+          }),
+        })
+      }
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to submit') }
       setDelivering(false)
       setDeliverForm({ content: '', link: '', notes: '' })
+      setDeliverFiles([])
       fetchJob()
     } catch (err: any) { setDeliverError(err.message) }
+  }
+
+  async function handleDownloadFile(fileId: number, filename: string) {
+    if (!address) return
+    setDownloadingFileId(fileId)
+    try {
+      const res = await fetch(`${API_BASE}/open-jobs/${id}/files/${fileId}/download?requester=${address}`)
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Download failed')
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err: any) {
+      alert(err.message)
+    }
+    setDownloadingFileId(null)
   }
 
   async function handleSubmitOnChain() {
@@ -723,6 +786,36 @@ export default function MarketplaceDetail() {
                   }}
                 />
               </label>
+              <label style={{ display: 'block', marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--dim)' }}>Attach Files (optional)</span>
+                <input
+                  type="file"
+                  multiple
+                  onChange={(e) => {
+                    const files = e.target.files ? Array.from(e.target.files) : []
+                    setDeliverFiles(files)
+                  }}
+                  style={{
+                    display: 'block', width: '100%', marginTop: 4, padding: 10,
+                    background: 'var(--bg)', border: '1px solid var(--dimmer)', color: 'var(--text)',
+                    fontFamily: 'var(--font)', fontSize: 12,
+                  }}
+                />
+                {deliverFiles.length > 0 && (
+                  <div style={{ marginTop: 6, fontSize: 11, color: 'var(--dim)' }}>
+                    {deliverFiles.map((f, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <span>📄 {f.name}</span>
+                        <span style={{ color: 'var(--dimmer)' }}>({(f.size / 1024).toFixed(1)} KB)</span>
+                        <button
+                          onClick={() => setDeliverFiles(files => files.filter((_, idx) => idx !== i))}
+                          style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', fontSize: 11, padding: 0 }}
+                        >✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </label>
               {deliverError && (
                 <div style={{ padding: 8, border: '1px solid #ff4444', color: '#ff4444', fontSize: 11, marginBottom: 12 }}>{deliverError}</div>
               )}
@@ -766,6 +859,58 @@ export default function MarketplaceDetail() {
                     <div style={{ fontSize: 12, color: 'var(--dim)', padding: '12px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ width: 12, height: 12, border: '2px solid var(--dimmer)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                       Deliverable submitted — awaiting evaluation
+                    </div>
+                  )}
+                  {/* Files for this deliverable version */}
+                  {files.filter(f => f.version === d.version).length > 0 && (
+                    <div style={{ marginTop: 12, padding: '10px 12px', border: '1px solid var(--dimmer)', background: 'var(--bg)' }}>
+                      <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+                        📎 Files ({files.filter(f => f.version === d.version).length})
+                      </div>
+                      {files.filter(f => f.version === d.version).map(f => {
+                        const isExpired = f.expired
+                        const expiryLabel = f.hoursUntilExpiry !== null && !isExpired
+                          ? `${Math.floor(f.hoursUntilExpiry)}h ${Math.round((f.hoursUntilExpiry % 1) * 60)}m left`
+                          : isExpired ? 'Expired' : null
+                        const fileIcon = f.fileType === 'code' ? '💻' : f.fileType === 'document' ? '📄' : f.fileType === 'data' ? '📊' : f.fileType === 'image' ? '🖼️' : '📁'
+                        return (
+                          <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--dimmer)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                              <span>{fileIcon}</span>
+                              <span style={{ fontSize: 12, color: isExpired ? 'var(--dimmer)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {f.filename}
+                              </span>
+                              <span style={{ fontSize: 10, color: 'var(--dimmer)' }}>
+                                {(f.size / 1024).toFixed(1)} KB
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                              {expiryLabel && (
+                                <span style={{ fontSize: 10, color: isExpired ? '#ff4444' : 'var(--dim)' }}>
+                                  ⏱ {expiryLabel}
+                                </span>
+                              )}
+                              {f.downloadable && !isExpired ? (
+                                <button
+                                  onClick={() => handleDownloadFile(f.id, f.filename)}
+                                  disabled={downloadingFileId === f.id}
+                                  style={{
+                                    fontSize: 11, padding: '4px 10px', background: 'var(--accent)', color: '#fff',
+                                    border: 'none', cursor: downloadingFileId === f.id ? 'wait' : 'pointer',
+                                    opacity: downloadingFileId === f.id ? 0.5 : 1,
+                                  }}
+                                >
+                                  {downloadingFileId === f.id ? '...' : '↓ Download'}
+                                </button>
+                              ) : isExpired ? (
+                                <span style={{ fontSize: 10, color: '#ff4444' }}>Deleted</span>
+                              ) : (
+                                <span style={{ fontSize: 10, color: 'var(--dimmer)' }}>⏳ Pending approval</span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                   {d.clientFeedback && (
