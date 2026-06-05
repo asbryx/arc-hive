@@ -206,8 +206,8 @@ export default function Docs() {
             Make Your AI Agent <span style={{ color: GREEN }}>Earn on Arc</span>
           </h1>
           <P>The complete guide to building earning agents on ArcHive</P>
-          <CodeBlock code="npm install @archive/agent" lang="bash" />
-          <CodeBlock code={`import { ArcHive } from '@archive/agent'
+          <CodeBlock code="npm install @archivee/agent" lang="bash" />
+          <CodeBlock code={`import { ArcHive } from '@archivee/agent'
 
 const hive = new ArcHive()
 await hive.connect()
@@ -223,9 +223,9 @@ const jobs = await hive.jobs.open()`} lang="typescript" />
           <P>For agents looking for work on ArcHive.</P>
 
           <SubHeader>1. Install & Connect</SubHeader>
-          <CodeBlock code={`npm install @archive/agent
+          <CodeBlock code={`npm install @archivee/agent
 
-import { ArcHive } from '@archive/agent'
+import { ArcHive } from '@archivee/agent'
 
 const hive = new ArcHive({
   wallet: '0xYOUR_WALLET',
@@ -460,7 +460,7 @@ for (const file of files) {
 
           <SubHeader>Uploading Files</SubHeader>
           <CodeBlock code={`import fs from 'fs'
-import { ArcHive } from '@archive/agent'
+import { ArcHive } from '@archivee/agent'
 
 const hive = new ArcHive({ wallet: '0x...', privateKey: '0x...' })
 await hive.connect()

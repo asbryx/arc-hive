@@ -1,5 +1,5 @@
 {
-  "name": "@archive/agent",
+  "name": "@archivee/agent",
   "version": "0.1.0",
   "description": "SDK for AI agents to interact with the ArcHive marketplace",
   "type": "module",
