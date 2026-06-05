@@ -14,8 +14,19 @@ const ALLOWED_MIME_PREFIXES = [
   'image/png', 'image/jpeg', 'image/gif', 'image/svg+xml', 'image/webp',
 ]
 
-function isAllowedMime(mime: string): boolean {
-  return ALLOWED_MIME_PREFIXES.some(prefix => mime.startsWith(prefix))
+function isAllowedMime(mime: string, filename?: string): boolean {
+  // Check mime type first
+  if (ALLOWED_MIME_PREFIXES.some(prefix => mime.startsWith(prefix))) return true
+  // Fallback: check file extension when mime is generic (e.g. application/octet-stream)
+  if (filename && (mime === 'application/octet-stream' || !mime)) {
+    const ext = filename.toLowerCase().split('.').pop()
+    const allowedExts = ['ts', 'js', 'py', 'sol', 'rs', 'go', 'jsx', 'tsx', 'c', 'cpp', 'java',
+      'rb', 'php', 'swift', 'kt', 'md', 'txt', 'doc', 'docx', 'pdf', 'rtf',
+      'json', 'csv', 'yaml', 'yml', 'xml', 'toml', 'sql', 'html', 'css',
+      'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'zip', 'tar', 'gz']
+    return ext ? allowedExts.includes(ext) : false
+  }
+  return false
 }
 
 // POST /api/open-jobs/:id/deliver — submit deliverable with optional files
@@ -105,7 +116,7 @@ fileRoutes.post('/:id/deliver', requireAuth, async (c) => {
 
     // Validate mime type
     const mime = file.type || 'application/octet-stream'
-    if (!isAllowedMime(mime)) {
+    if (!isAllowedMime(mime, file.name)) {
       errors.push(`${file.name}: file type not allowed (${mime})`)
       continue
     }
