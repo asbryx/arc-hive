@@ -179,3 +179,36 @@ export interface MarketplaceStats {
 export const getMarketplaceStats = () => fetchApi<MarketplaceStats>('/stats/marketplace')
 
 export const fetchHealth = () => fetchApi<{ syncing: boolean; liveSync: boolean; block: string | null }>('/health')
+
+// Authenticated fetch — auto-attaches JWT for write operations
+export function authFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const url = path.startsWith('http') ? path : `${API_BASE}${path}`
+  const method = (options.method || 'GET').toUpperCase()
+  const isWrite = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
+
+  const headers: Record<string, string> = {}
+
+  if (options.headers) {
+    if (options.headers instanceof Headers) {
+      options.headers.forEach((v, k) => { headers[k] = v })
+    } else if (Array.isArray(options.headers)) {
+      options.headers.forEach(([k, v]) => { headers[k] = v })
+    } else {
+      Object.assign(headers, options.headers)
+    }
+  }
+
+  if (isWrite) {
+    try {
+      const stored = localStorage.getItem('arc-hive-auth')
+      if (stored) {
+        const data = JSON.parse(stored)
+        if (data.token && data.expiresAt && new Date(data.expiresAt) > new Date()) {
+          headers['Authorization'] = `Bearer ${data.token}`
+        }
+      }
+    } catch {}
+  }
+
+  return fetch(url, { ...options, headers })
+}

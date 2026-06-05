@@ -6,6 +6,7 @@ import { WagmiProvider } from 'wagmi'
 import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit'
 import { config } from './lib/wagmi'
 import { ThemeProvider, useTheme } from './hooks/useTheme'
+import { AuthProvider } from '@/contexts/AuthContext'
 import App from './App'
 import './styles/global.css'
 import '@rainbow-me/rainbowkit/styles.css'
@@ -32,7 +33,9 @@ function RainbowKitWrapper({ children }: { children: React.ReactNode }) {
 
   return (
     <RainbowKitProvider theme={rkTheme}>
+      <AuthProvider>
       {children}
+    </AuthProvider>
     </RainbowKitProvider>
   )
 }

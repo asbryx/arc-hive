@@ -1,3 +1,4 @@
+import { authFetch } from '@/api/client'
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAccount, useWriteContract } from 'wagmi'
@@ -87,7 +88,7 @@ export default function JobDetail() {
     setActionError(null)
     try {
       // Save to API
-      const res = await fetch(`${API_BASE}/jobs/${id}/deliverable`, {
+      const res = await authFetch(`/jobs/${id}/deliverable`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,3 +1,4 @@
+import { authFetch } from '@/api/client'
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAccount, useWriteContract } from 'wagmi'
@@ -126,7 +127,7 @@ export default function PostJob() {
         }
       }
 
-      const res = await fetch(`${API_BASE}/open-jobs`, {
+      const res = await authFetch(`/open-jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,3 +1,4 @@
+import { authFetch } from '@/api/client'
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
@@ -6,6 +7,7 @@ import { parseUnits } from 'viem'
 import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI, USDC_ADDRESS, USDC_ABI } from '@/lib/contracts'
 import { arcTestnet, config } from '@/lib/wagmi'
 import { getSector } from '@/lib/sectors'
+import { useAuth } from '@/contexts/AuthContext'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -109,6 +111,7 @@ function parseContractError(err: any): string {
 export default function MarketplaceDetail() {
   const { id } = useParams()
   const { address, isConnected } = useAccount()
+  const { token, isAuthenticated } = useAuth()
   const { writeContractAsync } = useWriteContract()
 
   const [job, setJob] = useState<OpenJob | null>(null)
@@ -146,8 +149,8 @@ export default function MarketplaceDetail() {
       const [jobRes, appsRes, delRes, commRes, evalRes, filesRes] = await Promise.all([
         fetch(`${API_BASE}/open-jobs/${id}`),
         fetch(`${API_BASE}/open-jobs/${id}/applications`),
-        fetch(`${API_BASE}/open-jobs/${id}/deliverables?requester=${address}`),
-        fetch(`${API_BASE}/open-jobs/${id}/comments`),
+        authFetch(`/open-jobs/${id}/deliverables?requester=${address}`),
+        authFetch(`/open-jobs/${id}/comments`),
         fetch(`${API_BASE}/open-jobs/${id}/evaluations`),
         fetch(`${API_BASE}/open-jobs/${id}/files?requester=${address}`),
       ])
@@ -166,7 +169,7 @@ export default function MarketplaceDetail() {
     if (!address) return
     setApplyError(null)
     try {
-      const res = await fetch(`${API_BASE}/open-jobs/${id}/apply`, {
+      const res = await authFetch(`/open-jobs/${id}/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -209,7 +212,7 @@ export default function MarketplaceDetail() {
           return
         }
         // Update DB with on-chain job ID and tx
-        await fetch(`${API_BASE}/open-jobs/${id}/link-chain`, {
+        await authFetch(`/open-jobs/${id}/link-chain`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jobId: Number(onchainJobId), onChainTx: createTx }),
@@ -247,7 +250,7 @@ export default function MarketplaceDetail() {
       })
       await waitForTransactionReceipt(config, { hash: setProviderTx, confirmations: 1 })
 
-      await fetch(`${API_BASE}/open-jobs/${id}/select`, {
+      await authFetch(`/open-jobs/${id}/select`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ applicantAddress, clientAddress: address }),
@@ -303,7 +306,7 @@ export default function MarketplaceDetail() {
       // Step 2: setBudget — must be called by provider, so ask API backend to do it
       if (onchainJob.budget === 0n) {
         setFundStep('Setting budget...')
-        const setBudgetRes = await fetch(`${API_BASE}/open-jobs/${id}/set-budget`, {
+        const setBudgetRes = await authFetch(`/open-jobs/${id}/set-budget`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ budget: budgetStr }),
@@ -358,7 +361,7 @@ export default function MarketplaceDetail() {
 
       // Step 5: Only update API after all txs confirmed
       setFundStep('Confirming...')
-      await fetch(`${API_BASE}/open-jobs/${id}/fund`, {
+      await authFetch(`/open-jobs/${id}/fund`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -393,13 +396,13 @@ export default function MarketplaceDetail() {
         for (const file of deliverFiles) {
           formData.append('files', file)
         }
-        res = await fetch(`${API_BASE}/open-jobs/${id}/deliver`, {
+        res = await authFetch(`/open-jobs/${id}/deliver`, {
           method: 'POST',
           body: formData,
         })
       } else {
         // Backward compatible JSON mode (no files)
-        res = await fetch(`${API_BASE}/open-jobs/${id}/deliver`, {
+        res = await authFetch(`/open-jobs/${id}/deliver`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -422,7 +425,7 @@ export default function MarketplaceDetail() {
     if (!address) return
     setDownloadingFileId(fileId)
     try {
-      const res = await fetch(`${API_BASE}/open-jobs/${id}/files/${fileId}/download?requester=${address}`)
+      const res = await authFetch(`/open-jobs/${id}/files/${fileId}/download?requester=${address}`)
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || 'Download failed')
@@ -459,7 +462,7 @@ export default function MarketplaceDetail() {
       })
       await waitForTransactionReceipt(config, { hash: tx, confirmations: 1 })
       // On-chain submit auto-completes — update DB
-      await fetch(`${API_BASE}/open-jobs/${id}/complete`, {
+      await authFetch(`/open-jobs/${id}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completedTx: tx }),
@@ -540,7 +543,7 @@ export default function MarketplaceDetail() {
       }
 
       // Only update DB after confirmed on-chain
-      await fetch(`${API_BASE}/open-jobs/${id}/complete`, {
+      await authFetch(`/open-jobs/${id}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientAddress: address, completionTx: completeTx }),
@@ -557,7 +560,7 @@ export default function MarketplaceDetail() {
     if (!address) return
     setRejecting(true)
     try {
-      await fetch(`${API_BASE}/open-jobs/${id}/reject`, {
+      await authFetch(`/open-jobs/${id}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientAddress: address, reason: rejectReason }),
@@ -572,7 +575,7 @@ export default function MarketplaceDetail() {
     if (!address || !commentText.trim()) return
     setPostingComment(true)
     try {
-      await fetch(`${API_BASE}/open-jobs/${id}/comments`, {
+      await authFetch(`/open-jobs/${id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ senderAddress: address, message: commentText.trim() }),
