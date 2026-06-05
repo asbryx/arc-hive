@@ -73,6 +73,11 @@ export async function updateJobAfterEvaluation(
       `UPDATE marketplace_deliverables SET status = 'approved' WHERE open_job_id = $1 AND status = 'submitted'`,
       [openJobId]
     )
+    // Set file expiry: files auto-delete after 24 hours
+    await query(
+      `UPDATE deliverable_files SET expires_at = NOW() + INTERVAL '24 hours' WHERE open_job_id = $1 AND expires_at IS NULL`,
+      [openJobId]
+    )
   } else if (status === 'revision_requested') {
     await query(
       `UPDATE open_jobs SET status = 'revision_requested', revision_count = $2, updated_at = NOW() WHERE id = $1`,

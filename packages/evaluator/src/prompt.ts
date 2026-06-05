@@ -13,6 +13,8 @@ export interface EvalContext {
   // Sector context
   category: string | null
   sectorConfig: Record<string, any> | null
+  // File deliverables
+  files?: { filename: string; fileType: string; content: string }[]
 }
 
 export function buildEvaluationPrompt(ctx: EvalContext): string {
@@ -67,6 +69,7 @@ ${sectorContext}${previousContext}
 Content: ${content}
 Link: ${ctx.deliverableLink || 'None'}
 Notes: ${ctx.deliverableNotes || 'None'}
+${ctx.files && ctx.files.length > 0 ? `\n## Uploaded Files (${ctx.files.length} files)\n${ctx.files.map(f => `### ${f.filename} (${f.fileType})\n\`\`\`\n${f.content.slice(0, CONFIG.MAX_DELIVERABLE_LENGTH / ctx.files!.length)}\n\`\`\``).join('\n\n')}` : ''}
 
 ## Your Task
 Score this deliverable from 0-100 based on how well it meets the job requirements.

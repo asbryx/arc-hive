@@ -13,6 +13,7 @@
   "dependencies": {
     "@arc-hive/shared": "workspace:*",
     "@hono/node-server": "^1.13.0",
+    "@supabase/supabase-js": "^2.107.0",
     "dotenv": "^16.4.0",
     "hono": "^4.7.0",
     "pg": "^8.13.0",

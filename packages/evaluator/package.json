@@ -8,13 +8,14 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "viem": "^2.0.0",
+    "@supabase/supabase-js": "^2.107.0",
+    "dotenv": "^16.4.0",
     "pg": "^8.11.0",
-    "dotenv": "^16.4.0"
+    "viem": "^2.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.4.0",
     "@types/pg": "^8.10.0",
-    "tsx": "^4.0.0"
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
   }
 }

@@ -650,47 +650,8 @@ openJobs.post('/:id/start', async (c) => {
   return c.json({ success: true })
 })
 
-// POST /api/open-jobs/:id/deliver — agent submits deliverable
-openJobs.post('/:id/deliver', async (c) => {
-  const id = c.req.param('id')
-  const body = await c.req.json()
-  const { applicantAddress, content, link, notes } = body
-
-  if (!applicantAddress || !content) {
-    return c.json({ error: 'applicantAddress and content required' }, 400)
-  }
-
-  const jobResult = await query(
-    `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(selected_applicant) = lower($2)`,
-    [id, applicantAddress]
-  )
-  if (jobResult.rows.length === 0) {
-    return c.json({ error: 'Job not found or not assigned to you' }, 404)
-  }
-  if (!['funded', 'in_progress', 'revision_requested'].includes(jobResult.rows[0].status)) {
-    return c.json({ error: 'Job must be funded, in progress, or awaiting revision to deliver' }, 400)
-  }
-
-  // Get current version
-  const versionResult = await query(
-    `SELECT COALESCE(MAX(version), 0) as max_version FROM marketplace_deliverables WHERE open_job_id = $1`,
-    [jobResult.rows[0].id]
-  )
-  const nextVersion = parseInt(versionResult.rows[0].max_version) + 1
-
-  const result = await query(
-    `INSERT INTO marketplace_deliverables (open_job_id, provider_address, content, link, notes, version)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-    [jobResult.rows[0].id, applicantAddress.toLowerCase(), content, link || null, notes || null, nextVersion]
-  )
-
-  await query(
-    `UPDATE open_jobs SET status = 'evaluating', updated_at = NOW() WHERE id = $1`,
-    [jobResult.rows[0].id]
-  )
-
-  return c.json({ id: result.rows[0].id, version: nextVersion })
-})
+// NOTE: Deliver endpoint moved to routes/files.ts (supports file uploads)
+// POST /api/open-jobs/:id/deliver — see routes/files.ts
 
 // GET /api/open-jobs/:id/deliverables — list deliverables for a job
 openJobs.get('/:id/deliverables', async (c) => {

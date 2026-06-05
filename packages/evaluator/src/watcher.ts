@@ -148,6 +148,36 @@ async function processEvaluation(job: any) {
 
   // Call LLM
   let result: EvalResult
+
+  // Fetch files from deliverable_files table
+  let fileContents: { filename: string; fileType: string; content: string }[] = []
+  try {
+    const filesResult = await query(
+      `SELECT filename, file_type, storage_path FROM deliverable_files WHERE open_job_id = $1 ORDER BY id ASC`,
+      [openJobId]
+    )
+    for (const file of filesResult.rows) {
+      try {
+        const { getFileAsText } = await import('./supabase.js')
+        const content = await getFileAsText(file.storage_path)
+        if (content) {
+          fileContents.push({
+            filename: file.filename,
+            fileType: file.file_type,
+            content: content.slice(0, 5000), // cap per file
+          })
+        }
+      } catch (err) {
+        console.warn(`[evaluator] Could not read file ${file.filename}:`, (err as Error).message)
+      }
+    }
+    if (fileContents.length > 0) {
+      console.log(`[evaluator] Loaded ${fileContents.length} files for job ${openJobId}`)
+    }
+  } catch (err) {
+    console.warn(`[evaluator] Error fetching files:`, (err as Error).message)
+  }
+
   try {
     result = await evaluateDeliverable({
       jobTitle: job.title,
@@ -164,6 +194,7 @@ async function processEvaluation(job: any) {
       })),
       category: job.category || null,
       sectorConfig,
+      files: fileContents.length > 0 ? fileContents : undefined,
     }, job.max_revisions || CONFIG.MAX_REVISIONS)
   } catch (err) {
     console.error(`[evaluator] LLM error for job ${openJobId}:`, (err as Error).message)
