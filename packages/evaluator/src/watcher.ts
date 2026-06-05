@@ -146,11 +146,13 @@ async function processEvaluation(job: any) {
     ? JSON.parse(job.sector_config)
     : job.sector_config || null
 
-  // Call LLM
-  let result: EvalResult
+  // === PRE-VALIDATION: reject garbage before wasting LLM tokens ===
+  const { preValidate } = await import('./validate.js')
+  // We'll validate after fetching files (need content + files together)
 
-  // Fetch files from deliverable_files table
-  let fileContents: { filename: string; fileType: string; content: string }[] = []
+  // Fetch files from deliverable_files table + analyze them
+  const { analyzeFile } = await import('./file-analyzer.js')
+  let fileContents: { filename: string; fileType: string; content: string; analysis?: any }[] = []
   try {
     const filesResult = await query(
       `SELECT filename, file_type, storage_path FROM deliverable_files WHERE open_job_id = $1 ORDER BY id ASC`,
@@ -161,10 +163,14 @@ async function processEvaluation(job: any) {
         const { getFileAsText } = await import('./supabase.js')
         const content = await getFileAsText(file.storage_path)
         if (content) {
+          // Analyze file
+          const analysis = analyzeFile(file.filename, content)
+          console.log(`[evaluator]   File: ${analysis.summary}`)
           fileContents.push({
             filename: file.filename,
             fileType: file.file_type,
             content: content.slice(0, 5000), // cap per file
+            analysis,
           })
         }
       } catch (err) {
@@ -178,6 +184,44 @@ async function processEvaluation(job: any) {
     console.warn(`[evaluator] Error fetching files:`, (err as Error).message)
   }
 
+  // Pre-validate deliverable (content + files)
+  const validation = preValidate(job.deliverable_content, fileContents)
+  if (!validation.valid) {
+    console.log(`[evaluator] Pre-validation failed for job ${openJobId}: ${validation.reason}`)
+    // Store as failed evaluation without calling LLM
+    await query(
+      `INSERT INTO evaluations (open_job_id, version, score, reasoning, suggestions, status, llm_model)
+       VALUES ($1, $2, 0, $3, 'Improve your deliverable and resubmit.', 'failed', 'pre-validation')`,
+      [openJobId, revisionNumber + 1, validation.reason]
+    )
+    // Reject on-chain if needed
+    if (jobId) {
+      try {
+        const onchainStatus = await getOnchainJobStatus(BigInt(jobId))
+        if (onchainStatus === 2) {
+          // Submitted on-chain — reject
+          const txHash = await executeReject(BigInt(jobId), validation.reason!)
+          console.log(`[evaluator] Rejected job ${openJobId} on-chain — tx=${txHash}`)
+          await updateJobAfterEvaluation(openJobId, 'failed', { revisionCount: revisionNumber })
+        } else {
+          // Not submitted on-chain — just update DB
+          await updateJobAfterEvaluation(openJobId, 'revision_requested', { revisionCount: revisionNumber + 1 })
+        }
+      } catch (err) {
+        console.error(`[evaluator] On-chain reject error:`, (err as Error).message)
+        await updateJobAfterEvaluation(openJobId, 'revision_requested', { revisionCount: revisionNumber + 1 })
+      }
+    } else {
+      await updateJobAfterEvaluation(openJobId, 'revision_requested', { revisionCount: revisionNumber + 1 })
+    }
+    return
+  }
+  if (validation.warnings) {
+    console.log(`[evaluator] Pre-validation warnings: ${validation.warnings.join(', ')}`)
+  }
+
+  // === CALL LLM (with fallback + multi-model) ===
+  let result: EvalResult
   try {
     result = await evaluateDeliverable({
       jobTitle: job.title,
@@ -203,7 +247,7 @@ async function processEvaluation(job: any) {
     return
   }
 
-  console.log(`[evaluator] Job ${openJobId}: score=${result.score} decision=${result.decision}`)
+  console.log(`[evaluator] Job ${openJobId}: score=${result.score} decision=${result.decision} provider=${result.providerUsed} tokens=${result.tokensUsed.input + result.tokensUsed.output}`)
 
   let txHash: string | null = null
 

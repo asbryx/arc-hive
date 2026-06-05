@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js'
 import { buildEvaluationPrompt, parseEvaluationResponse, EvalContext } from './prompt.js'
+import { callWithFallback, callMultiModel } from './providers.js'
 
 export type EvalInput = EvalContext
 
@@ -9,30 +10,64 @@ export interface EvalResult {
   reasoning: string
   suggestions: string | null
   decision: 'approved' | 'rejected' | 'failed'
+  providerUsed: string
+  tokensUsed: { input: number; output: number }
 }
 
 export async function evaluateDeliverable(input: EvalInput, maxRevisions: number): Promise<EvalResult> {
   const prompt = buildEvaluationPrompt(input)
 
-  const response = await fetch(`${CONFIG.LLM_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${CONFIG.LLM_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: CONFIG.LLM_MODEL,
-      max_tokens: 2000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
+  let text: string
+  let providerUsed: string
+  let tokensUsed: { input: number; output: number }
 
-  if (!response.ok) {
-    throw new Error(`LLM API error: ${response.status} ${await response.text()}`)
+  if (CONFIG.MULTI_MODEL_ENABLED) {
+    // Multi-model: call 2 providers in parallel
+    const result = await callMultiModel(prompt)
+
+    if (result.secondary && CONFIG.SCORE_AVERAGING) {
+      // Parse both scores and average them
+      const primaryParsed = parseEvaluationResponse(result.primary.text)
+      const secondaryParsed = parseEvaluationResponse(result.secondary.text)
+
+      if (primaryParsed.score > 0 && secondaryParsed.score > 0) {
+        const avgScore = Math.round((primaryParsed.score + secondaryParsed.score) / 2)
+        const avgCompleteness = Math.round(((primaryParsed.breakdown?.completeness || 0) + (secondaryParsed.breakdown?.completeness || 0)) / 2)
+        const avgQuality = Math.round(((primaryParsed.breakdown?.quality || 0) + (secondaryParsed.breakdown?.quality || 0)) / 2)
+        const avgEffort = Math.round(((primaryParsed.breakdown?.effort || 0) + (secondaryParsed.breakdown?.effort || 0)) / 2)
+        const avgFormat = Math.round(((primaryParsed.breakdown?.format || 0) + (secondaryParsed.breakdown?.format || 0)) / 2)
+
+        text = JSON.stringify({
+          score: avgScore,
+          breakdown: { completeness: avgCompleteness, quality: avgQuality, effort: avgEffort, format: avgFormat },
+          reasoning: `[Multi-model average] ${primaryParsed.reasoning}`,
+          suggestions: primaryParsed.suggestions || secondaryParsed.suggestions,
+        })
+        providerUsed = `${result.primary.provider}+${result.secondary.provider} (averaged)`
+        tokensUsed = {
+          input: result.primary.tokensUsed.input + (result.secondary?.tokensUsed.input || 0),
+          output: result.primary.tokensUsed.output + (result.secondary?.tokensUsed.output || 0),
+        }
+      } else {
+        // One score was 0, use the other
+        text = primaryParsed.score > 0 ? result.primary.text : result.secondary!.text
+        providerUsed = primaryParsed.score > 0 ? result.primary.provider : result.secondary!.provider
+        tokensUsed = primaryParsed.score > 0 ? result.primary.tokensUsed : result.secondary!.tokensUsed
+      }
+    } else {
+      // No secondary or not averaging — use primary
+      text = result.primary.text
+      providerUsed = result.primary.provider
+      tokensUsed = result.primary.tokensUsed
+    }
+  } else {
+    // Single model with fallback chain
+    const result = await callWithFallback(prompt)
+    text = result.text
+    providerUsed = result.provider
+    tokensUsed = result.tokensUsed
   }
 
-  const data = await response.json() as any
-  const text = data.choices?.[0]?.message?.content || ''
   const { score, breakdown, reasoning, suggestions } = parseEvaluationResponse(text)
 
   if (score === 0 && !reasoning) {
@@ -49,5 +84,5 @@ export async function evaluateDeliverable(input: EvalInput, maxRevisions: number
     decision = 'rejected'
   }
 
-  return { score, breakdown, reasoning, suggestions, decision }
+  return { score, breakdown, reasoning, suggestions, decision, providerUsed, tokensUsed }
 }
