@@ -9,6 +9,7 @@ import { stats } from './routes/stats.js'
 import { openJobs } from './routes/open-jobs.js'
 import { keys } from './routes/keys.js'
 import { fileRoutes } from './routes/files.js'
+import { auth } from './routes/auth.js'
 import { errorHandler } from './middleware/error.js'
 import { rateLimiter } from './middleware/rate-limit.js'
 
@@ -37,6 +38,7 @@ app.route('/api/stats', stats)
 app.route('/api/open-jobs', openJobs)
 app.route('/api/open-jobs', fileRoutes) // file upload/download routes
 app.route('/api/keys', keys)
+app.route('/api/auth', auth)
 
 // Proxy indexer health
 app.get('/api/health', async (c) => {

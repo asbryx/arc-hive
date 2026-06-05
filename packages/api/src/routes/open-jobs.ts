@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { query, queryAgents } from '../db.js'
 import { createWalletClient, createPublicClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { requireAuth } from '../middleware/auth.js'
 
 const PROVIDER_KEY = process.env.PROVIDER_PRIVATE_KEY!
 if (!PROVIDER_KEY) throw new Error('PROVIDER_PRIVATE_KEY env var required')
@@ -15,7 +16,7 @@ const SET_BUDGET_ABI = [{ inputs: [{ name: 'jobId', type: 'uint256' }, { name: '
 export const openJobs = new Hono()
 
 // POST /api/open-jobs — create an open job listing
-openJobs.post('/', async (c) => {
+openJobs.post('/', requireAuth, async (c) => {
   const body = await c.req.json()
   const { title, description, category, requirements, budgetMin, budgetMax, deadlineHours, clientAddress, jobId, onChainTx, sectorConfig } = body
 
@@ -306,7 +307,7 @@ openJobs.get('/notifications', async (c) => {
 })
 
 // POST /api/open-jobs/notifications/read
-openJobs.post('/notifications/read', async (c) => {
+openJobs.post('/notifications/read', requireAuth, async (c) => {
   const body = await c.req.json()
   const { address, ids } = body
   if (!address) return c.json({ error: 'address required' }, 400)
@@ -368,7 +369,7 @@ openJobs.get('/:id', async (c) => {
 })
 
 // POST /api/open-jobs/:id/apply — agent applies to a job
-openJobs.post('/:id/apply', async (c) => {
+openJobs.post('/:id/apply', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { applicantAddress, agentId, message, proposedBudget } = body
@@ -482,7 +483,7 @@ openJobs.get('/:id/applications', async (c) => {
 })
 
 // POST /api/open-jobs/:id/link-chain — link an off-chain job to its on-chain ID
-openJobs.post('/:id/link-chain', async (c) => {
+openJobs.post('/:id/link-chain', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { jobId, onChainTx } = body
@@ -497,7 +498,7 @@ openJobs.post('/:id/link-chain', async (c) => {
 })
 
 // POST /api/open-jobs/:id/select — client selects an applicant
-openJobs.post('/:id/select', async (c) => {
+openJobs.post('/:id/select', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { applicantAddress, clientAddress } = body
@@ -545,7 +546,7 @@ openJobs.post('/:id/select', async (c) => {
 })
 
 // POST /api/open-jobs/:id/set-budget — provider wallet calls setBudget on-chain
-openJobs.post('/:id/set-budget', async (c) => {
+openJobs.post('/:id/set-budget', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { budget } = body
@@ -584,7 +585,7 @@ openJobs.post('/:id/set-budget', async (c) => {
 })
 
 // POST /api/open-jobs/:id/fund — client confirms on-chain funding
-openJobs.post('/:id/fund', async (c) => {
+openJobs.post('/:id/fund', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { clientAddress, onchainJobId, fundTx, budget } = body
@@ -622,7 +623,7 @@ openJobs.post('/:id/fund', async (c) => {
 })
 
 // POST /api/open-jobs/:id/start — agent marks work started
-openJobs.post('/:id/start', async (c) => {
+openJobs.post('/:id/start', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { applicantAddress } = body
@@ -771,7 +772,7 @@ openJobs.get('/:id/suggested-agents', async (c) => {
 })
 
 // POST /api/open-jobs/:id/complete — client approves and confirms on-chain completion
-openJobs.post('/:id/complete', async (c) => {
+openJobs.post('/:id/complete', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { clientAddress, completionTx, completedTx } = body
@@ -811,7 +812,7 @@ openJobs.post('/:id/complete', async (c) => {
 })
 
 // POST /api/open-jobs/:id/reject — client rejects deliverable (request revision)
-openJobs.post('/:id/reject', async (c) => {
+openJobs.post('/:id/reject', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { clientAddress, reason } = body
@@ -856,7 +857,7 @@ openJobs.post('/:id/reject', async (c) => {
 })
 
 // POST /api/open-jobs/:id/cancel — client cancels job
-openJobs.post('/:id/cancel', async (c) => {
+openJobs.post('/:id/cancel', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { clientAddress } = body
@@ -911,7 +912,7 @@ openJobs.get('/:id/comments', async (c) => {
 })
 
 // POST /api/open-jobs/:id/comments
-openJobs.post('/:id/comments', async (c) => {
+openJobs.post('/:id/comments', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { senderAddress, message } = body
@@ -938,7 +939,7 @@ openJobs.post('/:id/comments', async (c) => {
 // ─── Ratings ──────────────────────────────────────────────────────────────────
 
 // POST /api/open-jobs/:id/rate — client rates agent after completion
-openJobs.post('/:id/rate', async (c) => {
+openJobs.post('/:id/rate', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { clientAddress, rating, comment } = body

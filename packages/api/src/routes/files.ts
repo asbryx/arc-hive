@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { query } from '../db.js'
 import { supabase, uploadFile, downloadFile, deleteFile, detectFileType } from '../supabase.js'
 import { createHash } from 'crypto'
+import { requireAuth } from '../middleware/auth.js'
 
 export const fileRoutes = new Hono()
 
@@ -19,7 +20,7 @@ function isAllowedMime(mime: string): boolean {
 
 // POST /api/open-jobs/:id/deliver — submit deliverable with optional files
 // Supports both JSON (backward compatible) and multipart/form-data (with files)
-fileRoutes.post('/:id/deliver', async (c) => {
+fileRoutes.post('/:id/deliver', requireAuth, async (c) => {
   const id = c.req.param('id')
   const contentType = c.req.header('content-type') || ''
 
