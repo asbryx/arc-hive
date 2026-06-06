@@ -47,7 +47,9 @@ agents.get('/', async (c) => {
   }
   if (activeSince) {
     const days = parseInt(activeSince.replace('d', ''))
-    conditions.push(`s.last_active_at >= NOW() - INTERVAL '${days} days'`)
+    if (Number.isFinite(days) && days > 0 && days < 3650) {
+      conditions.push(`s.last_active_at >= NOW() - INTERVAL '${days} days'`)
+    }
   }
   if (minJobs) {
     conditions.push(`s.completed_jobs >= $${paramIdx}`)

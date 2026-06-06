@@ -281,8 +281,8 @@ jobs.post('/:id/deliverable', async (c) => {
        ON CONFLICT (job_id) DO UPDATE SET content = $3, link = $4, notes = $5, created_at = NOW()`,
       [id, providerAddress.toLowerCase(), content, link || null, notes || null]
     )
-    // Update job status to Submitted (4)
-    await query(`UPDATE jobs SET status = 4 WHERE job_id = $1`, [id])
+    // Update job status to Submitted (2 = Submitted in on-chain status map)
+    await query(`UPDATE jobs SET status = 2 WHERE job_id = $1`, [id])
     return c.json({ success: true }, 201)
   } catch (e: any) {
     return c.json({ error: 'Failed to save deliverable' }, 500)

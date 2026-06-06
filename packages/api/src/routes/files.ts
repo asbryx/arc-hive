@@ -63,7 +63,7 @@ fileRoutes.post('/:id/deliver', requireAuth, async (c) => {
     notes = body.notes
   }
 
-  // Validation
+  // Validate
   const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   if (!applicantAddress) {
     return c.json({ error: 'applicantAddress required' }, 400)
@@ -73,6 +73,9 @@ fileRoutes.post('/:id/deliver', requireAuth, async (c) => {
   }
   if (!content && files.length === 0) {
     return c.json({ error: 'Either content or at least one file is required' }, 400)
+  }
+  if (content && content.length > 100_000) {
+    return c.json({ error: 'Content exceeds 100KB limit' }, 400)
   }
   if (files.length > MAX_FILES_PER_DELIVERABLE) {
     return c.json({ error: `Max ${MAX_FILES_PER_DELIVERABLE} files per deliverable` }, 400)
@@ -137,10 +140,10 @@ fileRoutes.post('/:id/deliver', requireAuth, async (c) => {
 
     // Upload to Supabase
     const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const storagePath = `${job.job_id || job.id}/${nextVersion}/${safeFilename}`
+    const storagePath = `${job.job_id ?? job.id}/${nextVersion}/${safeFilename}`
 
     const uploadResult = await uploadFile(
-      job.job_id || job.id,
+      job.job_id ?? job.id,
       nextVersion,
       file.name,
       arrayBuffer,
@@ -207,6 +210,11 @@ fileRoutes.get('/:id/files', requireAuth, async (c) => {
 
   // Only client (after approval) or provider can see files
   const isApproved = ['completed', 'approved'].includes(job.status)
+
+  // Gate: must be client or provider to list files
+  if (!isClient && !isProvider) {
+    return c.json({ error: 'Access denied' }, 403)
+  }
 
   // Get files
   const filesResult = await query(

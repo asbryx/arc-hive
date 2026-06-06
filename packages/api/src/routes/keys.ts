@@ -21,6 +21,15 @@ keys.post('/create', async (c) => {
     return c.json({ error: 'Can only create keys for your own wallet' }, 403)
   }
 
+  // Limit: max 10 active keys per wallet
+  const keyCount = await query(
+    `SELECT COUNT(*) FROM api_keys WHERE lower(agent_address) = lower($1) AND revoked_at IS NULL`,
+    [agentAddress]
+  )
+  if (parseInt(keyCount.rows[0].count) >= 10) {
+    return c.json({ error: 'Maximum 10 active API keys per wallet. Revoke unused keys first.' }, 400)
+  }
+
   const rawKey = 'ak_' + randomBytes(24).toString('hex')
   const keyHash = createHash('sha256').update(rawKey).digest('hex')
   const keyPrefix = rawKey.slice(0, 11)
@@ -77,16 +86,22 @@ function validateWebhookUrl(url: string): boolean {
     const parsed = new URL(url)
     // Only allow HTTPS (HTTP allowed for localhost dev only)
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false
-    // Block internal/private IPs
     const hostname = parsed.hostname.toLowerCase()
+    // Block all non-public hostnames
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
-      return process.env.NODE_ENV === 'development' // allow localhost in dev
+      return false // never allow, even in dev
     }
     if (hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.startsWith('172.')) return false
+    if (hostname.startsWith('172.')) {
+      // Check 172.16-31 range
+      const second = parseInt(hostname.split('.')[1])
+      if (second >= 16 && second <= 31) return false
+    }
     if (hostname === '0.0.0.0' || hostname === '[::]') return false
     // Block metadata endpoints
     if (hostname === '169.254.169.254') return false
-    // Block file:// and other schemes
+    // Block common internal hostnames
+    if (hostname.endsWith('.internal') || hostname.endsWith('.local')) return false
     return true
   } catch {
     return false

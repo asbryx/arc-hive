@@ -998,7 +998,9 @@ openJobs.post('/:id/comments', requireAuth, async (c) => {
   if (!senderAddress || !message) {
     return c.json({ error: 'senderAddress and message required' }, 400)
   }
-  if (authWallet !== senderAddress.toLowerCase()) return c.json({ error: 'Can only comment as your own wallet' }, 403)
+  if (authWallet !== senderAddress.toLowerCase()) {
+    return c.json({ error: 'Can only post comments as your own wallet' }, 403)
+  }
 
   const jobResult = await query(
     `SELECT * FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,

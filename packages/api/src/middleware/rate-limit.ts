@@ -9,12 +9,12 @@ const CLEANUP_INTERVAL = 1000 // Check every 1000 requests
 let requestCounter = 0
 
 function getClientIP(c: any): string {
-  // Use x-forwarded-for rightmost IP (last trusted proxy hop)
+  // Use x-forwarded-for LEFTMOST IP — the client's real IP before any proxies
+  // Rightmost is spoofable, leftmost is from the first trusted proxy
   const xff = c.req.header('x-forwarded-for')
   if (xff) {
     const ips = xff.split(',').map((s: string) => s.trim())
-    // Return the rightmost non-empty IP (added by last reverse proxy)
-    for (let i = ips.length - 1; i >= 0; i--) {
+    for (let i = 0; i < ips.length; i++) {
       if (ips[i]) return ips[i]
     }
   }
