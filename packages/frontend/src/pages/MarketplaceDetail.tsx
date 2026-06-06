@@ -284,16 +284,52 @@ export default function MarketplaceDetail() {
         args: [jobIdBig],
       })
 
-      // Step 1: setProvider if provider is still zero on-chain
-      // On-chain provider must be the platform's provider wallet (handles submit/setBudget)
+      // Step 0: if job doesn't exist on-chain (id=0), create it first
+      // (contract may have been redeployed, or job was DB-only)
       const PLATFORM_PROVIDER = '0xDd03A2eEA57E2e10B05bF65515E1ebF2c753d7d5' as `0x${string}`
+      const EVALUATOR = '0xC1FEf538dc6357435372CEb69970D4078F4d3528' as `0x${string}`
+      let actualJobId = jobIdBig
+
+      if (onchainJob.id === 0n) {
+        setFundStep('Creating job on-chain...')
+        const deadlineSec = (job.deadlineHours || 72) * 3600
+        const expiredAt = BigInt(Math.floor(Date.now() / 1000) + deadlineSec)
+        const description = `${job.title} — ${(job.description || '').slice(0, 200)}`
+        const createTx = await writeContractAsync({
+          address: AGENTIC_COMMERCE,
+          abi: AGENTIC_COMMERCE_ABI,
+          functionName: 'createJob',
+          args: [PLATFORM_PROVIDER, EVALUATOR, expiredAt, description, '0x0000000000000000000000000000000000000000' as `0x${string}`],
+          chain: arcTestnet,
+        })
+        const createReceipt = await waitForTransactionReceipt(config, { hash: createTx })
+        if (createReceipt.status !== 'success') {
+          setActionError('Failed to create job on-chain. Try again.')
+          setFunding(false); setFundStep(''); return
+        }
+        // Extract on-chain job ID from JobCreated event (topics[1])
+        actualJobId = 0n
+        const jobCreatedTopic = '0xb0f0239bfdd96453e24733e18bfc24b70d8fadf123dd977473518dd577ee79b9'
+        for (const log of createReceipt.logs) {
+          if (log.address.toLowerCase() === AGENTIC_COMMERCE.toLowerCase() && log.topics[0] === jobCreatedTopic) {
+            actualJobId = BigInt(log.topics[1]!)
+            break
+          }
+        }
+        if (actualJobId === 0n) {
+          setActionError('Job created but could not find on-chain ID. Try again.')
+          setFunding(false); setFundStep(''); return
+        }
+      }
+
+      // Step 1: setProvider if provider is still zero on-chain (only if not just created)
       if (onchainJob.provider === '0x0000000000000000000000000000000000000000') {
         setFundStep('Setting provider on-chain...')
         const setProvTx = await writeContractAsync({
           address: AGENTIC_COMMERCE,
           abi: AGENTIC_COMMERCE_ABI,
           functionName: 'setProvider',
-          args: [jobIdBig, PLATFORM_PROVIDER],
+          args: [actualJobId, PLATFORM_PROVIDER],
           chain: arcTestnet,
         })
         const setProvReceipt = await waitForTransactionReceipt(config, { hash: setProvTx })
@@ -304,12 +340,19 @@ export default function MarketplaceDetail() {
       }
 
       // Step 2: setBudget — must be called by provider, so ask API backend to do it
-      if (onchainJob.budget === 0n) {
+      // (re-read onchain state with actualJobId in case we just created the job)
+      const currentOnchainJob = await readContract(config, {
+        address: AGENTIC_COMMERCE,
+        abi: AGENTIC_COMMERCE_ABI,
+        functionName: 'getJob',
+        args: [actualJobId],
+      })
+      if (currentOnchainJob.budget === 0n) {
         setFundStep('Setting budget...')
         const setBudgetRes = await authFetch(`/open-jobs/${id}/set-budget`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ budget: budgetStr }),
+          body: JSON.stringify({ budget: budgetStr, clientAddress: address, onchainJobId: actualJobId.toString() }),
         })
         if (!setBudgetRes.ok) {
           const err = await setBudgetRes.json().catch(() => ({ error: 'setBudget failed' }))
@@ -321,7 +364,7 @@ export default function MarketplaceDetail() {
           address: AGENTIC_COMMERCE,
           abi: AGENTIC_COMMERCE_ABI,
           functionName: 'getJob',
-          args: [jobIdBig],
+          args: [actualJobId],
         })
         if (updatedJob.budget === 0n) {
           setActionError('Budget still not set. Contact support.')
@@ -350,7 +393,7 @@ export default function MarketplaceDetail() {
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'fund',
-        args: [jobIdBig, '0x'],
+        args: [actualJobId, '0x'],
         chain: arcTestnet,
       })
       const fundReceipt = await waitForTransactionReceipt(config, { hash: fundTx })
@@ -366,7 +409,7 @@ export default function MarketplaceDetail() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientAddress: address,
-          onchainJobId: job.jobId,
+          onchainJobId: actualJobId.toString(),
           fundTx,
           budget: budgetStr,
         }),

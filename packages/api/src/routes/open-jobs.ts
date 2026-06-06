@@ -603,7 +603,7 @@ openJobs.post('/:id/select', requireAuth, async (c) => {
 openJobs.post('/:id/set-budget', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
-  const { budget, clientAddress } = body
+  const { budget, clientAddress, onchainJobId } = body
   const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!budget) return c.json({ error: 'budget required' }, 400)
@@ -619,7 +619,9 @@ openJobs.post('/:id/set-budget', requireAuth, async (c) => {
   if (jobResult.rows.length === 0) return c.json({ error: 'Job not found or not yours' }, 404)
 
   const job = jobResult.rows[0]
-  if (!job.job_id) return c.json({ error: 'No on-chain job ID' }, 400)
+  // Use onchainJobId from frontend if provided (for newly created on-chain jobs)
+  const actualOnchainJobId = onchainJobId || job.job_id
+  if (!actualOnchainJobId) return c.json({ error: 'No on-chain job ID' }, 400)
 
   const budgetAtomic = BigInt(Math.round(parseFloat(budget) * 1_000_000))
 
@@ -632,7 +634,7 @@ openJobs.post('/:id/set-budget', requireAuth, async (c) => {
       address: AGENTIC_COMMERCE as `0x${string}`,
       abi: SET_BUDGET_ABI,
       functionName: 'setBudget',
-      args: [BigInt(job.job_id), budgetAtomic, '0x'],
+      args: [BigInt(actualOnchainJobId), budgetAtomic, '0x'],
     })
     await publicClient.waitForTransactionReceipt({ hash: tx })
 
