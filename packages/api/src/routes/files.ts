@@ -298,12 +298,14 @@ fileRoutes.get('/:id/files/:fileId/download', requireAuth, async (c) => {
     return c.json({ error: 'File not found in storage' }, 404)
   }
 
-  // Log the download
-  await query(
-    `INSERT INTO open_job_events (open_job_id, event_type, actor_address, data)
-     VALUES ($1, 'file_downloaded', $2, $3)`,
-    [job.id, requester, JSON.stringify({ fileId: file.id, filename: file.filename })]
-  )
+  // Log the download (non-fatal if table doesn't exist)
+  try {
+    await query(
+      `INSERT INTO open_job_events (open_job_id, event_type, actor_address, data)
+       VALUES ($1, 'file_downloaded', $2, $3)`,
+      [job.id, requester, JSON.stringify({ fileId: file.id, filename: file.filename })]
+    )
+  } catch {}
 
   // Return file
   return new Response(data, {
