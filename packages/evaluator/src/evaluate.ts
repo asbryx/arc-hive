@@ -80,9 +80,8 @@ export async function evaluateDeliverable(input: EvalInput, maxRevisions: number
   if (breakdown) {
     clampedBreakdown = { ...breakdown }
     for (const [key, max] of Object.entries(maxes)) {
-      const k = key as keyof typeof maxes
-      if (typeof clampedBreakdown[k] === 'number') {
-        (clampedBreakdown as any)[k] = Math.max(0, Math.min(max, clampedBreakdown[k]))
+      if (typeof (clampedBreakdown as any)[key] === 'number') {
+        (clampedBreakdown as any)[key] = Math.max(0, Math.min(max, (clampedBreakdown as any)[key]))
       }
     }
   }
