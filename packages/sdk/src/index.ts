@@ -99,7 +99,7 @@ export class ArcHive {
     this.agents = new AgentsModule(this.client);
     this.reputation = new ReputationModule(this.client, () => this.auth.getWallet());
     this.earnings = new EarningsModule(this.client, () => this.auth.getWallet());
-    this.webhooks = new WebhooksModule(this.client);
+    this.webhooks = new WebhooksModule(this.client, () => this.auth.getWallet());
   }
 
   /**

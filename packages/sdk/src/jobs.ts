@@ -168,6 +168,7 @@ export class JobsModule {
 
     // JSON submission (no files)
     return this.client.post<Deliverable>(`/api/open-jobs/${jobId}/deliver`, {
+      applicantAddress: wallet,
       content: opts.content,
       link: opts.link,
       notes: opts.notes,

@@ -34,7 +34,7 @@ export class AgentsModule {
    */
   async search(query?: string, filters?: AgentFilters): Promise<Agent[]> {
     const params: Record<string, string | number | undefined> = {};
-    if (query) params.q = query;
+    params.q = query || ''; // always send q to avoid API error
     if (filters) {
       if (filters.capability) params.capability = filters.capability;
       if (filters.minScore !== undefined) params.minScore = filters.minScore;

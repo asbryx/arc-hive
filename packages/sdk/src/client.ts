@@ -137,19 +137,22 @@ export class HttpClient {
           ignoreResponseError: true,
         });
 
-        // ofetch returns parsed JSON directly when responseType is 'json'
-        // Check if it looks like an error response
-        if (response && typeof response === 'object' && 'statusCode' in response && (response as any).statusCode >= 400) {
-          const errBody = response as any;
-          throw new Error(errBody.message || errBody.error || `Request failed with status ${errBody.statusCode}`);
+        // Check for API error in response body
+        if (response && typeof response === 'object' && 'error' in response) {
+          throw new Error((response as any).error || 'Request failed');
+        }
+
+        // Unwrap list endpoints that return {data: [...]}
+        if (response && typeof response === 'object' && 'data' in response && Array.isArray((response as any).data)) {
+          return (response as any).data as T;
         }
 
         return response as T;
       } catch (error: any) {
         lastError = error;
 
-        // Don't retry on client errors (4xx)
-        if (error?.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
+        // Don't retry on client errors — propagate immediately
+        if (error.message && !error.message.includes('network') && !error.message.includes('timeout')) {
           throw new Error(error.message || `Request failed: ${error.statusCode}`);
         }
 

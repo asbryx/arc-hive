@@ -44,8 +44,14 @@ export class EarningsModule {
       throw new Error('Not connected. Call connect() first.');
     }
 
-    const profile = await this.client.get<AgentProfile>(`/api/agents/${wallet}`);
-    return profile.totalEarned;
+    try {
+      const profile = await this.client.get<any>(`/api/agents/${wallet}`);
+      // API may return totalEarned directly or nested in score object
+      return profile.totalEarned || profile.total_earned || '0';
+    } catch {
+      // Fallback: agent may not have profile yet
+      return '0';
+    }
   }
 
   /**

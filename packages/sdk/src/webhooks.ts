@@ -12,86 +12,105 @@ import type { Webhook } from './types.js';
  */
 export class WebhooksModule {
   private client: HttpClient;
+  private getWallet: () => string | null;
 
   /**
    * Create a new WebhooksModule
    * @param client - HttpClient instance
+   * @param getWallet - Function to get the current wallet address
    */
-  constructor(client: HttpClient) {
+  constructor(client: HttpClient, getWallet: () => string | null) {
     this.client = client;
+    this.getWallet = getWallet;
   }
 
   /**
-   * Create a new API key for webhook management.
-   * API keys are used to authenticate webhook operations.
+   * Create a new API key for agent authentication.
    * Requires authentication.
    *
-   * @returns Object containing the new API key ID
+   * @param label - Optional label for the key
+   * @returns Object containing the new API key
    * @throws If not connected
    *
    * @example
    * ```ts
-   * const key = await hive.webhooks.createApiKey();
-   * console.log('API Key:', key.id);
+   * const key = await hive.webhooks.createApiKey('my-bot-key');
+   * console.log('API Key:', key.key);
    * ```
    */
-  async createApiKey(): Promise<{ id: string; key: string }> {
-    return this.client.post<{ id: string; key: string }>('/api/keys');
+  async createApiKey(label?: string): Promise<{ id: number; key: string; prefix: string }> {
+    const wallet = this.getWallet();
+    if (!wallet) {
+      throw new Error('Not connected. Call connect() first.');
+    }
+    return this.client.post<{ id: number; key: string; prefix: string }>('/api/keys/create', {
+      agentAddress: wallet,
+      label: label || null,
+    });
   }
 
   /**
    * Register a webhook to receive notifications for specific events.
-   * Requires authentication and an API key ID.
+   * Requires authentication.
    *
-   * @param apiKeyId - The API key ID to associate the webhook with
-   * @param events - Array of event names to listen for
+   * @param events - Array of event names to listen for (e.g. ['job.new', 'job.funded'])
    * @param url - The callback URL to receive webhook payloads
+   * @param opts - Optional: categoryFilter, budgetMin
    * @returns The created webhook configuration
    * @throws If not connected or invalid parameters
    *
    * @example
    * ```ts
-   * const wh = await hive.webhooks.create('key-123', ['job.completed'], 'https://my-server.com/hook');
+   * const wh = await hive.webhooks.create(['job.funded'], 'https://my-server.com/hook');
    * ```
    */
-  async create(apiKeyId: string, events: string[], url: string): Promise<Webhook> {
-    return this.client.post<Webhook>(`/api/keys/${apiKeyId}/webhooks`, {
+  async create(
+    events: string[],
+    url: string,
+    opts?: { categoryFilter?: string; budgetMin?: number }
+  ): Promise<Webhook> {
+    const wallet = this.getWallet();
+    if (!wallet) {
+      throw new Error('Not connected. Call connect() first.');
+    }
+    return this.client.post<Webhook>('/api/keys/webhooks', {
+      agentAddress: wallet,
       events,
       url,
+      categoryFilter: opts?.categoryFilter,
+      budgetMin: opts?.budgetMin,
     });
   }
 
   /**
-   * List all webhooks registered under an API key.
+   * List all webhooks registered for the connected wallet.
    * Requires authentication.
    *
-   * @param apiKeyId - The API key ID
    * @returns Array of webhook configurations
    *
    * @example
    * ```ts
-   * const hooks = await hive.webhooks.list('key-123');
+   * const hooks = await hive.webhooks.list();
    * hooks.forEach(h => console.log(h.url, h.events));
    * ```
    */
-  async list(apiKeyId: string): Promise<Webhook[]> {
-    return this.client.get<Webhook[]>(`/api/keys/${apiKeyId}/webhooks`);
+  async list(): Promise<Webhook[]> {
+    return this.client.get<Webhook[]>('/api/keys/webhooks');
   }
 
   /**
    * Remove a webhook.
    * Requires authentication.
    *
-   * @param apiKeyId - The API key ID
    * @param webhookId - The webhook ID to remove
    * @throws If webhook not found
    *
    * @example
    * ```ts
-   * await hive.webhooks.remove('key-123', 'wh-456');
+   * await hive.webhooks.remove('wh-456');
    * ```
    */
-  async remove(apiKeyId: string, webhookId: string): Promise<void> {
-    await this.client.delete(`/api/keys/${apiKeyId}/webhooks/${webhookId}`);
+  async remove(webhookId: string): Promise<void> {
+    await this.client.delete(`/api/keys/webhooks/${webhookId}`);
   }
 }
