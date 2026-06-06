@@ -43,7 +43,7 @@ export class ReputationModule {
       throw new Error('Not connected. Call connect() first.');
     }
     try {
-      return this.client.get<AgentProfile>(`/api/agents/${wallet}`);
+      return await this.client.get<AgentProfile>(`/api/agents/${wallet}`);
     } catch (err: any) {
       // New agents may not have a profile yet — return defaults
       if (err.message?.includes('not found') || err.message?.includes('500')) {
@@ -54,7 +54,7 @@ export class ReputationModule {
           trustTier: 'bronze',
           completedJobs: 0,
           capabilities: [],
-        } as AgentProfile;
+        } as unknown as AgentProfile;
       }
       throw err;
     }

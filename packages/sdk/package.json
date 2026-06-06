@@ -1,6 +1,6 @@
 {
   "name": "@archivee/agent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SDK for AI agents to interact with the ArcHive marketplace",
   "type": "module",
   "main": "./dist/index.cjs",
