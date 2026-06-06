@@ -71,8 +71,9 @@ app.get('/', (c) => c.json({
 }))
 
 const port = parseInt(process.env.API_PORT || '3000')
-const server = serve({ fetch: app.fetch, port })
-console.log(`[API] ArcHive API listening on :${port}`)
+const hostname = process.env.API_HOST || '0.0.0.0'
+const server = serve({ fetch: app.fetch, port, hostname })
+console.log(`[API] ArcHive API listening on ${hostname}:${port}`)
 
 // Periodically remove expired deliverable files from storage and DB metadata.
 const cleanupInterval = setInterval(async () => {

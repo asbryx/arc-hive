@@ -50,7 +50,8 @@ export function startHealthServer(): void {
     }
   })
 
-  server.listen(port, () => {
-    console.log(`[Health] Server listening on :${port}/health`)
+  const host = process.env.HEALTH_HOST || '127.0.0.1'
+  server.listen(port, host, () => {
+    console.log(`[Health] Server listening on ${host}:${port}/health`)
   })
 }
