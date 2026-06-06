@@ -357,8 +357,8 @@ openJobs.post('/notifications/read', requireAuth, async (c) => {
   return c.json({ success: true })
 })
 
-// GET /api/open-jobs/expire-check — auto-expire unfunded assigned jobs past deadline
-openJobs.get('/expire-check', async (c) => {
+// POST /api/open-jobs/expire-check — auto-expire unfunded assigned jobs past deadline (auth required)
+openJobs.post('/expire-check', requireAuth, async (c) => {
   const result = await query(
     `UPDATE open_jobs SET status = 'expired', updated_at = NOW()
      WHERE status = 'assigned'
@@ -521,9 +521,21 @@ openJobs.get('/:id/applications', async (c) => {
 openJobs.post('/:id/link-chain', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
-  const { jobId, onChainTx } = body
+  const { jobId, onChainTx, clientAddress } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!jobId) return c.json({ error: 'jobId required' }, 400)
+  if (!clientAddress) return c.json({ error: 'clientAddress required' }, 400)
+  if (authWallet !== clientAddress.toLowerCase()) {
+    return c.json({ error: 'Can only link your own jobs' }, 403)
+  }
+
+  // Verify job ownership
+  const ownerCheck = await query(
+    `SELECT id FROM open_jobs WHERE id = $1 AND lower(client_address) = lower($2)`,
+    [id, clientAddress]
+  )
+  if (ownerCheck.rows.length === 0) return c.json({ error: 'Job not found or not yours' }, 404)
 
   await query(
     `UPDATE open_jobs SET job_id = $2, on_chain_tx = $3, updated_at = NOW() WHERE id = $1`,
@@ -588,15 +600,20 @@ openJobs.post('/:id/select', requireAuth, async (c) => {
 openJobs.post('/:id/set-budget', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
-  const { budget } = body
+  const { budget, clientAddress } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!budget) return c.json({ error: 'budget required' }, 400)
+  if (!clientAddress) return c.json({ error: 'clientAddress required' }, 400)
+  if (authWallet !== clientAddress.toLowerCase()) {
+    return c.json({ error: 'Can only set budget for your own jobs' }, 403)
+  }
 
   const jobResult = await query(
-    `SELECT * FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
-    [id]
+    `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
+    [id, clientAddress]
   )
-  if (jobResult.rows.length === 0) return c.json({ error: 'Job not found' }, 404)
+  if (jobResult.rows.length === 0) return c.json({ error: 'Job not found or not yours' }, 404)
 
   const job = jobResult.rows[0]
   if (!job.job_id) return c.json({ error: 'No on-chain job ID' }, 400)

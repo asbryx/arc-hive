@@ -134,7 +134,6 @@ export class HttpClient {
           headers,
           body: options.body as any,
           responseType: 'json',
-          ignoreResponseError: true,
         });
 
         // Check for API error in response body
