@@ -1,14 +1,36 @@
 import type { MiddlewareHandler } from 'hono'
+import { getConnInfo } from 'hono/node-server'
 
 // Simple in-memory rate limiter (per IP, 100 req/min)
 const requests = new Map<string, { count: number; resetAt: number }>()
 
 const WINDOW_MS = 60_000
 const MAX_REQUESTS = 100
+const CLEANUP_INTERVAL = 1000 // Check every 1000 requests
+let requestCounter = 0
+
+function getClientIP(c: any): string {
+  // Use x-forwarded-for rightmost IP (last trusted proxy hop)
+  const xff = c.req.header('x-forwarded-for')
+  if (xff) {
+    const ips = xff.split(',').map((s: string) => s.trim())
+    // Return the rightmost non-empty IP (added by last reverse proxy)
+    for (let i = ips.length - 1; i >= 0; i--) {
+      if (ips[i]) return ips[i]
+    }
+  }
+  // Fallback to connection remote address
+  try {
+    const info = getConnInfo(c)
+    return info.remote?.address || 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
 
 export function rateLimiter(): MiddlewareHandler {
   return async (c, next) => {
-    const ip = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown'
+    const ip = getClientIP(c)
     const now = Date.now()
 
     let entry = requests.get(ip)
@@ -18,18 +40,20 @@ export function rateLimiter(): MiddlewareHandler {
     }
 
     entry.count++
+    requestCounter++
 
     if (entry.count > MAX_REQUESTS) {
       return c.json({ error: 'Rate limit exceeded', retryAfter: Math.ceil((entry.resetAt - now) / 1000) }, 429)
     }
 
     c.header('X-RateLimit-Limit', MAX_REQUESTS.toString())
-    c.header('X-RateLimit-Remaining', (MAX_REQUESTS - entry.count).toString())
+    c.header('X-RateLimit-Remaining', Math.max(0, MAX_REQUESTS - entry.count).toString())
 
     await next()
 
-    // Cleanup old entries periodically
-    if (requests.size > 10_000) {
+    // Periodic cleanup of expired entries
+    if (requestCounter > CLEANUP_INTERVAL) {
+      requestCounter = 0
       for (const [key, val] of requests) {
         if (now > val.resetAt) requests.delete(key)
       }

@@ -1,32 +1,39 @@
 import { Hono } from 'hono'
 import jwt from 'jsonwebtoken'
+import { randomBytes } from 'crypto'
 import { query } from '../db.js'
 import { verifyMessage } from 'viem'
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.PROVIDER_PRIVATE_KEY || 'arc-hive-dev-secret-change-me'
-const JWT_EXPIRY = '24h'
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+  console.error('[auth] FATAL: JWT_SECRET environment variable is required')
+  process.exit(1)
+}
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '24h'
 
-// Generate a nonce message for the agent to sign
-function buildSignMessage(nonce: string, timestamp: string): string {
-  return `Sign in to ArcHive
+// Generate a nonce message for the agent to sign (EIP-4361 style with domain)
+function buildSignMessage(nonce: string, timestamp: string, wallet: string): string {
+  return `arcs-hive.vercel.app wants you to sign in with your wallet:
+
+${wallet}
 
 Nonce: ${nonce}
-Timestamp: ${timestamp}
+Issued At: ${timestamp}
 
-This signature proves you own this wallet. No gas fees.`
+URI: https://arcs-hive.vercel.app
+Version: 1
+Chain ID: 1`
 }
 
-// Generate random nonce
+// Generate cryptographically secure random nonce
 function generateNonce(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let result = ''
-  for (let i = 0; i < 32; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return result
+  return randomBytes(32).toString('hex')
 }
 
 export const auth = new Hono()
+
+// Per-wallet nonce rate limit — 5 per minute per wallet
+const nonceRateLimit = new Map<string, { count: number; resetAt: number }>()
 
 // POST /api/auth/nonce — get a nonce to sign
 auth.get('/nonce', async (c) => {
@@ -35,9 +42,21 @@ auth.get('/nonce', async (c) => {
     return c.json({ error: 'Valid wallet address required (0x...)' }, 400)
   }
 
+  // Rate limit: max 5 nonces per minute per wallet
+  const now = Date.now()
+  let entry = nonceRateLimit.get(wallet.toLowerCase())
+  if (!entry || now > entry.resetAt) {
+    entry = { count: 0, resetAt: now + 60_000 }
+    nonceRateLimit.set(wallet.toLowerCase(), entry)
+  }
+  entry.count++
+  if (entry.count > 5) {
+    return c.json({ error: 'Too many nonce requests. Wait a minute.' }, 429)
+  }
+
   const nonce = generateNonce()
   const timestamp = new Date().toISOString()
-  const message = buildSignMessage(nonce, timestamp)
+  const message = buildSignMessage(nonce, timestamp, wallet.toLowerCase())
 
   // Store nonce in DB (expires in 5 min)
   await query(

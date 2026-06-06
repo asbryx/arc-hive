@@ -1,15 +1,25 @@
 import { Hono } from 'hono'
 import { createHash, randomBytes } from 'crypto'
 import { query } from '../db.js'
+import { requireAuth } from '../middleware/auth.js'
 
 export const keys = new Hono()
+
+// All key management routes require authentication
+keys.use('*', requireAuth)
 
 // POST /api/keys/create — generate API key
 keys.post('/create', async (c) => {
   const body = await c.req.json()
   const { agentAddress, label, scopes } = body
+  const authWallet = (c.get('wallet') as string)?.toLowerCase()
 
   if (!agentAddress) return c.json({ error: 'agentAddress required' }, 400)
+
+  // Verify authenticated user is creating key for their own wallet
+  if (authWallet && authWallet !== agentAddress.toLowerCase()) {
+    return c.json({ error: 'Can only create keys for your own wallet' }, 403)
+  }
 
   const rawKey = 'ak_' + randomBytes(24).toString('hex')
   const keyHash = createHash('sha256').update(rawKey).digest('hex')
@@ -26,15 +36,15 @@ keys.post('/create', async (c) => {
   return c.json({ id: result.rows[0].id, key: rawKey, prefix: keyPrefix }, 201)
 })
 
-// GET /api/keys?address=0x... — list keys
+// GET /api/keys — list keys for authenticated wallet
 keys.get('/', async (c) => {
-  const address = c.req.query('address')
-  if (!address) return c.json({ error: 'address required' }, 400)
+  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  if (!authWallet) return c.json({ error: 'Authentication required' }, 401)
 
   const result = await query(
     `SELECT id, key_prefix, label, scopes, created_at, last_used_at, revoked_at
      FROM api_keys WHERE lower(agent_address) = lower($1) ORDER BY created_at DESC`,
-    [address]
+    [authWallet]
   )
 
   return c.json({
@@ -49,18 +59,39 @@ keys.get('/', async (c) => {
 // POST /api/keys/:id/revoke — revoke a key
 keys.post('/:id/revoke', async (c) => {
   const id = c.req.param('id')
-  const body = await c.req.json()
-  const { address } = body
-  if (!address) return c.json({ error: 'address required' }, 400)
+  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  if (!authWallet) return c.json({ error: 'Authentication required' }, 401)
 
   await query(
     `UPDATE api_keys SET revoked_at = NOW() WHERE id = $1 AND lower(agent_address) = lower($2)`,
-    [id, address]
+    [id, authWallet]
   )
   return c.json({ success: true })
 })
 
 // ─── Webhooks ─────────────────────────────────────────────────────────────────
+
+// Validate webhook URL to prevent SSRF
+function validateWebhookUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    // Only allow HTTPS (HTTP allowed for localhost dev only)
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false
+    // Block internal/private IPs
+    const hostname = parsed.hostname.toLowerCase()
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+      return process.env.NODE_ENV === 'development' // allow localhost in dev
+    }
+    if (hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.startsWith('172.')) return false
+    if (hostname === '0.0.0.0' || hostname === '[::]') return false
+    // Block metadata endpoints
+    if (hostname === '169.254.169.254') return false
+    // Block file:// and other schemes
+    return true
+  } catch {
+    return false
+  }
+}
 
 // POST /api/keys/webhooks — create webhook subscription
 keys.post('/webhooks', async (c) => {
@@ -69,6 +100,16 @@ keys.post('/webhooks', async (c) => {
 
   if (!agentAddress || !url || !events?.length) {
     return c.json({ error: 'agentAddress, url, and events required' }, 400)
+  }
+
+  if (!validateWebhookUrl(url)) {
+    return c.json({ error: 'Invalid or blocked webhook URL. Only public HTTPS URLs are allowed.' }, 400)
+  }
+
+  // Verify authenticated user is creating webhook for their own wallet
+  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  if (authWallet && authWallet !== agentAddress.toLowerCase()) {
+    return c.json({ error: 'Can only create webhooks for your own wallet' }, 403)
   }
 
   const secret = randomBytes(32).toString('hex')
@@ -82,15 +123,15 @@ keys.post('/webhooks', async (c) => {
   return c.json({ id: result.rows[0].id, secret }, 201)
 })
 
-// GET /api/keys/webhooks?address=0x... — list webhooks
+// GET /api/keys/webhooks — list webhooks for authenticated wallet
 keys.get('/webhooks', async (c) => {
-  const address = c.req.query('address')
-  if (!address) return c.json({ error: 'address required' }, 400)
+  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  if (!authWallet) return c.json({ error: 'Authentication required' }, 401)
 
   const result = await query(
     `SELECT id, url, events, category_filter, active, created_at, last_triggered_at, failure_count
      FROM webhooks WHERE lower(agent_address) = lower($1) ORDER BY created_at DESC`,
-    [address]
+    [authWallet]
   )
 
   return c.json({
@@ -106,12 +147,12 @@ keys.get('/webhooks', async (c) => {
 // DELETE /api/keys/webhooks/:id — remove webhook
 keys.delete('/webhooks/:id', async (c) => {
   const id = c.req.param('id')
-  const address = c.req.query('address')
-  if (!address) return c.json({ error: 'address required' }, 400)
+  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  if (!authWallet) return c.json({ error: 'Authentication required' }, 401)
 
   await query(
     `DELETE FROM webhooks WHERE id = $1 AND lower(agent_address) = lower($2)`,
-    [id, address]
+    [id, authWallet]
   )
   return c.json({ success: true })
 })

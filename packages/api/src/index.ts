@@ -12,17 +12,23 @@ import { fileRoutes } from './routes/files.js'
 import { auth } from './routes/auth.js'
 import { errorHandler } from './middleware/error.js'
 import { rateLimiter } from './middleware/rate-limit.js'
+import { securityHeaders } from './middleware/security-headers.js'
 
 const app = new Hono()
+
+// Security headers — applied before all else
+app.use('*', securityHeaders())
 
 // Global middleware
 const corsOrigins = [
   'https://arcs-hive.vercel.app',
   'https://archive-kappa-weld.vercel.app',
-  'http://localhost:5173',
 ]
 if (process.env.CORS_ORIGIN) {
   corsOrigins.push(process.env.CORS_ORIGIN)
+}
+if (process.env.NODE_ENV === 'development') {
+  corsOrigins.push('http://localhost:5173')
 }
 
 app.use('*', cors({
@@ -65,5 +71,18 @@ app.get('/', (c) => c.json({
 }))
 
 const port = parseInt(process.env.API_PORT || '3000')
+const server = serve({ fetch: app.fetch, port })
 console.log(`[API] ArcHive API listening on :${port}`)
-serve({ fetch: app.fetch, port })
+
+// Graceful shutdown
+const shutdown = () => {
+  console.log('[API] Shutting down gracefully...')
+  server.close(() => {
+    console.log('[API] Closed')
+    process.exit(0)
+  })
+  // Force exit after 10s
+  setTimeout(() => process.exit(1), 10000)
+}
+process.on('SIGTERM', shutdown)
+process.on('SIGINT', shutdown)

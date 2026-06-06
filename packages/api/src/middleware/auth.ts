@@ -1,7 +1,11 @@
 import { Context, Next } from 'hono'
 import jwt from 'jsonwebtoken'
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.PROVIDER_PRIVATE_KEY || 'arc-hive-dev-secret-change-me'
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+  console.error('[auth middleware] FATAL: JWT_SECRET environment variable is required')
+  process.exit(1)
+}
 
 // Extract wallet from JWT token
 export function getWalletFromToken(c: Context): string | null {

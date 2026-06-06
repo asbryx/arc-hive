@@ -654,10 +654,10 @@ openJobs.post('/:id/start', requireAuth, async (c) => {
 // NOTE: Deliver endpoint moved to routes/files.ts (supports file uploads)
 // POST /api/open-jobs/:id/deliver — see routes/files.ts
 
-// GET /api/open-jobs/:id/deliverables — list deliverables for a job
-openJobs.get('/:id/deliverables', async (c) => {
+// GET /api/open-jobs/:id/deliverables — list deliverables for a job (auth required)
+openJobs.get('/:id/deliverables', requireAuth, async (c) => {
   const id = c.req.param('id')
-  const requester = c.req.query('requester')?.toLowerCase() || null
+  const requester = (c.get('wallet') as string)?.toLowerCase() || null
 
   const jobResult = await query(
     `SELECT id, client_address, selected_applicant, status FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,

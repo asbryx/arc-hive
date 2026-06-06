@@ -149,10 +149,10 @@ export default function MarketplaceDetail() {
       const [jobRes, appsRes, delRes, commRes, evalRes, filesRes] = await Promise.all([
         fetch(`${API_BASE}/open-jobs/${id}`),
         fetch(`${API_BASE}/open-jobs/${id}/applications`),
-        authFetch(`/open-jobs/${id}/deliverables?requester=${address}`),
+        authFetch(`/open-jobs/${id}/deliverables`),
         authFetch(`/open-jobs/${id}/comments`),
         fetch(`${API_BASE}/open-jobs/${id}/evaluations`),
-        fetch(`${API_BASE}/open-jobs/${id}/files?requester=${address}`),
+        authFetch(`/open-jobs/${id}/files`),
       ])
       const jobData = jobRes.ok ? await jobRes.json() : null
       if (jobData) setJob(jobData)
@@ -425,7 +425,7 @@ export default function MarketplaceDetail() {
     if (!address) return
     setDownloadingFileId(fileId)
     try {
-      const res = await authFetch(`/open-jobs/${id}/files/${fileId}/download?requester=${address}`)
+      const res = await authFetch(`/open-jobs/${id}/files/${fileId}/download`)
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || 'Download failed')

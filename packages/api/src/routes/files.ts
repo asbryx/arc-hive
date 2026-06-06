@@ -148,10 +148,10 @@ fileRoutes.post('/:id/deliver', requireAuth, async (c) => {
       continue
     }
 
-    // Save metadata to DB
+    // Save metadata to DB (files expire after 30 days)
     await query(
-      `INSERT INTO deliverable_files (deliverable_id, open_job_id, provider_address, filename, file_type, mime_type, file_size, file_hash, storage_path, version)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      `INSERT INTO deliverable_files (deliverable_id, open_job_id, provider_address, filename, file_type, mime_type, file_size, file_hash, storage_path, version, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW() + INTERVAL '30 days')`,
       [deliverableId, job.id, applicantAddress.toLowerCase(), file.name, fileType, mime, file.size, hash, uploadResult.path, nextVersion]
     )
 
@@ -183,10 +183,10 @@ fileRoutes.post('/:id/deliver', requireAuth, async (c) => {
   })
 })
 
-// GET /api/open-jobs/:id/files — list files for a job (with expiry info)
-fileRoutes.get('/:id/files', async (c) => {
+// GET /api/open-jobs/:id/files — list files for a job (with expiry info, auth required)
+fileRoutes.get('/:id/files', requireAuth, async (c) => {
   const id = c.req.param('id')
-  const requester = c.req.query('requester')?.toLowerCase() || null
+  const requester = (c.get('wallet') as string)?.toLowerCase() || null
 
   // Find job
   const jobResult = await query(
@@ -240,14 +240,14 @@ fileRoutes.get('/:id/files', async (c) => {
   return c.json({ data: files })
 })
 
-// GET /api/open-jobs/:id/files/:fileId/download — download a specific file
-fileRoutes.get('/:id/files/:fileId/download', async (c) => {
+// GET /api/open-jobs/:id/files/:fileId/download — download a specific file (auth required)
+fileRoutes.get('/:id/files/:fileId/download', requireAuth, async (c) => {
   const id = c.req.param('id')
   const fileId = c.req.param('fileId')
-  const requester = c.req.query('requester')?.toLowerCase() || null
+  const requester = (c.get('wallet') as string)?.toLowerCase() || null
 
   if (!requester) {
-    return c.json({ error: 'requester query param required' }, 400)
+    return c.json({ error: 'Authentication required' }, 401)
   }
 
   // Find job
@@ -296,7 +296,7 @@ fileRoutes.get('/:id/files/:fileId/download', async (c) => {
 
   // Log the download
   await query(
-    `INSERT INTO job_events (open_job_id, event_type, actor_address, data)
+    `INSERT INTO open_job_events (open_job_id, event_type, actor_address, data)
      VALUES ($1, 'file_downloaded', $2, $3)`,
     [job.id, requester, JSON.stringify({ fileId: file.id, filename: file.filename })]
   )
