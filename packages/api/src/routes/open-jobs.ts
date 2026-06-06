@@ -339,7 +339,9 @@ openJobs.get('/notifications', requireAuth, async (c) => {
 openJobs.post('/notifications/read', requireAuth, async (c) => {
   const body = await c.req.json()
   const { address, ids } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   if (!address) return c.json({ error: 'address required' }, 400)
+  if (authWallet !== address.toLowerCase()) return c.json({ error: 'Can only update your own notifications' }, 403)
 
   if (ids && ids.length > 0) {
     await query(
