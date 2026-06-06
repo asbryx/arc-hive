@@ -198,17 +198,16 @@ export function authFetch(path: string, options: RequestInit = {}): Promise<Resp
     }
   }
 
-  if (isWrite) {
-    try {
-      const stored = localStorage.getItem('arc-hive-auth')
-      if (stored) {
-        const data = JSON.parse(stored)
-        if (data.token && data.expiresAt && new Date(data.expiresAt) > new Date()) {
-          headers['Authorization'] = `Bearer ${data.token}`
-        }
+  // Attach JWT for ALL requests (not just writes — some GET endpoints require auth)
+  try {
+    const stored = localStorage.getItem('arc-hive-auth')
+    if (stored) {
+      const data = JSON.parse(stored)
+      if (data.token && data.expiresAt && new Date(data.expiresAt) > new Date()) {
+        headers['Authorization'] = `Bearer ${data.token}`
       }
-    } catch {}
-  }
+    }
+  } catch {}
 
   return fetch(url, { ...options, headers })
 }
