@@ -173,7 +173,10 @@ export function parseEvaluationResponse(response: string): {
         suggestions: parsed.suggestions || null,
       }
     }
-  } catch {}
+  } catch (e) {
+    console.error('[evaluator] JSON parse error:', e instanceof Error ? e.message : String(e))
+    console.error('[evaluator] Raw response (first 300 chars):', response.slice(0, 300))
+  }
 
   // Fallback: SCORE/REASONING format
   const scoreMatch = response.match(/SCORE:\s*(\d+)/)
