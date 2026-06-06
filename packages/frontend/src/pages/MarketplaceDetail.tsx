@@ -240,7 +240,7 @@ export default function MarketplaceDetail() {
       }
 
       // setProvider to PLATFORM wallet (handles setBudget/submit on-chain)
-      const PLATFORM_PROVIDER = '0x9D9c695998fb3e193B3b608Ab4DCFfbF1446A026' as `0x${string}`
+      const PLATFORM_PROVIDER = '0xDd03A2eEA57E2e10B05bF65515E1ebF2c753d7d5' as `0x${string}`
       const setProviderTx = await writeContractAsync({
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
@@ -286,7 +286,7 @@ export default function MarketplaceDetail() {
 
       // Step 1: setProvider if provider is still zero on-chain
       // On-chain provider must be the platform's provider wallet (handles submit/setBudget)
-      const PLATFORM_PROVIDER = '0x9D9c695998fb3e193B3b608Ab4DCFfbF1446A026' as `0x${string}`
+      const PLATFORM_PROVIDER = '0xDd03A2eEA57E2e10B05bF65515E1ebF2c753d7d5' as `0x${string}`
       if (onchainJob.provider === '0x0000000000000000000000000000000000000000') {
         setFundStep('Setting provider on-chain...')
         const setProvTx = await writeContractAsync({
