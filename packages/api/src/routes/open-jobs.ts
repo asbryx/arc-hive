@@ -384,6 +384,9 @@ openJobs.post('/expire-check', requireAuth, async (c) => {
 openJobs.get('/:id', async (c) => {
   const id = c.req.param('id')
 
+  // Only allow numeric IDs to prevent SQL cast errors on route collisions
+  if (!/^\d+$/.test(id)) return c.json({ error: 'Not found' }, 404)
+
   const result = await query(
     `SELECT oj.*,
       (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count,
