@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js'
 import { buildEvaluationPrompt, parseEvaluationResponse, EvalContext } from './prompt.js'
+import { SECTOR_HINTS } from './sectors.js'
 import { callWithFallback, callMultiModel } from './providers.js'
 
 export type EvalInput = EvalContext
@@ -69,6 +70,21 @@ export async function evaluateDeliverable(input: EvalInput, maxRevisions: number
   }
 
   const { score, breakdown, reasoning, suggestions } = parseEvaluationResponse(text)
+
+  // Clamp breakdown to sector max values (LLM often exceeds limits)
+  const sectorWeights = input.sectorConfig?.weights || SECTOR_HINTS[input.category || '']?.weights
+  const maxes: Record<string, number> = sectorWeights
+    ? { completeness: sectorWeights.completeness || 30, quality: sectorWeights.quality || 30, effort: sectorWeights.effort || 20, format: sectorWeights.format || 20 }
+    : { completeness: 30, quality: 30, effort: 20, format: 20 }
+  let clampedBreakdown = breakdown
+  if (breakdown) {
+    clampedBreakdown = { ...breakdown }
+    for (const [key, max] of Object.entries(maxes)) {
+      if (typeof clampedBreakdown[key] === 'number') {
+        clampedBreakdown[key] = Math.max(0, Math.min(max, clampedBreakdown[key]))
+      }
+    }
+  }
 
   if (score === 0 && !reasoning) {
     throw new Error(`Failed to parse evaluation: ${text.slice(0, 200)}`)

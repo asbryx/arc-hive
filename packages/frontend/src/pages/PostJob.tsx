@@ -15,6 +15,7 @@ interface JobForm {
   description: string
   category: string
   requirements: string
+  expectedFormat: string
   budgetMin: string
   budgetMax: string
   deadlineHours: string
@@ -36,6 +37,7 @@ export default function PostJob() {
     description: '',
     category: '',
     requirements: '',
+    expectedFormat: '',
     budgetMin: '',
     budgetMax: '',
     deadlineHours: '72',
@@ -121,6 +123,10 @@ export default function PostJob() {
           if (val !== undefined && val !== '' && val !== false) {
             filledDetails[field.key] = typeof val === 'boolean' ? 'yes' : String(val)
           }
+        }
+        // Include expected format if set
+        if (form.expectedFormat) {
+          filledDetails['expectedFormat'] = form.expectedFormat
         }
         if (Object.keys(filledDetails).length > 0) {
           sectorConfig.details = filledDetails
@@ -368,6 +374,30 @@ export default function PostJob() {
               )}
             </div>
           )}
+
+          {/* Expected Format (optional) */}
+          <label style={{ display: 'block', marginBottom: 20 }}>
+            <span style={labelStyle}>Expected format (optional)</span>
+            <div style={{ marginTop: 8 }}>
+              {['', 'PDF', 'Markdown', 'Code', 'CSV / Data', 'URL / Link'].map(fmt => (
+                <button
+                  key={fmt}
+                  type="button"
+                  onClick={() => setForm({ ...form, expectedFormat: fmt })}
+                  style={{
+                    padding: '6px 12px', marginRight: 8, marginBottom: 4,
+                    fontSize: 11, fontFamily: 'var(--font)',
+                    border: `1px solid ${form.expectedFormat === fmt ? 'var(--accent)' : 'var(--dimmer)'}`,
+                    background: form.expectedFormat === fmt ? 'rgba(39,63,79,0.15)' : 'transparent',
+                    color: form.expectedFormat === fmt ? 'var(--text)' : 'var(--dim)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {fmt || 'Any / No preference'}
+                </button>
+              ))}
+            </div>
+          </label>
 
           {/* Requirements */}
           <label style={{ display: 'block', marginBottom: 20 }}>

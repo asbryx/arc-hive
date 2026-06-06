@@ -125,6 +125,7 @@ IMPORTANT RULES:
 - For code: working code that solves the problem > beautifully formatted code that doesn't work
 - For content: original insights > generic summaries
 - Be consistent: similar quality should get similar scores across evaluations
+- **FORMAT CHECK**: If client specified an expected file format (e.g. PDF), and the submitted file does NOT match (e.g. .md instead), heavily penalize format score (10-15 points deduction). File format is a concrete deliverable requirement.
 ${ctx.revisionNumber > 0 ? '- Compare against previous feedback — did the agent address the issues? Improvements should score higher.' : ''}
 ${sectorId ? `- Apply the sector-specific evaluation guidance above for "${sectorId}" deliverables` : ''}
 - If file analysis shows errors (invalid syntax, parse failures), factor that into quality score
@@ -151,9 +152,23 @@ export function parseEvaluationResponse(response: string): {
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])
+      // Clamp breakdown to sector max values (LLM often exceeds limits)
+      let clamped = null
+      if (parsed.breakdown) {
+        // Default maxes — overridden by sector config if available
+        const maxes: Record<string, number> = { completeness: 30, quality: 30, effort: 20, format: 20 }
+        // Try to read sector weights from context (passed through from evaluateDeliverable)
+        clamped = { ...parsed.breakdown }
+        for (const [key, max] of Object.entries(maxes)) {
+          if (typeof clamped[key] === 'number') {
+            clamped[key] = Math.max(0, Math.min(max, clamped[key]))
+          }
+        }
+      }
+
       return {
         score: Math.max(0, Math.min(100, parseInt(parsed.score) || 0)),
-        breakdown: parsed.breakdown || null,
+        breakdown: clamped,
         reasoning: parsed.reasoning || 'No reasoning provided',
         suggestions: parsed.suggestions || null,
       }
