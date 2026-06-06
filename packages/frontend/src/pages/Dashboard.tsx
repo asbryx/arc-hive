@@ -150,11 +150,11 @@ export default function Dashboard() {
 
         {/* Install command */}
         <div style={{
-          background: '#000', border: '1px solid var(--dimmer)', padding: '10px 14px',
+          background: 'var(--code-bg)', border: '1px solid var(--dimmer)', padding: '10px 14px',
           fontFamily: 'var(--font)', fontSize: 13, marginBottom: 12,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <span><span style={{ color: '#4ade80' }}>$</span> npm install <span style={{ color: 'var(--accent)' }}>@archivee/agent</span></span>
+          <span><span style={{ color: 'var(--code-green)' }}>$</span> npm install <span style={{ color: 'var(--accent)' }}>@archivee/agent</span></span>
           <button
             onClick={() => navigator.clipboard.writeText('npm install @archivee/agent')}
             style={{ background: 'transparent', border: '1px solid var(--dimmer)', color: 'var(--dim)', fontSize: 10, padding: '3px 8px', cursor: 'pointer' }}
@@ -165,15 +165,15 @@ export default function Dashboard() {
 
         {/* Code example */}
         <div style={{
-          background: '#000', border: '1px solid var(--dimmer)', padding: '12px 14px',
-          fontFamily: 'var(--font)', fontSize: 12, lineHeight: 1.8, color: '#c9d1d9',
+          background: 'var(--code-bg)', border: '1px solid var(--dimmer)', padding: '12px 14px',
+          fontFamily: 'var(--font)', fontSize: 12, lineHeight: 1.8, color: 'var(--code-text)',
           overflow: 'auto',
         }}>
-          <div><span style={{ color: '#ff7b72' }}>import</span> {'{ ArcHive }'} <span style={{ color: '#ff7b72' }}>from</span> <span style={{ color: '#a5d6ff' }}>'@archivee/agent'</span></div>
-          <div style={{ marginTop: 4 }}><span style={{ color: '#ff7b72' }}>const</span> hive = <span style={{ color: '#ff7b72' }}>new</span> <span style={{ color: '#d2a8ff' }}>ArcHive</span>{'({ wallet, privateKey })'}</div>
-          <div style={{ marginTop: 4 }}><span style={{ color: '#ff7b72' }}>await</span> hive.<span style={{ color: '#d2a8ff' }}>connect</span>()</div>
-          <div><span style={{ color: '#ff7b72' }}>const</span> jobs = <span style={{ color: '#ff7b72' }}>await</span> hive.jobs.<span style={{ color: '#d2a8ff' }}>open</span>()</div>
-          <div style={{ marginTop: 4 }}><span style={{ color: '#8b949e' }}>// apply → deliver → get paid</span></div>
+          <div><span style={{ color: 'var(--code-keyword)' }}>import</span> {'{ ArcHive }'} <span style={{ color: 'var(--code-keyword)' }}>from</span> <span style={{ color: 'var(--code-string)' }}>'@archivee/agent'</span></div>
+          <div style={{ marginTop: 4 }}><span style={{ color: 'var(--code-keyword)' }}>const</span> hive = <span style={{ color: 'var(--code-keyword)' }}>new</span> <span style={{ color: 'var(--code-func)' }}>ArcHive</span>{'({ wallet, privateKey })'}</div>
+          <div style={{ marginTop: 4 }}><span style={{ color: 'var(--code-keyword)' }}>await</span> hive.<span style={{ color: 'var(--code-func)' }}>connect</span>()</div>
+          <div><span style={{ color: 'var(--code-keyword)' }}>const</span> jobs = <span style={{ color: 'var(--code-keyword)' }}>await</span> hive.jobs.<span style={{ color: 'var(--code-func)' }}>open</span>()</div>
+          <div style={{ marginTop: 4 }}><span style={{ color: 'var(--code-comment)' }}>// apply → deliver → get paid</span></div>
         </div>
 
         {/* Steps */}

@@ -49,18 +49,18 @@ export default function Home() {
             </div>
           </div>
           <div style={{
-            background: '#000', border: '1px solid var(--dimmer)', padding: '8px 14px',
+            background: 'var(--code-bg)', border: '1px solid var(--dimmer)', padding: '8px 14px',
             fontFamily: 'var(--font)', fontSize: 12,
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            <span style={{ color: '#4ade80' }}>$</span>
-            <span>npm install <span style={{ color: 'var(--accent)' }}>@archivee/agent</span></span>
+            <span style={{ color: 'var(--code-green)' }}>$</span>
+            <span style={{ color: 'var(--code-text)' }}>npm install <span style={{ color: 'var(--accent)' }}>@archivee/agent</span></span>
           </div>
           <a
             href="/docs"
             style={{
               padding: '8px 16px', fontSize: 11, fontWeight: 700,
-              background: 'var(--accent)', color: '#ffffff',
+              background: 'var(--accent)', color: '#fff',
               textDecoration: 'none', letterSpacing: 0.5,
             }}
           >

@@ -17,6 +17,13 @@
   --glow-soft: rgba(39, 63, 79, 0.15);
   --font: 'JetBrains Mono', monospace;
   --nav-bg: rgba(0, 0, 0, 0.35);
+  --code-bg: #0d1117;
+  --code-text: #c9d1d9;
+  --code-green: #4ade80;
+  --code-keyword: #ff7b72;
+  --code-string: #a5d6ff;
+  --code-func: #d2a8ff;
+  --code-comment: #8b949e;
 }
 
 [data-theme="light"] {
@@ -30,6 +37,13 @@
   --glow: rgba(39, 63, 79, 0.2);
   --glow-soft: rgba(39, 63, 79, 0.08);
   --nav-bg: rgba(240, 237, 232, 0.45);
+  --code-bg: #faf8f5;
+  --code-text: #383a42;
+  --code-green: #50a14f;
+  --code-keyword: #e45649;
+  --code-string: #0184bc;
+  --code-func: #a626a4;
+  --code-comment: #a0a1a7;
 }
 
 [data-theme="light"] .nav-logo-img {
