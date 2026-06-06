@@ -72,14 +72,22 @@ openJobs.get('/', async (c) => {
   }
 
   if (minBudget) {
+    const parsed = parseFloat(minBudget)
+    if (!Number.isFinite(parsed)) {
+      return c.json({ error: 'minBudget must be a number' }, 400)
+    }
     whereParts.push(`budget_max::numeric >= $${paramIdx}::numeric`)
-    params.push(minBudget)
+    params.push(parsed.toString())
     paramIdx++
   }
 
   if (maxBudget) {
+    const parsed = parseFloat(maxBudget)
+    if (!Number.isFinite(parsed)) {
+      return c.json({ error: 'maxBudget must be a number' }, 400)
+    }
     whereParts.push(`budget_min::numeric <= $${paramIdx}::numeric`)
-    params.push(maxBudget)
+    params.push(parsed.toString())
     paramIdx++
   }
 
