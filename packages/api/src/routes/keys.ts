@@ -12,7 +12,7 @@ keys.use('*', requireAuth)
 keys.post('/create', async (c) => {
   const body = await c.req.json()
   const { agentAddress, label, scopes } = body
-  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!agentAddress) return c.json({ error: 'agentAddress required' }, 400)
 
@@ -38,7 +38,7 @@ keys.post('/create', async (c) => {
 
 // GET /api/keys — list keys for authenticated wallet
 keys.get('/', async (c) => {
-  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   if (!authWallet) return c.json({ error: 'Authentication required' }, 401)
 
   const result = await query(
@@ -59,7 +59,7 @@ keys.get('/', async (c) => {
 // POST /api/keys/:id/revoke — revoke a key
 keys.post('/:id/revoke', async (c) => {
   const id = c.req.param('id')
-  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   if (!authWallet) return c.json({ error: 'Authentication required' }, 401)
 
   await query(
@@ -107,7 +107,7 @@ keys.post('/webhooks', async (c) => {
   }
 
   // Verify authenticated user is creating webhook for their own wallet
-  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   if (authWallet && authWallet !== agentAddress.toLowerCase()) {
     return c.json({ error: 'Can only create webhooks for your own wallet' }, 403)
   }
@@ -125,7 +125,7 @@ keys.post('/webhooks', async (c) => {
 
 // GET /api/keys/webhooks — list webhooks for authenticated wallet
 keys.get('/webhooks', async (c) => {
-  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   if (!authWallet) return c.json({ error: 'Authentication required' }, 401)
 
   const result = await query(
@@ -147,7 +147,7 @@ keys.get('/webhooks', async (c) => {
 // DELETE /api/keys/webhooks/:id — remove webhook
 keys.delete('/webhooks/:id', async (c) => {
   const id = c.req.param('id')
-  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   if (!authWallet) return c.json({ error: 'Authentication required' }, 401)
 
   await query(

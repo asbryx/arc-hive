@@ -186,7 +186,7 @@ fileRoutes.post('/:id/deliver', requireAuth, async (c) => {
 // GET /api/open-jobs/:id/files — list files for a job (with expiry info, auth required)
 fileRoutes.get('/:id/files', requireAuth, async (c) => {
   const id = c.req.param('id')
-  const requester = (c.get('wallet') as string)?.toLowerCase() || null
+  const requester = ((c as any).get('wallet') as string)?.toLowerCase() || null
 
   // Find job
   const jobResult = await query(
@@ -244,7 +244,7 @@ fileRoutes.get('/:id/files', requireAuth, async (c) => {
 fileRoutes.get('/:id/files/:fileId/download', requireAuth, async (c) => {
   const id = c.req.param('id')
   const fileId = c.req.param('fileId')
-  const requester = (c.get('wallet') as string)?.toLowerCase() || null
+  const requester = ((c as any).get('wallet') as string)?.toLowerCase() || null
 
   if (!requester) {
     return c.json({ error: 'Authentication required' }, 401)

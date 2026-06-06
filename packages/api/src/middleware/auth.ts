@@ -1,7 +1,7 @@
 import { Context, Next } from 'hono'
 import jwt from 'jsonwebtoken'
 
-const JWT_SECRET = process.env.JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET as string
 if (!JWT_SECRET) {
   console.error('[auth middleware] FATAL: JWT_SECRET environment variable is required')
   process.exit(1)

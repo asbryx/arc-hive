@@ -1,5 +1,4 @@
 import type { MiddlewareHandler } from 'hono'
-import { getConnInfo } from 'hono/node-server'
 
 // Simple in-memory rate limiter (per IP, 100 req/min)
 const requests = new Map<string, { count: number; resetAt: number }>()
@@ -19,13 +18,12 @@ function getClientIP(c: any): string {
       if (ips[i]) return ips[i]
     }
   }
-  // Fallback to connection remote address
+  // Fallback to connection remote address via env
   try {
-    const info = getConnInfo(c)
-    return info.remote?.address || 'unknown'
-  } catch {
-    return 'unknown'
-  }
+    const raw = (c as any).env?.incoming
+    if (raw?.socket?.remoteAddress) return raw.socket.remoteAddress
+  } catch {}
+  return 'unknown'
 }
 
 export function rateLimiter(): MiddlewareHandler {

@@ -4,7 +4,7 @@ import { randomBytes } from 'crypto'
 import { query } from '../db.js'
 import { verifyMessage } from 'viem'
 
-const JWT_SECRET = process.env.JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET as string
 if (!JWT_SECRET) {
   console.error('[auth] FATAL: JWT_SECRET environment variable is required')
   process.exit(1)
@@ -129,7 +129,7 @@ auth.post('/verify', async (c) => {
       iat: Math.floor(Date.now() / 1000),
     },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRY }
+    { expiresIn: JWT_EXPIRY } as any
   )
 
   const decoded = jwt.decode(token) as any

@@ -657,7 +657,7 @@ openJobs.post('/:id/start', requireAuth, async (c) => {
 // GET /api/open-jobs/:id/deliverables — list deliverables for a job (auth required)
 openJobs.get('/:id/deliverables', requireAuth, async (c) => {
   const id = c.req.param('id')
-  const requester = (c.get('wallet') as string)?.toLowerCase() || null
+  const requester = ((c as any).get('wallet') as string)?.toLowerCase() || null
 
   const jobResult = await query(
     `SELECT id, client_address, selected_applicant, status FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
