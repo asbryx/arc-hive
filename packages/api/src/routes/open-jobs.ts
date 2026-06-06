@@ -47,16 +47,39 @@ openJobs.get('/', async (c) => {
   const limit = Math.min(50, Math.max(1, parseInt(c.req.query('limit') || '20')))
   const offset = (page - 1) * limit
   const category = c.req.query('category')
+  const status = c.req.query('status')
+  const minBudget = c.req.query('minBudget')
+  const maxBudget = c.req.query('maxBudget')
 
-  let where = "WHERE status = 'open'"
+  const whereParts: string[] = []
   const params: unknown[] = []
   let paramIdx = 1
 
+  // Default to open jobs, but allow filtering by other statuses
+  const statusFilter = status || 'open'
+  whereParts.push(`status = $${paramIdx}`)
+  params.push(statusFilter)
+  paramIdx++
+
   if (category) {
-    where += ` AND category = $${paramIdx}`
+    whereParts.push(`category = $${paramIdx}`)
     params.push(category)
     paramIdx++
   }
+
+  if (minBudget) {
+    whereParts.push(`budget_max::numeric >= $${paramIdx}::numeric`)
+    params.push(minBudget)
+    paramIdx++
+  }
+
+  if (maxBudget) {
+    whereParts.push(`budget_min::numeric <= $${paramIdx}::numeric`)
+    params.push(maxBudget)
+    paramIdx++
+  }
+
+  const where = 'WHERE ' + whereParts.join(' AND ')
 
   const countResult = await query(`SELECT COUNT(*) FROM open_jobs ${where}`, params)
   const total = parseInt(countResult.rows[0].count)

@@ -103,32 +103,50 @@ agents.get('/', async (c) => {
   })
 })
 
-// GET /api/agents/search — full-text search
+// GET /api/agents/search — full-text search (or browse all if no query)
 agents.get('/search', async (c) => {
-  const q = c.req.query('q')
-  if (!q) return c.json({ error: 'Query parameter "q" required' }, 400)
-
+  const q = c.req.query('q') || ''
   const { page, limit, offset } = paginate(c)
 
-  const searchResult = await queryAgents(
-    `SELECT
-       a.agent_id, a.name, a.owner_address, a.image_uri, a.capabilities,
-       a.agent_type, a.registered_at,
-       s.avg_score, s.trust_tier, s.completed_jobs, s.total_earned, s.last_active_at
-     FROM agents a
-     LEFT JOIN agent_scores s ON a.agent_id = s.agent_id
-     WHERE a.name ILIKE $1 OR a.description ILIKE $1 OR $2 = ANY(a.capabilities)
-       OR a.owner_address ILIKE $1 OR CAST(a.agent_id AS TEXT) = $2
-     ORDER BY COALESCE(s.avg_score, 0) DESC
-     LIMIT $3 OFFSET $4`,
-    [`%${q}%`, q.toLowerCase(), limit, offset]
-  )
+  let searchResult: any
+  let countResult: any
 
-  const countResult = await queryAgents(
-    `SELECT COUNT(*) FROM agents a WHERE a.name ILIKE $1 OR a.description ILIKE $1 OR $2 = ANY(a.capabilities)
-       OR a.owner_address ILIKE $1 OR CAST(a.agent_id AS TEXT) = $2`,
-    [`%${q}%`, q.toLowerCase()]
-  )
+  if (q) {
+    const searchQLike = `%${q}%`
+    const searchQ = q.toLowerCase()
+    searchResult = await queryAgents(
+      `SELECT
+         a.agent_id, a.name, a.owner_address, a.image_uri, a.capabilities,
+         a.agent_type, a.registered_at,
+         s.avg_score, s.trust_tier, s.completed_jobs, s.total_earned, s.last_active_at
+       FROM agents a
+       LEFT JOIN agent_scores s ON a.agent_id = s.agent_id
+       WHERE a.name ILIKE $1 OR a.description ILIKE $1 OR $2 = ANY(a.capabilities)
+         OR a.owner_address ILIKE $1 OR CAST(a.agent_id AS TEXT) = $2
+       ORDER BY COALESCE(s.avg_score, 0) DESC
+       LIMIT $3 OFFSET $4`,
+      [searchQLike, searchQ, limit, offset]
+    )
+    countResult = await queryAgents(
+      `SELECT COUNT(*) FROM agents a WHERE a.name ILIKE $1 OR a.description ILIKE $1 OR $2 = ANY(a.capabilities)
+         OR a.owner_address ILIKE $1 OR CAST(a.agent_id AS TEXT) = $2`,
+      [searchQLike, searchQ]
+    )
+  } else {
+    // No query — return all agents, ordered by score
+    searchResult = await queryAgents(
+      `SELECT
+         a.agent_id, a.name, a.owner_address, a.image_uri, a.capabilities,
+         a.agent_type, a.registered_at,
+         s.avg_score, s.trust_tier, s.completed_jobs, s.total_earned, s.last_active_at
+       FROM agents a
+       LEFT JOIN agent_scores s ON a.agent_id = s.agent_id
+       ORDER BY COALESCE(s.avg_score, 0) DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    )
+    countResult = await queryAgents(`SELECT COUNT(*) FROM agents`)
+  }
 
   return c.json({
     data: searchResult.rows.map(formatAgentListItem),
@@ -173,12 +191,20 @@ agents.get('/leaderboard', async (c) => {
 agents.get('/:id', async (c) => {
   const id = c.req.param('id')
 
+  // Detect if id is a wallet address (0x...) or numeric agent_id
+  const isWallet = id.startsWith('0x') && id.length >= 40
+  const whereClause = isWallet
+    ? 'a.owner_address = $1'
+    : 'a.agent_id = $1'
+  // For wallet lookups, cast to BIGINT if numeric
+  const param = isWallet ? id.toLowerCase() : id
+
   const agentResult = await queryAgents(
     `SELECT a.*, s.*
      FROM agents a
      LEFT JOIN agent_scores s ON a.agent_id = s.agent_id
-     WHERE a.agent_id = $1`,
-    [id]
+     WHERE ${whereClause}`,
+    [param]
   )
 
   if (agentResult.rows.length === 0) {
