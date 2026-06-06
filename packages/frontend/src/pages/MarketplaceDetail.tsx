@@ -1168,6 +1168,147 @@ export default function MarketplaceDetail() {
         </div>
       )}
 
+      {/* ═══ Evaluator Results ═══ */}
+      {evaluations.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--dimmer)', paddingTop: 24, marginBottom: 24 }}>
+          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
+            Evaluator Results
+          </div>
+          {evaluations.map((ev, i) => (
+            <div key={ev.id} style={{
+              padding: 16, border: '1px solid var(--dimmer)', marginBottom: 12,
+              borderLeft: `4px solid ${ev.status === 'approved' ? '#4caf50' : ev.status === 'failed' ? '#ff4444' : '#ff9800'}`,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>Version {ev.version}</span>
+                  <span style={{
+                    marginLeft: 10, fontSize: 11, fontWeight: 700, padding: '2px 8px',
+                    background: ev.status === 'approved' ? 'rgba(76,175,80,0.15)' : ev.status === 'failed' ? 'rgba(255,68,68,0.15)' : 'rgba(255,152,0,0.15)',
+                    color: ev.status === 'approved' ? '#4caf50' : ev.status === 'failed' ? '#ff4444' : '#ff9800',
+                  }}>
+                    {ev.status === 'approved' ? '✓ APPROVED' : ev.status === 'failed' ? '✗ FAILED' : '↻ REVISION'}
+                  </span>
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: ev.score >= 70 ? '#4caf50' : ev.score >= 50 ? '#ff9800' : '#ff4444' }}>
+                  {ev.score}/100
+                </div>
+              </div>
+
+              {ev.breakdown && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
+                  {(['completeness', 'quality', 'effort', 'format'] as const).map(k => (
+                    <div key={k} style={{ textAlign: 'center', padding: '8px 4px', background: 'var(--bg)', border: '1px solid var(--dimmer)' }}>
+                      <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>{k}</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: ev.breakdown![k] >= 25 ? '#4caf50' : ev.breakdown![k] >= 15 ? '#ff9800' : '#ff4444' }}>
+                        {ev.breakdown![k]}/{(k === 'quality' || k === 'completeness') ? 35 : 15}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 4 }}>Reasoning</div>
+                <div style={{ fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--text)' }}>{ev.reasoning}</div>
+              </div>
+
+              {ev.suggestions && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 4 }}>Suggestions</div>
+                  <div style={{ fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--dim)' }}>{ev.suggestions}</div>
+                </div>
+              )}
+
+              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+                <span>{ev.llmModel || 'LLM'}</span>
+                <span>{getTimeAgo(ev.createdAt)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ═══ Deliverables & Files ═══ */}
+      {(deliverables.length > 0 || files.length > 0) && (
+        <div style={{ borderTop: '1px solid var(--dimmer)', paddingTop: 24, marginBottom: 24 }}>
+          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
+            Deliverables ({deliverables.length})
+          </div>
+          {deliverables.map(d => (
+            <div key={d.id} style={{
+              padding: 16, border: '1px solid var(--dimmer)', marginBottom: 12,
+              borderLeft: `4px solid ${d.status === 'approved' ? '#4caf50' : d.status === 'revision_requested' ? '#ff9800' : 'var(--dimmer)'}`,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>Version {d.version}</span>
+                <span style={{ fontSize: 11, color: d.status === 'approved' ? '#4caf50' : 'var(--dim)' }}>
+                  {d.status === 'approved' ? '✓ Approved' : d.status === 'revision_requested' ? '↻ Revision Requested' : d.status}
+                </span>
+              </div>
+              {d.content && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--text)', maxHeight: 300, overflowY: 'auto', padding: 12, background: 'var(--bg)', border: '1px solid var(--dimmer)' }}>
+                    {d.content.length > 2000 ? d.content.slice(0, 2000) + '\n\n... (truncated, download full file below)' : d.content}
+                  </div>
+                </div>
+              )}
+              {d.notes && <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 8 }}>Notes: {d.notes}</div>}
+              {d.clientFeedback && <div style={{ fontSize: 11, color: '#ff9800', marginBottom: 8 }}>Client Feedback: {d.clientFeedback}</div>}
+              <div style={{ fontSize: 10, color: 'var(--dim)' }}>
+                <span>{d.providerAddress?.slice(0, 8)}...{d.providerAddress?.slice(-4)}</span>
+                <span style={{ marginLeft: 12 }}>{getTimeAgo(d.createdAt)}</span>
+              </div>
+            </div>
+          ))}
+
+          {/* Files */}
+          {files.filter(f => f.downloadable).length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 8 }}>Files</div>
+              {files.filter(f => f.downloadable).map(f => (
+                <div key={`file-${f.id}`} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '10px 12px', marginBottom: 4, border: '1px solid var(--dimmer)',
+                  background: 'var(--bg)',
+                }}>
+                  <div>
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>{f.filename}</span>
+                    <span style={{ fontSize: 10, color: 'var(--dim)', marginLeft: 8 }}>
+                      {(f.size / 1024).toFixed(1)} KB · {f.fileType || 'file'}
+                    </span>
+                    {f.expiresAt && (
+                      <span style={{ fontSize: 10, color: 'var(--dim)', marginLeft: 8 }}>
+                        expires {getTimeAgo(f.expiresAt)}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleDownloadFile(f.id, f.filename)}
+                    disabled={downloadingFileId === f.id}
+                    style={{
+                      padding: '6px 14px', fontSize: 11, fontWeight: 600,
+                      background: downloadingFileId === f.id ? 'transparent' : 'var(--accent)',
+                      color: downloadingFileId === f.id ? 'var(--dim)' : '#ffffff',
+                      border: downloadingFileId === f.id ? '1px solid var(--dimmer)' : 'none',
+                      cursor: 'pointer', opacity: downloadingFileId === f.id ? 0.5 : 1,
+                    }}
+                  >
+                    {downloadingFileId === f.id ? 'Downloading...' : 'Download ↓'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {files.filter(f => f.downloadable).length === 0 && files.length > 0 && (
+            <div style={{ fontSize: 11, color: 'var(--dim)', padding: 12, border: '1px solid var(--dimmer)', textAlign: 'center' }}>
+              Files not available for download (expired or pending approval)
+            </div>
+          )}
+        </div>
+      )}
+
       {/* On-chain settlement (completed) */}
       {job.status === 'completed' && (
         <div style={{ borderTop: '1px solid var(--dimmer)', paddingTop: 24, marginBottom: 24 }}>
