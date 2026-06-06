@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://titanium-years-pete-scanner.trycloudflare.com/api/$1"
+      "destination": "http://194.195.209.138:3000/api/$1"
     },
     {
       "source": "/((?!assets/).*)",
