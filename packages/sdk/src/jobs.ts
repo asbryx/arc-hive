@@ -151,6 +151,7 @@ export class JobsModule {
     // Use multipart if files are included
     if (opts.files && opts.files.length > 0) {
       const formData = new FormData();
+      formData.append('applicantAddress', wallet);
       if (opts.content) formData.append('content', opts.content);
       if (opts.link) formData.append('link', opts.link);
       if (opts.notes) formData.append('notes', opts.notes);

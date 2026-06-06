@@ -64,8 +64,12 @@ fileRoutes.post('/:id/deliver', requireAuth, async (c) => {
   }
 
   // Validation
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   if (!applicantAddress) {
     return c.json({ error: 'applicantAddress required' }, 400)
+  }
+  if (authWallet !== applicantAddress.toLowerCase()) {
+    return c.json({ error: 'Can only submit deliverables as your own wallet' }, 403)
   }
   if (!content && files.length === 0) {
     return c.json({ error: 'Either content or at least one file is required' }, 400)
@@ -310,3 +314,25 @@ fileRoutes.get('/:id/files/:fileId/download', requireAuth, async (c) => {
     },
   })
 })
+
+
+// Delete expired deliverable files from storage and database metadata.
+export async function cleanupExpiredFiles(): Promise<{ deleted: number; failed: number }> {
+  const result = await query(
+    `SELECT id, storage_path FROM deliverable_files WHERE expires_at IS NOT NULL AND expires_at < NOW()`
+  )
+
+  let deleted = 0
+  let failed = 0
+  for (const row of result.rows) {
+    const ok = await deleteFile(row.storage_path)
+    if (!ok) {
+      failed++
+      continue
+    }
+    await query(`DELETE FROM deliverable_files WHERE id = $1`, [row.id])
+    deleted++
+  }
+
+  return { deleted, failed }
+}

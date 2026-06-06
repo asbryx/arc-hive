@@ -8,7 +8,7 @@ import { jobs } from './routes/jobs.js'
 import { stats } from './routes/stats.js'
 import { openJobs } from './routes/open-jobs.js'
 import { keys } from './routes/keys.js'
-import { fileRoutes } from './routes/files.js'
+import { fileRoutes, cleanupExpiredFiles } from './routes/files.js'
 import { auth } from './routes/auth.js'
 import { errorHandler } from './middleware/error.js'
 import { rateLimiter } from './middleware/rate-limit.js'
@@ -74,9 +74,21 @@ const port = parseInt(process.env.API_PORT || '3000')
 const server = serve({ fetch: app.fetch, port })
 console.log(`[API] ArcHive API listening on :${port}`)
 
+// Periodically remove expired deliverable files from storage and DB metadata.
+const cleanupInterval = setInterval(async () => {
+  try {
+    const { deleted, failed } = await cleanupExpiredFiles()
+    if (deleted || failed) console.log(`[API] file cleanup: deleted=${deleted} failed=${failed}`)
+  } catch (err: any) {
+    console.error('[API] file cleanup failed:', err.message)
+  }
+}, 60 * 60 * 1000)
+cleanupInterval.unref()
+
 // Graceful shutdown
 const shutdown = () => {
   console.log('[API] Shutting down gracefully...')
+  clearInterval(cleanupInterval)
   server.close(() => {
     console.log('[API] Closed')
     process.exit(0)

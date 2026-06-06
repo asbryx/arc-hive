@@ -19,9 +19,13 @@ export const openJobs = new Hono()
 openJobs.post('/', requireAuth, async (c) => {
   const body = await c.req.json()
   const { title, description, category, requirements, budgetMin, budgetMax, deadlineHours, clientAddress, jobId, onChainTx, sectorConfig } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!title || !description || !clientAddress) {
     return c.json({ error: 'title, description, and clientAddress required' }, 400)
+  }
+  if (authWallet !== clientAddress.toLowerCase()) {
+    return c.json({ error: 'Can only create jobs for your own wallet' }, 403)
   }
 
   if (!budgetMin && !budgetMax) {
@@ -307,9 +311,11 @@ openJobs.get('/agent-ratings', async (c) => {
 })
 
 // GET /api/open-jobs/notifications?address=0x...
-openJobs.get('/notifications', async (c) => {
+openJobs.get('/notifications', requireAuth, async (c) => {
   const address = c.req.query('address')
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   if (!address) return c.json({ error: 'address required' }, 400)
+  if (authWallet !== address.toLowerCase()) return c.json({ error: 'Can only read your own notifications' }, 403)
 
   const result = await query(
     `SELECT * FROM agent_notifications WHERE lower(agent_address) = lower($1) ORDER BY created_at DESC LIMIT 50`,
@@ -396,9 +402,13 @@ openJobs.post('/:id/apply', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { applicantAddress, agentId, message, proposedBudget } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!applicantAddress) {
     return c.json({ error: 'applicantAddress required' }, 400)
+  }
+  if (authWallet !== applicantAddress.toLowerCase()) {
+    return c.json({ error: 'Can only apply as your own wallet' }, 403)
   }
 
   const jobResult = await query(
@@ -525,9 +535,13 @@ openJobs.post('/:id/select', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { applicantAddress, clientAddress } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!applicantAddress || !clientAddress) {
     return c.json({ error: 'applicantAddress and clientAddress required' }, 400)
+  }
+  if (authWallet !== clientAddress.toLowerCase()) {
+    return c.json({ error: 'Can only select applicants for your own jobs' }, 403)
   }
 
   const jobResult = await query(
@@ -612,9 +626,13 @@ openJobs.post('/:id/fund', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { clientAddress, onchainJobId, fundTx, budget } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!clientAddress || !fundTx) {
     return c.json({ error: 'clientAddress and fundTx required' }, 400)
+  }
+  if (authWallet !== clientAddress.toLowerCase()) {
+    return c.json({ error: 'Can only fund your own jobs' }, 403)
   }
 
   const jobResult = await query(
@@ -650,9 +668,13 @@ openJobs.post('/:id/start', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { applicantAddress } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!applicantAddress) {
     return c.json({ error: 'applicantAddress required' }, 400)
+  }
+  if (authWallet !== applicantAddress.toLowerCase()) {
+    return c.json({ error: 'Can only start work as your own wallet' }, 403)
   }
 
   const jobResult = await query(
@@ -799,13 +821,17 @@ openJobs.post('/:id/complete', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { clientAddress, completionTx, completedTx } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
+
+  if (!clientAddress) return c.json({ error: 'clientAddress required' }, 400)
+  if (authWallet !== clientAddress.toLowerCase()) return c.json({ error: 'Can only complete your own jobs' }, 403)
 
   const jobResult = await query(
-    `SELECT * FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
-    [id]
+    `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
+    [id, clientAddress]
   )
   if (jobResult.rows.length === 0) {
-    return c.json({ error: 'Job not found' }, 404)
+    return c.json({ error: 'Job not found or not your job' }, 404)
   }
   if (!['delivered', 'funded', 'in_progress', 'evaluating'].includes(jobResult.rows[0].status)) {
     return c.json({ error: 'Job not in a completable state' }, 400)
@@ -839,10 +865,12 @@ openJobs.post('/:id/reject', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { clientAddress, reason } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!clientAddress) {
     return c.json({ error: 'clientAddress required' }, 400)
   }
+  if (authWallet !== clientAddress.toLowerCase()) return c.json({ error: 'Can only reject deliverables for your own jobs' }, 403)
 
   const jobResult = await query(
     `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
@@ -884,10 +912,12 @@ openJobs.post('/:id/cancel', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { clientAddress } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!clientAddress) {
     return c.json({ error: 'clientAddress required' }, 400)
   }
+  if (authWallet !== clientAddress.toLowerCase()) return c.json({ error: 'Can only cancel your own jobs' }, 403)
 
   const jobResult = await query(
     `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
@@ -939,10 +969,12 @@ openJobs.post('/:id/comments', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { senderAddress, message } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!senderAddress || !message) {
     return c.json({ error: 'senderAddress and message required' }, 400)
   }
+  if (authWallet !== senderAddress.toLowerCase()) return c.json({ error: 'Can only comment as your own wallet' }, 403)
 
   const jobResult = await query(
     `SELECT * FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
