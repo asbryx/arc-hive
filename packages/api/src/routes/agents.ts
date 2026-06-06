@@ -195,6 +195,9 @@ agents.get('/:id', async (c) => {
 
   // Detect if id is a wallet address (0x...) or numeric agent_id
   const isWallet = id.startsWith('0x') && id.length >= 40
+  if (!isWallet && !/^\d+$/.test(id)) {
+    return c.json({ error: 'Invalid agent ID. Must be numeric or 0x... wallet address.' }, 400)
+  }
   const whereClause = isWallet
     ? 'a.owner_address = $1'
     : 'a.agent_id = $1'

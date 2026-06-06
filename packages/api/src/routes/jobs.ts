@@ -42,13 +42,21 @@ jobs.get('/', async (c) => {
   // Hide funded jobs with 0 budget (contract allows fund(0), looks broken in UI)
   conditions.push(`NOT (status = 1 AND (budget IS NULL OR budget = '0'))`)
   if (minBudget) {
+    const parsed = parseFloat(minBudget)
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return c.json({ error: 'minBudget must be a positive number' }, 400)
+    }
     conditions.push(`budget >= $${paramIdx}`)
-    params.push(BigInt(Math.round(parseFloat(minBudget) * 1_000_000)).toString())
+    params.push(BigInt(Math.round(parsed * 1_000_000)).toString())
     paramIdx++
   }
   if (maxBudget) {
+    const parsedMax = parseFloat(maxBudget)
+    if (!Number.isFinite(parsedMax) || parsedMax < 0) {
+      return c.json({ error: 'maxBudget must be a positive number' }, 400)
+    }
     conditions.push(`budget <= $${paramIdx}`)
-    params.push(BigInt(Math.round(parseFloat(maxBudget) * 1_000_000)).toString())
+    params.push(BigInt(Math.round(parsedMax * 1_000_000)).toString())
     paramIdx++
   }
   if (client) {
@@ -149,6 +157,10 @@ jobs.get('/stats', async (c) => {
 // GET /api/jobs/:id — job detail with event timeline
 jobs.get('/:id', async (c) => {
   const id = c.req.param('id')
+
+  if (!/^\d+$/.test(id)) {
+    return c.json({ error: 'Invalid job ID. Must be numeric.' }, 400)
+  }
 
   const jobResult = await query(`SELECT * FROM jobs WHERE job_id = $1`, [id])
   if (jobResult.rows.length === 0) {

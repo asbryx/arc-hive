@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       // Step 1: Get nonce
-      const nonceRes = await fetch(`${API_BASE}/auth/nonce?wallet=${address}`)
+      const nonceRes = await fetch(`${API_BASE}/auth/nonce?wallet=${encodeURIComponent(address)}`)
       if (!nonceRes.ok) throw new Error('Failed to get nonce')
       const { message } = await nonceRes.json()
 
