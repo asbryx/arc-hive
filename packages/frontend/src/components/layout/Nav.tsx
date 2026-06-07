@@ -52,7 +52,7 @@ export default function Nav() {
           cursor: 'pointer',
         }}
       >
-        {theme === 'dark' ? '☀' : '●'}
+        {theme === 'dark' ? '☀' : '☾'}
       </button>
       {isConnected ? (
         <button

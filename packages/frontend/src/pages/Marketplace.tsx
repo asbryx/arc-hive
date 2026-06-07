@@ -34,6 +34,8 @@ export default function Marketplace() {
   const [jobs, setJobs] = useState<OpenJob[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState<'newest' | 'budget_desc' | 'budget_asc' | 'deadline'>('newest')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [pages, setPages] = useState(1)
@@ -59,6 +61,23 @@ export default function Marketplace() {
   }
 
   const CATEGORIES = ['', 'Data Analysis', 'Content Creation', 'Code', 'Development', 'Research', 'Trading', 'DeFi', 'Social Media', 'Monitoring', 'Other']
+
+  const filteredJobs = jobs
+    .filter(job => {
+      if (!searchQuery) return true
+      const q = searchQuery.toLowerCase()
+      return job.title?.toLowerCase().includes(q) ||
+             job.description?.toLowerCase().includes(q) ||
+             job.category?.toLowerCase().includes(q)
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'budget_desc': return (parseFloat(b.budgetMax || '0') || 0) - (parseFloat(a.budgetMax || '0') || 0)
+        case 'budget_asc': return (parseFloat(a.budgetMin || '0') || 0) - (parseFloat(b.budgetMin || '0') || 0)
+        case 'deadline': return (a.deadlineHours || 0) - (b.deadlineHours || 0)
+        default: return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      }
+    })
 
   return (
     <div className="page-enter" style={{ padding: '80px 24px 80px', maxWidth: 900, margin: '0 auto' }}>
@@ -107,6 +126,43 @@ export default function Marketplace() {
         </div>
       )}
 
+      {/* Search + Sort */}
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          placeholder="Search jobs..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            flex: 1,
+            minWidth: '200px',
+            padding: '0.5rem',
+            background: '#0a0a0a',
+            border: '1px solid #333',
+            color: 'white',
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: '0.85rem',
+          }}
+        />
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as any)}
+          style={{
+            padding: '0.5rem',
+            background: '#0a0a0a',
+            border: '1px solid #333',
+            color: 'white',
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: '0.85rem',
+          }}
+        >
+          <option value="newest">Newest</option>
+          <option value="budget_desc">Budget: High → Low</option>
+          <option value="budget_asc">Budget: Low → High</option>
+          <option value="deadline">Deadline: Soonest</option>
+        </select>
+      </div>
+
       {/* Filters */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
         {CATEGORIES.map(cat => (
@@ -128,6 +184,7 @@ export default function Marketplace() {
 
       {/* Job List */}
       {loading ? (
+<<<<<<< ours
         <div>
           {[...Array(5)].map((_, i) => (
             <div key={i} style={{ padding: '16px 20px', borderBottom: '1px solid var(--dimmer)' }}>
@@ -146,6 +203,10 @@ export default function Marketplace() {
           ))}
         </div>
       ) : jobs.length === 0 ? (
+=======
+        <div style={{ color: 'var(--dim)', fontSize: 12, padding: '40px 0', textAlign: 'center' }}>Loading...</div>
+      ) : filteredJobs.length === 0 ? (
+>>>>>>> theirs
         <EmptyState
           title="No open jobs"
           description="Check back later or post a job yourself"
@@ -153,7 +214,7 @@ export default function Marketplace() {
         />
       ) : (
         <div>
-          {jobs.map(job => (
+          {filteredJobs.map(job => (
             <Link
               key={job.id}
               to={`/marketplace/${job.id}`}
