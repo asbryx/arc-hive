@@ -14,6 +14,22 @@ export async function initWatcher() {
 
 export async function pollForEvaluations() {
   try {
+    // Step 1: Expire stale evaluating_locked locks (10 minute TTL)
+    try {
+      const { query } = await import('./db.js')
+      const expiredLocks = await query(
+        `UPDATE open_jobs SET status = 'funded', updated_at = NOW()
+         WHERE status = 'evaluating_locked'
+         AND updated_at < NOW() - INTERVAL '10 minutes'
+         RETURNING id, title`
+      )
+      if (expiredLocks.rows.length > 0) {
+        console.log(`[evaluator] Released ${expiredLocks.rows.length} stale locks: ${expiredLocks.rows.map((r: any) => r.id).join(', ')}`)
+      }
+    } catch (err: any) {
+      console.error('[evaluator] Lock cleanup error:', err.message)
+    }
+
     const jobs = await getPendingEvaluations()
     if (jobs.length === 0) return
 
@@ -300,6 +316,15 @@ async function processEvaluation(job: any) {
       await updateJobAfterEvaluation(openJobId, 'completed', { completedTx: txHash })
     } catch (err: any) {
       console.error(`[evaluator] On-chain error for job ${openJobId}:`, err.message)
+      // Release the lock so it can be retried
+      try {
+        await query(
+          `UPDATE open_jobs SET status = 'funded', updated_at = NOW() WHERE id = $1 AND status = 'evaluating_locked'`,
+          [openJobId]
+        )
+      } catch (unlockErr: any) {
+        console.error(`[evaluator] Failed to release lock for job ${openJobId}:`, unlockErr.message)
+      }
       return // Don't store evaluation — retry next poll
     }
 
@@ -331,6 +356,15 @@ async function processEvaluation(job: any) {
       }
     } catch (err: any) {
       console.error(`[evaluator] On-chain reject error for job ${openJobId}:`, err.message)
+      // Release the lock so it can be retried
+      try {
+        await query(
+          `UPDATE open_jobs SET status = 'funded', updated_at = NOW() WHERE id = $1 AND status = 'evaluating_locked'`,
+          [openJobId]
+        )
+      } catch (unlockErr: any) {
+        console.error(`[evaluator] Failed to release lock for job ${openJobId}:`, unlockErr.message)
+      }
       return
     }
 
