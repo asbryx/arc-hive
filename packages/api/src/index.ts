@@ -16,6 +16,10 @@ import { securityHeaders } from './middleware/security-headers.js'
 
 const app = new Hono()
 
+// x402 Payment Protocol (uncomment to enforce payment for /api/* routes):
+// import { x402PaymentRequired } from './middleware/x402.js'
+// app.use('/api/*', x402PaymentRequired({ priceUsd: 0.01 }))
+
 // Security headers — applied before all else
 app.use('*', securityHeaders())
 
