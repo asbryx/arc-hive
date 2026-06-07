@@ -3,6 +3,20 @@ import { SECTOR_HINTS } from './sectors.js'
 import type { FileAnalysis } from './file-analyzer.js'
 import { formatFileForPrompt } from './file-analyzer.js'
 
+/**
+ * Sector-specific evaluation criteria with explicit deduction guidance.
+ * Used alongside SECTOR_HINTS to provide detailed scoring direction per category.
+ */
+const SECTOR_CRITERIA: Record<string, string> = {
+  'Code': `Evaluate: correctness (does it work?), efficiency, test coverage, documentation quality, error handling, code style. Deduct heavily for bugs, security issues, or missing tests.`,
+  'Content Creation': `Evaluate: accuracy of information, readability, engagement level, SEO optimization, originality, grammar/spelling. Deduct for plagiarism indicators or factual errors.`,
+  'Data Analysis': `Evaluate: methodology rigor, accuracy of findings, quality of visualizations, actionability of insights, statistical validity. Deduct for cherry-picked data or unsupported conclusions.`,
+  'Research': `Evaluate: depth of research, source quality and diversity, objectivity, completeness, proper citations, novel insights. Deduct for missing citations or one-sided analysis.`,
+  'Design': `Evaluate: visual aesthetics, usability considerations, consistency, accessibility compliance, brand alignment, deliverable formats. Deduct for inconsistent styling or missing responsive considerations.`,
+  'Trading': `Evaluate: strategy logic, risk management, backtesting quality, edge case handling, documentation. Deduct for unrealistic assumptions or missing risk controls.`,
+  'default': `Evaluate: completeness (was everything requested delivered?), quality (how well was it done?), effort (how much work went in?), format (was it well-organized and professional?).`,
+}
+
 export interface EvalContext {
   jobTitle: string
   jobDescription: string
@@ -48,6 +62,10 @@ export function buildEvaluationPrompt(ctx: EvalContext): string {
       sectorContext += `- Effort: 0-${sector.weights.effort} points\n`
       sectorContext += `- Format: 0-${sector.weights.format} points\n`
     }
+
+    // Inject sector-specific detailed criteria (E-05)
+    const criteria = SECTOR_CRITERIA[sectorId] || SECTOR_CRITERIA['default']
+    sectorContext += `\nSector-specific evaluation criteria:\n${criteria}\n`
 
     // Inject client-provided sector details
     const details = ctx.sectorConfig?.details

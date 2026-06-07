@@ -48,13 +48,16 @@ export async function storeEvaluation(params: {
   evaluatorAddress: string
   txHash: string | null
   llmModel: string
+  tokensUsed?: number
+  costUsd?: number
 }) {
   await query(
-    `INSERT INTO evaluations (open_job_id, deliverable_id, version, score, breakdown, reasoning, suggestions, status, evaluator_address, tx_hash, llm_model)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+    `INSERT INTO evaluations (open_job_id, deliverable_id, version, score, breakdown, reasoning, suggestions, status, evaluator_address, tx_hash, llm_model, tokens_used, cost_usd)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
     [params.openJobId, params.deliverableId, params.version, params.score,
      JSON.stringify(params.breakdown), params.reasoning, params.suggestions,
-     params.status, params.evaluatorAddress, params.txHash, params.llmModel]
+     params.status, params.evaluatorAddress, params.txHash, params.llmModel,
+     params.tokensUsed || 0, params.costUsd || 0]
   )
 }
 

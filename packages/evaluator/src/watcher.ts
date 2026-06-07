@@ -316,7 +316,8 @@ async function processEvaluation(job: any) {
     return
   }
 
-  console.log(`[evaluator] Job ${openJobId}: score=${result.score} decision=${result.decision} provider=${result.providerUsed} tokens=${result.tokensUsed.input + result.tokensUsed.output}`)
+  const totalTokens = result.tokensUsed.input + result.tokensUsed.output
+  console.log(`[evaluator] Job ${openJobId}: score=${result.score} decision=${result.decision} provider=${result.providerUsed} tokens=${totalTokens} cost=$${result.estimatedCost.toFixed(4)}`)
 
   let txHash: string | null = null
 
@@ -426,6 +427,8 @@ async function processEvaluation(job: any) {
     evaluatorAddress: CONFIG.EVALUATOR_ADDRESS,
     txHash,
     llmModel: CONFIG.LLM_MODEL,
+    tokensUsed: totalTokens,
+    costUsd: result.estimatedCost,
   })
 
   // Notify agent

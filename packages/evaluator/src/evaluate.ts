@@ -13,8 +13,29 @@ export interface EvalResult {
   decision: 'approved' | 'rejected' | 'failed'
   providerUsed: string
   tokensUsed: { input: number; output: number }
+  estimatedCost: number
 }
 
+/**
+ * Estimate LLM cost in USD based on token usage and model pricing.
+ * Output tokens are priced at 3x input tokens (industry standard).
+ */
+function estimateCost(inputTokens: number, outputTokens: number): number {
+  const COST_PER_1K_INPUT: Record<string, number> = {
+    'gpt-4o': 0.005,
+    'gpt-4o-mini': 0.00015,
+    'claude-3-5-sonnet': 0.003,
+    'claude-3-haiku': 0.00025,
+    'mimo-v2.5-pro': 0.001,
+    'deepseek-v3.2': 0.0008,
+    'qwen3-coder-next': 0.001,
+  }
+  const model = process.env.LLM_MODEL || 'gpt-4o-mini'
+  const inputRate = COST_PER_1K_INPUT[model] || 0.001
+  const inputCost = (inputTokens / 1000) * inputRate
+  const outputCost = (outputTokens / 1000) * inputRate * 3
+  return inputCost + outputCost
+}
 export async function evaluateDeliverable(input: EvalInput, maxRevisions: number): Promise<EvalResult> {
   const prompt = buildEvaluationPrompt(input)
 
@@ -100,5 +121,9 @@ export async function evaluateDeliverable(input: EvalInput, maxRevisions: number
     decision = 'rejected'
   }
 
-  return { score, breakdown, reasoning, suggestions, decision, providerUsed, tokensUsed }
+  // Calculate estimated cost (E-04)
+  const estimatedCost = estimateCost(tokensUsed.input, tokensUsed.output)
+  console.log(`[evaluator] Tokens: ${tokensUsed.input}in + ${tokensUsed.output}out = $${estimatedCost.toFixed(4)}`)
+
+  return { score, breakdown, reasoning, suggestions, decision, providerUsed, tokensUsed, estimatedCost }
 }
