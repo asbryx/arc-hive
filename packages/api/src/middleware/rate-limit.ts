@@ -9,21 +9,15 @@ const CLEANUP_INTERVAL = 1000 // Check every 1000 requests
 let requestCounter = 0
 
 function getClientIP(c: any): string {
-  // Use x-forwarded-for LEFTMOST IP — the client's real IP before any proxies
-  // Rightmost is spoofable, leftmost is from the first trusted proxy
+  const trustCount = parseInt(process.env.TRUSTED_PROXY_COUNT || '1', 10)
   const xff = c.req.header('x-forwarded-for')
   if (xff) {
-    const ips = xff.split(',').map((s: string) => s.trim())
-    for (let i = 0; i < ips.length; i++) {
-      if (ips[i]) return ips[i]
+    const ips = xff.split(',').map((s: string) => s.trim()).filter(Boolean)
+    if (ips.length > trustCount) {
+      return ips[ips.length - 1 - trustCount]
     }
   }
-  // Fallback to connection remote address via env
-  try {
-    const raw = (c as any).env?.incoming
-    if (raw?.socket?.remoteAddress) return raw.socket.remoteAddress
-  } catch {}
-  return 'unknown'
+  return c.req.header('x-real-ip') || c.req.header('cf-connecting-ip') || 'unknown'
 }
 
 export function rateLimiter(): MiddlewareHandler {
