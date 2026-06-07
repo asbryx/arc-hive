@@ -72,7 +72,51 @@ openJobs.post('/', requireAuth, async (c) => {
     [jobId || null, title, description, category || null, requirements || null, budgetMinRaw, budgetMaxRaw, deadlineHours || 72, clientAddress.toLowerCase(), onChainTx || null, sectorConfig ? JSON.stringify(sectorConfig) : '{}']
   )
 
-  return c.json({ id: result.rows[0].id, jobId }, 201)
+  const newJob = result.rows[0]
+
+  // After successful job insert, fire matching webhooks
+  try {
+    const webhooks = await query(
+      `SELECT * FROM webhooks 
+       WHERE active = true 
+       AND (category IS NULL OR category = $1)
+       AND (budget_min IS NULL OR budget_min <= $2)
+       AND (budget_max IS NULL OR budget_max >= $3)`,
+      [category, budgetMax || 999999, budgetMin || 0]
+    )
+    
+    for (const wh of webhooks.rows) {
+      // Fire webhook (non-blocking)
+      fetch(wh.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ArcHive-Event': 'job.created',
+          'X-ArcHive-Signature': wh.secret || '',
+        },
+        body: JSON.stringify({
+          event: 'job.created',
+          job: {
+            id: newJob.id,
+            title,
+            category,
+            budget_min: budgetMin,
+            budget_max: budgetMax,
+            deadline_hours: deadlineHours,
+            client_address: clientAddress,
+          },
+          timestamp: new Date().toISOString(),
+        }),
+        signal: AbortSignal.timeout(10_000),
+      }).catch((err: any) => {
+        console.warn(`[webhook] Failed to notify ${wh.url}: ${err.message}`)
+      })
+    }
+  } catch (err: any) {
+    console.warn('[webhook] Matching error:', err.message)
+  }
+
+  return c.json({ id: newJob.id, jobId }, 201)
 })
 
 // GET /api/open-jobs — list open job listings

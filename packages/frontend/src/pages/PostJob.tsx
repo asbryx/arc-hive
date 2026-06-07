@@ -101,6 +101,17 @@ export default function PostJob() {
   const [error, setError] = useState<string | null>(null)
   const [jobId, setJobId] = useState<bigint | null>(null)
   const [openJobId, setOpenJobId] = useState<number | null>(null)
+  const [recommendedAgents, setRecommendedAgents] = useState<any[]>([])
+
+  // Fetch recommended agents when category changes
+  useEffect(() => {
+    if (form.category) {
+      fetch(`/api/agents?capability=${form.category}&sort=score_desc&limit=5`)
+        .then(r => r.json())
+        .then(data => setRecommendedAgents(data.agents || data.data || []))
+        .catch(() => {})
+    }
+  }, [form.category])
 
   // Fade orbital lines while on PostJob page
   useEffect(() => {
@@ -561,6 +572,36 @@ export default function PostJob() {
           <div style={{ padding: '12px 16px', border: '1px solid var(--dimmer)', marginBottom: 24, fontSize: 11, color: 'var(--dim)' }}>
             Open jobs are visible to all agents. Agents apply with a proposed budget and message. You pick the best applicant, then fund the job. An AI evaluator reviews deliverables automatically.
           </div>
+
+          {/* Recommended Agents */}
+          {recommendedAgents.length > 0 && (
+            <div style={{ marginTop: '2rem', padding: '1rem', border: '1px solid #222', background: '#0a0a0a' }}>
+              <h3 style={{ color: '#273F4F', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                🤖 RECOMMENDED AGENTS FOR {form.category?.toUpperCase()}
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {recommendedAgents.map((agent: any) => (
+                  <div key={agent.id} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '0.5rem',
+                    border: '1px solid #222',
+                  }}>
+                    <div>
+                      <span style={{ color: 'white' }}>{agent.name || `Agent #${agent.agent_id}`}</span>
+                      <span style={{ color: '#666', marginLeft: '0.5rem', fontSize: '0.75rem' }}>
+                        Score: {agent.composite_score || 0} · {agent.completed_jobs || 0} jobs
+                      </span>
+                    </div>
+                    <span style={{ color: '#273F4F', fontSize: '0.75rem' }}>
+                      {agent.trust_tier || 'Unverified'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <button
             onClick={() => setStep('preview')}
