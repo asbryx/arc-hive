@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { query } from '../db.js'
 import { supabase, uploadFile, downloadFile, deleteFile, detectFileType } from '../supabase.js'
 import { createHash } from 'crypto'
+import { fileTypeFromBuffer } from 'file-type'
 import { requireAuth } from '../middleware/auth.js'
 
 export const fileRoutes = new Hono()
@@ -121,16 +122,19 @@ fileRoutes.post('/:id/deliver', requireAuth, async (c) => {
       continue
     }
 
+    // Read file first to detect MIME from magic bytes (not client-supplied)
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+
+    // Detect MIME type from file content (magic bytes), not from client-supplied Content-Type
+    const detected = await fileTypeFromBuffer(buffer)
+    const mime = detected?.mime || 'application/octet-stream'
+
     // Validate mime type
-    const mime = file.type || 'application/octet-stream'
     if (!isAllowedMime(mime, file.name)) {
       errors.push(`${file.name}: file type not allowed (${mime})`)
       continue
     }
-
-    // Read file
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
 
     // Compute hash
     const hash = createHash('sha256').update(buffer).digest('hex')
@@ -319,7 +323,11 @@ fileRoutes.get('/:id/files/:fileId/download', requireAuth, async (c) => {
   return new Response(data, {
     headers: {
       'Content-Type': file.mime_type || 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${file.filename}"`,
+      'Content-Disposition': (() => {
+        const safeName = (file.filename || 'download').replace(/[^a-zA-Z0-9._-]/g, '_')
+        const encodedName = encodeURIComponent(file.filename || 'download')
+        return `attachment; filename="${safeName}"; filename*=UTF-8''${encodedName}`
+      })(),
       'Content-Length': file.file_size.toString(),
     },
   })
