@@ -17,6 +17,22 @@ const ABI = [
   { inputs: [{ name: 'jobId', type: 'uint256' }], name: 'getJob', outputs: [{ components: [{ name: 'id', type: 'uint256' }, { name: 'client', type: 'address' }, { name: 'provider', type: 'address' }, { name: 'evaluator', type: 'address' }, { name: 'description', type: 'string' }, { name: 'budget', type: 'uint256' }, { name: 'expiredAt', type: 'uint256' }, { name: 'status', type: 'uint8' }, { name: 'hook', type: 'address' }], name: '', type: 'tuple' }], stateMutability: 'view', type: 'function' },
 ] as const
 
+// FIX O-02: Nonce management to prevent concurrent txn nonce races
+let currentNonce: number | null = null
+
+async function getNextNonce(client: any, address: string): Promise<number> {
+  if (currentNonce === null) {
+    currentNonce = await client.getTransactionCount({ address })
+  }
+  const nonce = currentNonce
+  currentNonce++
+  return nonce
+}
+
+function resetNonce() {
+  currentNonce = null
+}
+
 function getPublicClient() {
   return createPublicClient({ chain, transport: http(CONFIG.RPC_URL) })
 }
@@ -65,19 +81,40 @@ export async function executeSubmit(jobId: bigint, deliverableContent: string): 
   const providerWallet = getProviderWallet()
   const publicClient = getPublicClient()
 
-  const contentHash = keccak256(toBytes(deliverableContent.slice(0, 100)))
+  // FIX O-06: Hash full content instead of only first 100 bytes
+  const contentHash = keccak256(toBytes(deliverableContent))
 
-  const hash = await providerWallet.writeContract({
+  // FIX O-02: Get sequential nonce
+  const nonce = await getNextNonce(publicClient, providerWallet.account.address)
+
+  // FIX O-03: Estimate gas with 20% buffer
+  const gas = await publicClient.estimateContractGas({
     address: CONFIG.AGENTIC_COMMERCE,
     abi: ABI,
     functionName: 'submit',
     args: [jobId, contentHash, '0x'],
+    account: providerWallet.account.address,
   })
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash })
-  if (receipt.status !== 'success') throw new Error(`Submit tx reverted: ${hash}`)
+  try {
+    const hash = await providerWallet.writeContract({
+      address: CONFIG.AGENTIC_COMMERCE,
+      abi: ABI,
+      functionName: 'submit',
+      args: [jobId, contentHash, '0x'],
+      nonce,
+      gas: gas * 120n / 100n,
+    })
 
-  return hash
+    // FIX O-05: Add 60-second timeout to waitForTransactionReceipt
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 })
+    if (receipt.status !== 'success') throw new Error(`Submit tx reverted: ${hash}`)
+
+    return hash
+  } catch (err) {
+    resetNonce()
+    throw err
+  }
 }
 
 // Evaluator calls complete — releases USDC to provider
@@ -85,19 +122,39 @@ export async function executeComplete(jobId: bigint, reasoning: string): Promise
   const evaluatorWallet = getEvaluatorWallet()
   const publicClient = getPublicClient()
 
-  const reasonHash = keccak256(toBytes(reasoning.slice(0, 100)))
+  const reasonHash = keccak256(toBytes(reasoning))
 
-  const hash = await evaluatorWallet.writeContract({
+  // FIX O-02: Get sequential nonce
+  const nonce = await getNextNonce(publicClient, evaluatorWallet.account.address)
+
+  // FIX O-03: Estimate gas with 20% buffer
+  const gas = await publicClient.estimateContractGas({
     address: CONFIG.AGENTIC_COMMERCE,
     abi: ABI,
     functionName: 'complete',
     args: [jobId, reasonHash, '0x'],
+    account: evaluatorWallet.account.address,
   })
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash })
-  if (receipt.status !== 'success') throw new Error(`Complete tx reverted: ${hash}`)
+  try {
+    const hash = await evaluatorWallet.writeContract({
+      address: CONFIG.AGENTIC_COMMERCE,
+      abi: ABI,
+      functionName: 'complete',
+      args: [jobId, reasonHash, '0x'],
+      nonce,
+      gas: gas * 120n / 100n,
+    })
 
-  return hash
+    // FIX O-05: Add 60-second timeout to waitForTransactionReceipt
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 })
+    if (receipt.status !== 'success') throw new Error(`Complete tx reverted: ${hash}`)
+
+    return hash
+  } catch (err) {
+    resetNonce()
+    throw err
+  }
 }
 
 // Evaluator calls reject — locks funds until expiry
@@ -105,19 +162,39 @@ export async function executeReject(jobId: bigint, reasoning: string): Promise<s
   const evaluatorWallet = getEvaluatorWallet()
   const publicClient = getPublicClient()
 
-  const reasonHash = keccak256(toBytes(reasoning.slice(0, 100)))
+  const reasonHash = keccak256(toBytes(reasoning))
 
-  const hash = await evaluatorWallet.writeContract({
+  // FIX O-02: Get sequential nonce
+  const nonce = await getNextNonce(publicClient, evaluatorWallet.account.address)
+
+  // FIX O-03: Estimate gas with 20% buffer
+  const gas = await publicClient.estimateContractGas({
     address: CONFIG.AGENTIC_COMMERCE,
     abi: ABI,
     functionName: 'reject',
     args: [jobId, reasonHash, '0x'],
+    account: evaluatorWallet.account.address,
   })
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash })
-  if (receipt.status !== 'success') throw new Error(`Reject tx reverted: ${hash}`)
+  try {
+    const hash = await evaluatorWallet.writeContract({
+      address: CONFIG.AGENTIC_COMMERCE,
+      abi: ABI,
+      functionName: 'reject',
+      args: [jobId, reasonHash, '0x'],
+      nonce,
+      gas: gas * 120n / 100n,
+    })
 
-  return hash
+    // FIX O-05: Add 60-second timeout to waitForTransactionReceipt
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 })
+    if (receipt.status !== 'success') throw new Error(`Reject tx reverted: ${hash}`)
+
+    return hash
+  } catch (err) {
+    resetNonce()
+    throw err
+  }
 }
 
 // Claim refund after expiry (called by evaluator cron)
@@ -125,15 +202,35 @@ export async function executeClaimRefund(jobId: bigint): Promise<string> {
   const evaluatorWallet = getEvaluatorWallet()
   const publicClient = getPublicClient()
 
-  const hash = await evaluatorWallet.writeContract({
+  // FIX O-02: Get sequential nonce
+  const nonce = await getNextNonce(publicClient, evaluatorWallet.account.address)
+
+  // FIX O-03: Estimate gas with 20% buffer
+  const gas = await publicClient.estimateContractGas({
     address: CONFIG.AGENTIC_COMMERCE,
     abi: ABI,
     functionName: 'claimRefund',
     args: [jobId],
+    account: evaluatorWallet.account.address,
   })
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash })
-  if (receipt.status !== 'success') throw new Error(`ClaimRefund tx reverted: ${hash}`)
+  try {
+    const hash = await evaluatorWallet.writeContract({
+      address: CONFIG.AGENTIC_COMMERCE,
+      abi: ABI,
+      functionName: 'claimRefund',
+      args: [jobId],
+      nonce,
+      gas: gas * 120n / 100n,
+    })
 
-  return hash
+    // FIX O-05: Add 60-second timeout to waitForTransactionReceipt
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 })
+    if (receipt.status !== 'success') throw new Error(`ClaimRefund tx reverted: ${hash}`)
+
+    return hash
+  } catch (err) {
+    resetNonce()
+    throw err
+  }
 }
