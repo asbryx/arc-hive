@@ -18,10 +18,10 @@ const ABI = [
 ] as const
 
 // FIX O-02: Nonce management to prevent concurrent txn nonce races
-let currentNonce: number | null = null
+let currentNonce: number = -1
 
 async function getNextNonce(client: any, address: string): Promise<number> {
-  if (currentNonce === null) {
+  if (currentNonce === -1) {
     currentNonce = await client.getTransactionCount({ address })
   }
   const nonce = currentNonce
@@ -30,7 +30,7 @@ async function getNextNonce(client: any, address: string): Promise<number> {
 }
 
 function resetNonce() {
-  currentNonce = null
+  currentNonce = -1
 }
 
 function getPublicClient() {

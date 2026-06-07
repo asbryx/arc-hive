@@ -100,7 +100,7 @@ function EndpointBlock({ method, path, desc, auth, example }: {
         borderBottom: `1px solid ${'var(--dimmer)'}`
       }}>
         <span style={{
-          fontFamily: FONT, fontSize: 12, fontWeight: 700, color: methodColor[method] || TEXT,
+          fontFamily: FONT, fontSize: 12, fontWeight: 700, color: methodColor[method] || '#cccccc',
           background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 0
         }}>{method}</span>
         <span style={{ fontFamily: FONT, fontSize: 13, color: 'var(--text)' }}>{path}</span>

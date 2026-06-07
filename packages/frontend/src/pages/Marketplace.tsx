@@ -3,11 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useMarketplaceStats } from '@/api/hooks'
 import { getSector } from '@/lib/sectors'
-<<<<<<< ours
-import Skeleton from '@/components/graphics/Skeleton'
-=======
 import { EmptyState } from '@/components/EmptyState'
->>>>>>> theirs
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -184,29 +180,8 @@ export default function Marketplace() {
 
       {/* Job List */}
       {loading ? (
-<<<<<<< ours
-        <div>
-          {[...Array(5)].map((_, i) => (
-            <div key={i} style={{ padding: '16px 20px', borderBottom: '1px solid var(--dimmer)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
-                <div style={{ flex: 1 }}>
-                  <Skeleton width="70%" height={14} style={{ marginBottom: 8 }} />
-                  <Skeleton width="100%" height={10} style={{ marginBottom: 8 }} />
-                  <Skeleton width="50%" height={10} />
-                </div>
-                <div style={{ flexShrink: 0 }}>
-                  <Skeleton width={80} height={14} style={{ marginBottom: 4 }} />
-                  <Skeleton width={40} height={10} />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : jobs.length === 0 ? (
-=======
         <div style={{ color: 'var(--dim)', fontSize: 12, padding: '40px 0', textAlign: 'center' }}>Loading...</div>
       ) : filteredJobs.length === 0 ? (
->>>>>>> theirs
         <EmptyState
           title="No open jobs"
           description="Check back later or post a job yourself"

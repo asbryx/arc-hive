@@ -365,7 +365,7 @@ agents.get('/:id/manifest', async (c) => {
 
 // PUT /api/agents/:id/manifest (create or update)
 agents.put('/:id/manifest', requireAuth, async (c) => {
-  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   const id = c.req.param('id')
   const body = await c.req.json()
 

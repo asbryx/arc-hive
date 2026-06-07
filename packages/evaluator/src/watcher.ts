@@ -346,7 +346,6 @@ async function processEvaluation(job: any) {
       )
     } catch (err: any) {
       console.error(`[evaluator] On-chain error for job ${openJobId}:`, err.message)
-<<<<<<< ours
       // Release the lock so it can be retried
       try {
         await query(
@@ -357,14 +356,6 @@ async function processEvaluation(job: any) {
         console.error(`[evaluator] Failed to release lock for job ${openJobId}:`, unlockErr.message)
       }
       return // Don't store evaluation — retry next poll
-=======
-      // Release the lock so it can be retried on next poll
-      await query(
-        `UPDATE open_jobs SET status = 'funded', updated_at = NOW() WHERE id = $1 AND status = 'evaluating_locked'`,
-        [openJobId]
-      ).catch(e => console.error(`[evaluator] Lock release failed:`, e.message))
-      return
->>>>>>> theirs
     }
 
   } else if (result.decision === 'failed' && jobId) {

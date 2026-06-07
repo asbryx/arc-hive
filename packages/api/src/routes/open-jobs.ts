@@ -664,7 +664,7 @@ openJobs.post('/:id/apply', requireAuth, async (c) => {
 
 // GET /api/open-jobs/:id/applications — list applications for a job
 openJobs.get('/:id/applications', requireAuth, async (c) => {
-  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   const id = c.req.param('id')
 
   // Get open_jobs.id and verify ownership
@@ -1183,7 +1183,7 @@ openJobs.post('/:id/cancel', requireAuth, async (c) => {
 
 // POST /api/open-jobs/:id/extend
 openJobs.post('/:id/extend', requireAuth, async (c) => {
-  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   const id = c.req.param('id')
   const { additionalHours } = await c.req.json()
 
