@@ -1,0 +1,20 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/api/**'
+      - 'packages/indexer/**'
+      - 'packages/evaluator/**'
+      - 'migrations/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Notify deployment
+        run: echo "Backend changes pushed — deploy to ThinkPad WSL manually or via SSH"

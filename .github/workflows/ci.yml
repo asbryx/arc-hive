@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: archive_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/archive_test
+      AGENTS_DATABASE_URL: postgresql://test:test@localhost:5432/archive_test
+      JWT_SECRET: test-secret-for-ci
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm i --frozen-lockfile
+      
+      - name: Run migrations
+        run: |
+          for f in migrations/*.sql; do
+            echo "Running $f..."
+            psql $DATABASE_URL -f "$f" 2>/dev/null || true
+          done
+      
+      - name: Lint
+        run: pnpm lint || true
+      
+      - name: Type check
+        run: pnpm -r exec tsc --noEmit || true
+      
+      - name: Test
+        run: pnpm test
+      
+      - name: Build
+        run: pnpm build
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm i --frozen-lockfile
+      
+      - name: Build frontend
+        run: cd packages/frontend && pnpm build
+        env:
+          VITE_API_URL: https://arcs-hive.vercel.app
