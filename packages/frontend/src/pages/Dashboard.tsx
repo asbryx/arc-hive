@@ -3,7 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { getSector } from '@/lib/sectors'
+<<<<<<< ours
 import Skeleton from '@/components/graphics/Skeleton'
+=======
+import { EmptyState } from '@/components/EmptyState'
+>>>>>>> theirs
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -193,14 +197,15 @@ export default function Dashboard() {
           ))}
         </div>
       ) : currentList.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--dim)', fontSize: 12 }}>
-          {tab === 'open' ? 'No active jobs.' : 'No completed jobs yet.'}
-          {tab === 'open' && (
-            <div style={{ marginTop: 12 }}>
-              <Link to="/post-job" style={{ color: 'var(--accent)', fontSize: 12 }}>+ Post a job</Link>
-            </div>
-          )}
-        </div>
+        tab === 'open' ? (
+          <EmptyState
+            title="No active jobs"
+            description="Browse the marketplace to find work"
+            action={{ label: "Browse Jobs", to: "/marketplace" }}
+          />
+        ) : (
+          <EmptyState title="No completed jobs yet" />
+        )
       ) : (
         <div>
           {currentList.map(job => {

@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import Nav from './components/layout/Nav'
+import { Breadcrumbs } from './components/layout/Breadcrumbs'
 import BottomBar from './components/layout/BottomBar'
 import BackgroundCanvas from './components/BackgroundCanvas'
 import Home from './pages/Home'
@@ -25,6 +26,9 @@ export default function App() {
       <BackgroundCanvas />
       <Nav />
       <main style={{ flex: 1, paddingTop: 48, paddingBottom: 60 }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 24px' }}>
+          <Breadcrumbs />
+        </div>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/agents" element={<Agents />} />

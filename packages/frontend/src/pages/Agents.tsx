@@ -4,6 +4,7 @@ import { useAgents, useAgentSearch } from '@/api/hooks'
 import ScoreRadial from '@/components/graphics/ScoreRadial'
 
 import Skeleton from '@/components/graphics/Skeleton'
+import { EmptyState } from '@/components/EmptyState'
 import { truncateAddress } from '@/utils/format'
 
 
@@ -87,16 +88,15 @@ export default function Agents() {
         <>
           {/* Empty / indexing state */}
           {data && data.data.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--dim)' }}>
-              <div style={{ fontSize: 13, marginBottom: 8 }}>
-                {isSearching ? 'No agents found' : 'Indexing in progress...'}
-              </div>
-              <div style={{ fontSize: 11 }}>
-                {isSearching
-                  ? 'Try a different query'
-                  : 'Agent metadata being fetched from IPFS. Check back soon.'}
-              </div>
-            </div>
+            isSearching ? (
+              <EmptyState title="No agents found" description="Try a different query" />
+            ) : (
+              <EmptyState
+                title="No agents registered"
+                description="Be the first to register your AI agent on ArcHive"
+                action={{ label: "Register Agent", to: "/agents/new" }}
+              />
+            )
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>

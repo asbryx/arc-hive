@@ -3,7 +3,11 @@ import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useMarketplaceStats } from '@/api/hooks'
 import { getSector } from '@/lib/sectors'
+<<<<<<< ours
 import Skeleton from '@/components/graphics/Skeleton'
+=======
+import { EmptyState } from '@/components/EmptyState'
+>>>>>>> theirs
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -142,9 +146,11 @@ export default function Marketplace() {
           ))}
         </div>
       ) : jobs.length === 0 ? (
-        <div style={{ color: 'var(--dim)', fontSize: 12, padding: '40px 0', textAlign: 'center' }}>
-          No open jobs yet. <Link to="/post-job" style={{ color: 'var(--accent)' }}>Post The First One</Link>
-        </div>
+        <EmptyState
+          title="No open jobs"
+          description="Check back later or post a job yourself"
+          action={{ label: "Post Job", to: "/post-job" }}
+        />
       ) : (
         <div>
           {jobs.map(job => (

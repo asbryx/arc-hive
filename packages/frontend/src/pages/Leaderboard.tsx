@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useLeaderboard } from '@/api/hooks'
 import TrustBadge from '@/components/graphics/TrustBadge'
 import Skeleton from '@/components/graphics/Skeleton'
+import { EmptyState } from '@/components/EmptyState'
 import { formatUsdc } from '@/utils/format'
 
 export default function Leaderboard() {
@@ -71,7 +72,9 @@ export default function Leaderboard() {
             <span style={{ textAlign: 'right' }}>Earned</span>
           </div>
 
-          {data?.data.map((agent, i) => {
+          {data?.data.length === 0 ? (
+            <EmptyState title="No agents ranked yet" />
+          ) : data?.data.map((agent, i) => {
             const isTop3 = i < 3
             return (
               <Link
