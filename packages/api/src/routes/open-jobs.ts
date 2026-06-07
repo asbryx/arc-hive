@@ -151,6 +151,20 @@ openJobs.get('/my-applications', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
 
+  // Optional auth — verify wallet if JWT present
+  const authHeader = c.req.header('authorization')
+  let authWallet: string | null = null
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const jwt = await import('jsonwebtoken')
+      const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
+      authWallet = decoded?.wallet?.toLowerCase() || null
+    } catch {}
+  }
+  if (authWallet && authWallet !== address.toLowerCase()) {
+    return c.json({ error: 'Cannot access another wallet\'s data' }, 403)
+  }
+
   const result = await query(
     `SELECT oj.*, ja.status as application_status, ja.proposed_budget as app_proposed_budget, ja.created_at as applied_at,
       (SELECT COUNT(*) FROM job_applications ja2 WHERE ja2.job_id = oj.id) as application_count
@@ -176,6 +190,20 @@ openJobs.get('/my-active', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
 
+  // Optional auth — verify wallet if JWT present
+  const authHeader = c.req.header('authorization')
+  let authWallet: string | null = null
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const jwt = await import('jsonwebtoken')
+      const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
+      authWallet = decoded?.wallet?.toLowerCase() || null
+    } catch {}
+  }
+  if (authWallet && authWallet !== address.toLowerCase()) {
+    return c.json({ error: 'Cannot access another wallet\'s data' }, 403)
+  }
+
   const result = await query(
     `SELECT oj.*,
       (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count
@@ -194,6 +222,20 @@ openJobs.get('/my-active', async (c) => {
 openJobs.get('/my-active-all', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
+
+  // Optional auth — verify wallet if JWT present
+  const authHeader = c.req.header('authorization')
+  let authWallet: string | null = null
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const jwt = await import('jsonwebtoken')
+      const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
+      authWallet = decoded?.wallet?.toLowerCase() || null
+    } catch {}
+  }
+  if (authWallet && authWallet !== address.toLowerCase()) {
+    return c.json({ error: 'Cannot access another wallet\'s data' }, 403)
+  }
 
   const result = await query(
     `SELECT DISTINCT oj.*,
@@ -233,6 +275,20 @@ openJobs.get('/my-history', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
 
+  // Optional auth — verify wallet if JWT present
+  const authHeader = c.req.header('authorization')
+  let authWallet: string | null = null
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const jwt = await import('jsonwebtoken')
+      const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
+      authWallet = decoded?.wallet?.toLowerCase() || null
+    } catch {}
+  }
+  if (authWallet && authWallet !== address.toLowerCase()) {
+    return c.json({ error: 'Cannot access another wallet\'s data' }, 403)
+  }
+
   const result = await query(
     `SELECT oj.*,
       (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count,
@@ -255,6 +311,20 @@ openJobs.get('/my-completed', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
 
+  // Optional auth — verify wallet if JWT present
+  const authHeader = c.req.header('authorization')
+  let authWallet: string | null = null
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const jwt = await import('jsonwebtoken')
+      const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
+      authWallet = decoded?.wallet?.toLowerCase() || null
+    } catch {}
+  }
+  if (authWallet && authWallet !== address.toLowerCase()) {
+    return c.json({ error: 'Cannot access another wallet\'s data' }, 403)
+  }
+
   // Return completed/failed jobs where user is either agent or client
   const result = await query(
     `SELECT oj.*,
@@ -274,6 +344,20 @@ openJobs.get('/my-posted', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
 
+  // Optional auth — verify wallet if JWT present
+  const authHeader = c.req.header('authorization')
+  let authWallet: string | null = null
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const jwt = await import('jsonwebtoken')
+      const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
+      authWallet = decoded?.wallet?.toLowerCase() || null
+    } catch {}
+  }
+  if (authWallet && authWallet !== address.toLowerCase()) {
+    return c.json({ error: 'Cannot access another wallet\'s data' }, 403)
+  }
+
   const result = await query(
     `SELECT oj.*,
       (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count
@@ -290,6 +374,20 @@ openJobs.get('/my-posted', async (c) => {
 openJobs.get('/recommended', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
+
+  // Optional auth — verify wallet if JWT present
+  const authHeader = c.req.header('authorization')
+  let authWallet: string | null = null
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const jwt = await import('jsonwebtoken')
+      const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
+      authWallet = decoded?.wallet?.toLowerCase() || null
+    } catch {}
+  }
+  if (authWallet && authWallet !== address.toLowerCase()) {
+    return c.json({ error: 'Cannot access another wallet\'s data' }, 403)
+  }
 
   const catResult = await query(
     `SELECT DISTINCT oj.category FROM open_jobs oj
@@ -325,6 +423,20 @@ openJobs.get('/recommended', async (c) => {
 openJobs.get('/agent-ratings', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
+
+  // Optional auth — verify wallet if JWT present
+  const authHeader = c.req.header('authorization')
+  let authWallet: string | null = null
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const jwt = await import('jsonwebtoken')
+      const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
+      authWallet = decoded?.wallet?.toLowerCase() || null
+    } catch {}
+  }
+  if (authWallet && authWallet !== address.toLowerCase()) {
+    return c.json({ error: 'Cannot access another wallet\'s data' }, 403)
+  }
 
   const result = await query(
     `SELECT mr.*, oj.title FROM marketplace_ratings mr
@@ -507,16 +619,22 @@ openJobs.post('/:id/apply', requireAuth, async (c) => {
 })
 
 // GET /api/open-jobs/:id/applications — list applications for a job
-openJobs.get('/:id/applications', async (c) => {
+openJobs.get('/:id/applications', requireAuth, async (c) => {
+  const authWallet = (c.get('wallet') as string)?.toLowerCase()
   const id = c.req.param('id')
 
-  // Get open_jobs.id
+  // Get open_jobs.id and verify ownership
   const jobResult = await query(
-    `SELECT id FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
+    `SELECT id, client_address FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
     [id]
   )
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found' }, 404)
+  }
+
+  const isOwner = jobResult.rows[0].client_address?.toLowerCase() === authWallet
+  if (!isOwner) {
+    return c.json({ error: 'Only the job owner can view applications' }, 403)
   }
 
   const openJobId = jobResult.rows[0].id
