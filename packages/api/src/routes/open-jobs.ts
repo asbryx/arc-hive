@@ -18,6 +18,24 @@ const arcChain = { id: 5042002, name: 'Arc Testnet', nativeCurrency: { name: 'AR
 
 const SET_BUDGET_ABI = [{ inputs: [{ name: 'jobId', type: 'uint256' }, { name: 'amount', type: 'uint256' }, { name: 'optParams', type: 'bytes' }], name: 'setBudget', outputs: [], stateMutability: 'nonpayable', type: 'function' }]
 
+const FIELD_LIMITS = {
+  title: 200,
+  description: 10000,
+  message: 5000,
+  notes: 2000,
+  reason: 2000,
+  requirements: 5000,
+  feedback: 2000,
+} as const
+
+function validateFieldLength(value: string | undefined, field: keyof typeof FIELD_LIMITS): string | null {
+  if (!value) return null
+  if (value.length > FIELD_LIMITS[field]) {
+    return `${field} must be ${FIELD_LIMITS[field]} characters or less (got ${value.length})`
+  }
+  return null
+}
+
 export const openJobs = new Hono()
 
 // POST /api/open-jobs — create an open job listing
@@ -25,6 +43,13 @@ openJobs.post('/', requireAuth, async (c) => {
   const body = await c.req.json()
   const { title, description, category, requirements, budgetMin, budgetMax, deadlineHours, clientAddress, jobId, onChainTx, sectorConfig } = body
   const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
+
+  const titleErr = validateFieldLength(title, 'title')
+  const descErr = validateFieldLength(description, 'description')
+  const reqErr = validateFieldLength(requirements, 'requirements')
+  if (titleErr || descErr || reqErr) {
+    return c.json({ error: titleErr || descErr || reqErr }, 400)
+  }
 
   if (!title || !description || !clientAddress) {
     return c.json({ error: 'title, description, and clientAddress required' }, 400)
@@ -424,6 +449,11 @@ openJobs.post('/:id/apply', requireAuth, async (c) => {
   const body = await c.req.json()
   const { applicantAddress, agentId, message, proposedBudget } = body
   const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
+
+  const messageErr = validateFieldLength(message, 'message')
+  if (messageErr) {
+    return c.json({ error: messageErr }, 400)
+  }
 
   if (!applicantAddress) {
     return c.json({ error: 'applicantAddress required' }, 400)
@@ -910,6 +940,12 @@ openJobs.post('/:id/reject', requireAuth, async (c) => {
   const { clientAddress, reason } = body
   const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
+  const reasonErr = validateFieldLength(reason, 'reason')
+  const feedbackErr = validateFieldLength(reason, 'feedback')
+  if (reasonErr || feedbackErr) {
+    return c.json({ error: reasonErr || feedbackErr }, 400)
+  }
+
   if (!clientAddress) {
     return c.json({ error: 'clientAddress required' }, 400)
   }
@@ -1014,6 +1050,11 @@ openJobs.post('/:id/comments', requireAuth, async (c) => {
   const { senderAddress, message } = body
   const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
+  const messageErr = validateFieldLength(message, 'message')
+  if (messageErr) {
+    return c.json({ error: messageErr }, 400)
+  }
+
   if (!senderAddress || !message) {
     return c.json({ error: 'senderAddress and message required' }, 400)
   }
@@ -1043,6 +1084,11 @@ openJobs.post('/:id/rate', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { clientAddress, rating, comment } = body
+
+  const feedbackErr = validateFieldLength(comment, 'feedback')
+  if (feedbackErr) {
+    return c.json({ error: feedbackErr }, 400)
+  }
 
   if (!clientAddress || !rating) {
     return c.json({ error: 'clientAddress and rating required' }, 400)
