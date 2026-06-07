@@ -256,6 +256,21 @@ export async function recordSyncError(contractAddress: string, error: string) {
   )
 }
 
+// ─── Reorg Rollback ──────────────────────────────────────────────────────────
+
+export async function deleteEventsFromBlock(fromBlock: bigint): Promise<void> {
+  await query(`DELETE FROM reputation_events WHERE block_number >= $1`, [fromBlock.toString()])
+  await query(`DELETE FROM reputation_responses WHERE block_number >= $1`, [fromBlock.toString()])
+  await queryMarketplace(`DELETE FROM job_events WHERE block_number >= $1`, [fromBlock.toString()])
+}
+
+export async function rollbackSyncState(contractAddress: string, toBlock: bigint): Promise<void> {
+  await query(
+    `UPDATE sync_state SET last_synced_block = $1, updated_at = NOW() WHERE contract_address = $2`,
+    [toBlock.toString(), contractAddress]
+  )
+}
+
 // ─── Job Helpers ──────────────────────────────────────────────────────────────
 
 export async function getJobProviderAgent(jobId: bigint, sourceContract: string): Promise<string | null> {

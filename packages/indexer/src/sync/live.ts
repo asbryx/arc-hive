@@ -3,12 +3,24 @@ import { getWsClient, getHttpClient } from '../clients/chain.js'
 import { processLog, getWatchedAddresses } from '../processors/index.js'
 import * as db from '../db/queries.js'
 
+const CONFIRMATION_DEPTH = 12
+const MAX_QUEUE_SIZE = 1000
+
 let isRunning = false
 let unwatch: (() => void) | null = null
 let processing = false // serialization lock
 
 export function isLiveSyncRunning(): boolean {
   return isRunning
+}
+
+async function verifyBlockHash(publicClient: any, blockNumber: bigint, expectedHash: string): Promise<boolean> {
+  try {
+    const block = await publicClient.getBlock({ blockNumber })
+    return block.hash === expectedHash
+  } catch {
+    return false
+  }
 }
 
 export async function startLiveSync(): Promise<void> {
@@ -38,6 +50,10 @@ export function stopLiveSync(): void {
 const blockQueue: bigint[] = []
 
 async function enqueueBlock(blockNumber: bigint, addresses: Address[]): Promise<void> {
+  if (blockQueue.length >= MAX_QUEUE_SIZE) {
+    console.warn(`[Live] Block queue full (${MAX_QUEUE_SIZE}), dropping block ${blockNumber}`)
+    return
+  }
   blockQueue.push(blockNumber)
   if (processing) return
   processing = true
@@ -84,17 +100,48 @@ async function startPollingSync(addresses: Address[]): Promise<void> {
   }
   console.log(`[Live] Polling from block ${lastBlock}`)
 
+  // Track last processed block hash for parent chain verification
+  let lastBlockHash: string | null = null
+  if (lastBlock) {
+    try {
+      const blk = await client.getBlock({ blockNumber: lastBlock })
+      lastBlockHash = blk.hash
+    } catch { /* will be fetched on first process */ }
+  }
+
   const poll = async () => {
     if (!isRunning) return
 
     try {
-      const currentBlock = await client.getBlockNumber()
-      if (currentBlock > lastBlock!) {
-        for (let block = lastBlock! + 1n; block <= currentBlock; block++) {
+      const headBlock = await client.getBlockNumber()
+      const safeBlock = headBlock - BigInt(CONFIRMATION_DEPTH)
+      if (safeBlock > lastBlock!) {
+        for (let block = lastBlock! + 1n; block <= safeBlock; block++) {
           if (!isRunning) break
+
+          // Parent hash chain verification — detect reorgs
+          const blockData = await client.getBlock({ blockNumber: block })
+          if (lastBlockHash && blockData.parentHash !== lastBlockHash) {
+            console.warn(`[Live] Reorg detected at block ${block}! Rolling back from ${lastBlock}`)
+            await db.deleteEventsFromBlock(lastBlock!)
+            for (const address of addresses) {
+              await db.rollbackSyncState(address, lastBlock! - 1n)
+            }
+            // Re-fetch lastBlock data to re-verify the chain
+            lastBlock = lastBlock! - 1n
+            if (lastBlock > 0n) {
+              const prev = await client.getBlock({ blockNumber: lastBlock })
+              lastBlockHash = prev.hash
+            } else {
+              lastBlockHash = null
+            }
+            break // abort this poll cycle, retry from rolled-back position
+          }
+          lastBlockHash = blockData.hash
+
           await processBlock(block, addresses)
         }
-        lastBlock = currentBlock
+        lastBlock = safeBlock
       }
     } catch (err) {
       console.error(`[Live] Polling error:`, (err as Error).message)
