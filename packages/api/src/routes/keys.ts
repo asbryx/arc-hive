@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { createHash, randomBytes } from 'crypto'
+import dns from 'dns/promises'
 import { query } from '../db.js'
 import { requireAuth } from '../middleware/auth.js'
 
@@ -93,28 +94,50 @@ keys.post('/:id/revoke', async (c) => {
 
 // ─── Webhooks ─────────────────────────────────────────────────────────────────
 
-// Validate webhook URL to prevent SSRF
-function validateWebhookUrl(url: string): boolean {
+// Check if an IP address is private/internal
+function isPrivateIP(ip: string): boolean {
+  if (ip.startsWith('127.') || ip === '::1' || ip === 'localhost') return true
+  if (ip.startsWith('10.')) return true
+  if (ip.startsWith('192.168.')) return true
+  if (ip.startsWith('172.')) {
+    const second = parseInt(ip.split('.')[1])
+    if (second >= 16 && second <= 31) return true
+  }
+  if (ip.startsWith('::ffff:')) {
+    return isPrivateIP(ip.substring(7))
+  }
+  return false
+}
+
+// Validate webhook URL to prevent SSRF (including DNS rebinding)
+async function validateWebhookUrl(url: string): Promise<boolean> {
   try {
     const parsed = new URL(url)
-    // Only allow HTTPS (HTTP allowed for localhost dev only)
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false
+    if (!['http:', 'https:'].includes(parsed.protocol)) return false
     const hostname = parsed.hostname.toLowerCase()
-    // Block all non-public hostnames
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
-      return false // never allow, even in dev
-    }
-    if (hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.startsWith('172.')) return false
-    if (hostname.startsWith('172.')) {
-      // Check 172.16-31 range
-      const second = parseInt(hostname.split('.')[1])
-      if (second >= 16 && second <= 31) return false
-    }
-    if (hostname === '0.0.0.0' || hostname === '[::]') return false
+
+    // Block direct IP addresses that are private
+    if (isPrivateIP(hostname)) return false
+
     // Block metadata endpoints
     if (hostname === '169.254.169.254') return false
+
+    // Block non-routable addresses
+    if (hostname === '0.0.0.0' || hostname === '[::]') return false
+
     // Block common internal hostnames
     if (hostname.endsWith('.internal') || hostname.endsWith('.local')) return false
+
+    // DNS rebinding protection: resolve and check resolved IPs
+    try {
+      const addresses = await dns.resolve4(hostname)
+      for (const addr of addresses) {
+        if (isPrivateIP(addr)) return false
+      }
+    } catch {
+      // If DNS fails, allow it (might be valid but temporarily unreachable)
+    }
+
     return true
   } catch {
     return false
@@ -130,7 +153,8 @@ keys.post('/webhooks', async (c) => {
     return c.json({ error: 'agentAddress, url, and events required' }, 400)
   }
 
-  if (!validateWebhookUrl(url)) {
+  const isValidUrl = await validateWebhookUrl(url)
+  if (!isValidUrl) {
     return c.json({ error: 'Invalid or blocked webhook URL. Only public HTTPS URLs are allowed.' }, 400)
   }
 
