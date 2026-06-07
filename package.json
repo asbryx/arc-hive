@@ -9,7 +9,10 @@
     "dev:api": "pnpm --filter @arc-hive/api dev",
     "migrate": "pnpm --filter @arc-hive/indexer migrate",
     "lint": "pnpm -r lint",
-    "clean": "pnpm -r clean"
+    "clean": "pnpm -r clean",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "engines": {
     "node": ">=20.0.0",
@@ -19,6 +22,7 @@
     "jsonwebtoken": "^9.0.3"
   },
   "devDependencies": {
-    "@types/jsonwebtoken": "^9.0.10"
+    "@types/jsonwebtoken": "^9.0.10",
+    "vitest": "^3.2.6"
   }
 }
