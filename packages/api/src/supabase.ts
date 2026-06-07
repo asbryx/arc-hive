@@ -1,14 +1,21 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY
+const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_KEY
+const supabaseAdminKey = process.env.SUPABASE_SERVICE_KEY
 
 if (!supabaseUrl || !supabaseKey) {
-  console.warn('[supabase] WARNING: SUPABASE_URL or SUPABASE_SERVICE_KEY not set — file uploads disabled')
+  console.warn('[supabase] WARNING: SUPABASE_URL or Supabase key not set — file uploads disabled')
 }
 
+// User-facing client (respects RLS; falls back to service key if anon key unavailable)
 export const supabase = supabaseUrl && supabaseKey
   ? createClient(supabaseUrl, supabaseKey)
+  : null
+
+// Admin client for uploads/cleanup (bypasses RLS)
+export const supabaseAdmin = supabaseUrl && supabaseAdminKey
+  ? createClient(supabaseUrl, supabaseAdminKey)
   : null
 
 const BUCKET = 'deliverables'
@@ -38,12 +45,12 @@ export async function uploadFile(
   fileBuffer: ArrayBuffer,
   mimeType: string
 ): Promise<{ path: string; error?: string }> {
-  if (!supabase) return { path: '', error: 'Supabase not configured' }
+  if (!supabaseAdmin) return { path: '', error: 'Supabase not configured' }
 
   const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_')
   const path = `${jobId}/${version}/${safeFilename}`
 
-  const { error } = await supabase.storage
+  const { error } = await supabaseAdmin.storage
     .from(BUCKET)
     .upload(path, fileBuffer, {
       contentType: mimeType,
@@ -83,9 +90,9 @@ export async function getFileAsText(storagePath: string): Promise<string | null>
 
 // Delete file from Supabase Storage
 export async function deleteFile(storagePath: string): Promise<boolean> {
-  if (!supabase) return false
+  if (!supabaseAdmin) return false
 
-  const { error } = await supabase.storage
+  const { error } = await supabaseAdmin.storage
     .from(BUCKET)
     .remove([storagePath])
 
@@ -94,9 +101,9 @@ export async function deleteFile(storagePath: string): Promise<boolean> {
 
 // Delete multiple files
 export async function deleteFiles(storagePaths: string[]): Promise<boolean> {
-  if (!supabase || storagePaths.length === 0) return false
+  if (!supabaseAdmin || storagePaths.length === 0) return false
 
-  const { error } = await supabase.storage
+  const { error } = await supabaseAdmin.storage
     .from(BUCKET)
     .remove(storagePaths)
 

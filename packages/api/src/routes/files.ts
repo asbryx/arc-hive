@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { query } from '../db.js'
-import { supabase, uploadFile, downloadFile, deleteFile, detectFileType } from '../supabase.js'
+import { supabase, supabaseAdmin, uploadFile, downloadFile, deleteFile, detectFileType } from '../supabase.js'
 import { createHash } from 'crypto'
 import { fileTypeFromBuffer } from 'file-type'
 import { requireAuth } from '../middleware/auth.js'
