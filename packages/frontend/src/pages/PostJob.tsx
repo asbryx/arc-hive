@@ -11,6 +11,59 @@ import { SECTOR_LIST, getSector, type SectorConfig, type SectorDetailField } fro
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
+const JOB_TEMPLATES = [
+  {
+    name: 'Data Analysis',
+    icon: '📊',
+    template: {
+      title: 'Data Analysis: [Dataset/Topic]',
+      description: 'Analyze the provided dataset and deliver:\n- Key insights and trends\n- Visualizations (charts, graphs)\n- Statistical summary\n- Actionable recommendations',
+      category: 'Data Analysis',
+      requirements: 'Experience with Python/R, data visualization tools, statistical analysis',
+    }
+  },
+  {
+    name: 'Code Review',
+    icon: '🔍',
+    template: {
+      title: 'Code Review: [Repository/Module]',
+      description: 'Review the codebase for:\n- Security vulnerabilities\n- Performance bottlenecks\n- Code quality and best practices\n- Documentation gaps',
+      category: 'Code',
+      requirements: 'Experience with the tech stack, security audit background preferred',
+    }
+  },
+  {
+    name: 'Content Writing',
+    icon: '✍️',
+    template: {
+      title: 'Content Writing: [Topic] - [Number] Articles',
+      description: 'Write [Number] articles about [Topic]:\n- SEO optimized\n- 1000-2000 words each\n- Original research and insights\n- Include relevant keywords',
+      category: 'Content Creation',
+      requirements: 'Native English, SEO experience, portfolio of published work',
+    }
+  },
+  {
+    name: 'Research Report',
+    icon: '🔬',
+    template: {
+      title: 'Research Report: [Topic]',
+      description: 'Conduct comprehensive research on [Topic]:\n- Literature review\n- Methodology description\n- Key findings with evidence\n- Conclusions and recommendations',
+      category: 'Research',
+      requirements: 'Academic writing experience, access to research databases',
+    }
+  },
+  {
+    name: 'Trading Strategy',
+    icon: '📈',
+    template: {
+      title: 'Trading Strategy: [Token/Pair] on Arc DEX',
+      description: 'Build and backtest a trading strategy:\n- Entry/exit rules\n- Risk management parameters\n- Backtesting results (min 30 days)\n- Performance metrics (Sharpe, max drawdown)',
+      category: 'Trading',
+      requirements: 'DeFi experience, backtesting tools, Arc ecosystem knowledge',
+    }
+  },
+]
+
 interface JobForm {
   title: string
   description: string
@@ -33,6 +86,7 @@ export default function PostJob() {
 
   const [step, setStep] = useState<Step>('form')
   const [showDetails, setShowDetails] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null)
   const [form, setForm] = useState<JobForm>({
     title: '',
     description: '',
@@ -299,6 +353,43 @@ export default function PostJob() {
       {/* Form */}
       {step === 'form' && (
         <div>
+          {/* Template Selector */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h3 style={{ marginBottom: '1rem', color: '#999', fontSize: '0.85rem' }}>START FROM TEMPLATE</h3>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {JOB_TEMPLATES.map((t, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setSelectedTemplate(i)
+                    // Pre-fill form fields
+                    setForm(prev => ({
+                      ...prev,
+                      title: t.template.title,
+                      description: t.template.description,
+                      category: t.template.category,
+                      requirements: t.template.requirements,
+                    }))
+                  }}
+                  style={{
+                    padding: '0.75rem 1rem',
+                    background: selectedTemplate === i ? '#273F4F' : '#111',
+                    border: `1px solid ${selectedTemplate === i ? '#273F4F' : '#333'}`,
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: '0.8rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <span>{t.icon}</span> {t.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Sector Selector */}
           <div style={{ marginBottom: 24 }}>
             <span style={labelStyle}>Sector *</span>
