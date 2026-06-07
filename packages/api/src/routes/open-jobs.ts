@@ -1322,6 +1322,94 @@ openJobs.get('/:id/ratings', async (c) => {
   })) })
 })
 
+// ─── Admin Override & Appeals ─────────────────────────────────────────────────
+
+// POST /api/open-jobs/:id/override-evaluation (service auth required)
+openJobs.post('/:id/override-evaluation', requireAuth, async (c) => {
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
+  const id = c.req.param('id')
+  const { decision, reason } = await c.req.json()
+
+  if (!['approved', 'rejected'].includes(decision)) {
+    return c.json({ error: 'Decision must be approved or rejected' }, 400)
+  }
+  if (!reason || reason.length < 10) {
+    return c.json({ error: 'Reason required (min 10 chars)' }, 400)
+  }
+
+  // Only service/admin can override
+  const serviceKey = c.req.header('x-service-key')
+  if (serviceKey !== process.env.SERVICE_API_KEY) {
+    return c.json({ error: 'Admin access required' }, 403)
+  }
+
+  // Update evaluation
+  await query(
+    `UPDATE evaluations SET decision = $2, reasoning = $3, status = 'overridden' WHERE open_job_id = $1`,
+    [id, decision, `[OVERRIDE by ${authWallet}] ${reason}`]
+  )
+
+  // Update job status
+  await query(
+    `UPDATE open_jobs SET status = $2 WHERE id = $1`,
+    [id, decision === 'approved' ? 'completed' : 'rejected']
+  )
+
+  return c.json({ message: `Evaluation overridden: ${decision}` })
+})
+
+// POST /api/open-jobs/:id/appeal (agent submits appeal)
+openJobs.post('/:id/appeal', requireAuth, async (c) => {
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
+  const id = c.req.param('id')
+  const { reason } = await c.req.json()
+
+  if (!reason || reason.length < 20) {
+    return c.json({ error: 'Appeal reason must be at least 20 characters' }, 400)
+  }
+
+  // Verify the user is the agent (provider) for this job
+  const job = await query(`SELECT selected_applicant FROM open_jobs WHERE id = $1`, [id])
+  if (!job.rows.length || job.rows[0].selected_applicant?.toLowerCase() !== authWallet) {
+    return c.json({ error: 'Only the assigned agent can appeal' }, 403)
+  }
+
+  // Check for existing appeal
+  const existing = await query(`SELECT id FROM evaluation_appeals WHERE open_job_id = $1 AND status = 'pending'`, [id])
+  if (existing.rows.length) {
+    return c.json({ error: 'An appeal is already pending' }, 409)
+  }
+
+  // Get evaluation ID
+  const evalResult = await query(`SELECT id FROM evaluations WHERE open_job_id = $1`, [id])
+
+  await query(
+    `INSERT INTO evaluation_appeals (evaluation_id, open_job_id, agent_address, reason) VALUES ($1, $2, $3, $4)`,
+    [evalResult.rows[0]?.id || null, id, authWallet, reason]
+  )
+
+  return c.json({ message: 'Appeal submitted' }, 201)
+})
+
+// GET /api/open-jobs/appeals/pending (admin)
+openJobs.get('/appeals/pending', async (c) => {
+  const serviceKey = c.req.header('x-service-key')
+  if (serviceKey !== process.env.SERVICE_API_KEY) {
+    return c.json({ error: 'Admin access required' }, 403)
+  }
+
+  const result = await query(
+    `SELECT a.*, e.score, e.decision, e.reasoning, j.title as job_title
+     FROM evaluation_appeals a
+     LEFT JOIN evaluations e ON a.evaluation_id = e.id
+     LEFT JOIN open_jobs j ON a.open_job_id = j.id
+     WHERE a.status = 'pending'
+     ORDER BY a.created_at ASC`
+  )
+
+  return c.json({ data: result.rows })
+})
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatOpenJob(row: any) {

@@ -27,6 +27,15 @@ export default function JobDetail() {
   const [showDeliverForm, setShowDeliverForm] = useState(false)
   const [deliverForm, setDeliverForm] = useState({ content: '', link: '', notes: '' })
 
+  // Admin override state
+  const [adminServiceKey, setAdminServiceKey] = useState<string>('')
+  const [overrideReason, setOverrideReason] = useState('')
+  const [showAdminOverride, setShowAdminOverride] = useState(false)
+
+  // Appeal state (for provider)
+  const [appealReason, setAppealReason] = useState('')
+  const [showAppealForm, setShowAppealForm] = useState(false)
+
   if (isLoading || !job) {
     return (
       <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 900, margin: '0 auto' }}>
@@ -119,6 +128,56 @@ export default function JobDetail() {
       refetch()
     } catch (err: any) {
       setActionError(err.shortMessage || err.message || 'Failed to submit')
+    }
+    setActionLoading(null)
+  }
+
+  async function handleOverride(decision: 'approved' | 'rejected') {
+    if (!id || !adminServiceKey || !overrideReason) return
+    setActionLoading(`override-${decision}`)
+    setActionError(null)
+    try {
+      const res = await authFetch(`/open-jobs/${id}/override-evaluation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-service-key': adminServiceKey,
+        },
+        body: JSON.stringify({ decision, reason: overrideReason }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Override failed')
+      }
+      setActionSuccess(`Evaluation overridden: ${decision}`)
+      setShowAdminOverride(false)
+      setOverrideReason('')
+      refetch()
+    } catch (err: any) {
+      setActionError(err.message || 'Override failed')
+    }
+    setActionLoading(null)
+  }
+
+  async function handleAppeal() {
+    if (!id || !address || !appealReason) return
+    setActionLoading('appeal')
+    setActionError(null)
+    try {
+      const res = await authFetch(`/open-jobs/${id}/appeal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: appealReason }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Appeal failed')
+      }
+      setActionSuccess('Appeal submitted successfully.')
+      setShowAppealForm(false)
+      setAppealReason('')
+    } catch (err: any) {
+      setActionError(err.message || 'Appeal failed')
     }
     setActionLoading(null)
   }
@@ -252,6 +311,151 @@ export default function JobDetail() {
           </section>
         )
       })()}
+
+      {/* ═══ ADMIN OVERRIDE ═══ */}
+      {(job as any).evaluation && (
+        <section style={{ marginBottom: 32, padding: '16px 20px', border: '1px dashed #333' }}>
+          {!showAdminOverride ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2 }}>
+                // admin override
+              </div>
+              <button
+                onClick={() => setShowAdminOverride(true)}
+                style={{ padding: '0.4rem 0.8rem', fontSize: 11, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--dimmer)', cursor: 'pointer' }}
+              >
+                Override Evaluation
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>
+                // admin override
+              </div>
+              <label style={{ display: 'block', marginBottom: 10 }}>
+                <span style={{ fontSize: 11, color: 'var(--dim)' }}>Service API Key</span>
+                <input
+                  type="password"
+                  value={adminServiceKey}
+                  onChange={(e) => setAdminServiceKey(e.target.value)}
+                  placeholder="Enter service API key"
+                  style={{
+                    display: 'block', width: '100%', marginTop: 4, padding: 8,
+                    background: 'var(--bg)', border: '1px solid var(--dimmer)', color: 'var(--text)',
+                    fontFamily: 'var(--font)', fontSize: 12,
+                  }}
+                />
+              </label>
+              <label style={{ display: 'block', marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--dim)' }}>Override Reason (min 10 chars)</span>
+                <textarea
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  placeholder="Explain why you are overriding the evaluation..."
+                  style={{
+                    display: 'block', width: '100%', marginTop: 4, padding: 10,
+                    background: 'var(--bg)', border: '1px solid var(--dimmer)', color: 'var(--text)',
+                    fontFamily: 'var(--font)', fontSize: 12, minHeight: 60, resize: 'vertical',
+                  }}
+                />
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={() => handleOverride('approved')}
+                  disabled={!adminServiceKey || overrideReason.length < 10 || actionLoading !== null}
+                  style={{
+                    padding: '0.5rem 1rem', background: '#22c55e', color: 'white', border: 'none',
+                    cursor: 'pointer', fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 700,
+                    opacity: (!adminServiceKey || overrideReason.length < 10) ? 0.4 : 1,
+                  }}
+                >
+                  ✓ Approve
+                </button>
+                <button
+                  onClick={() => handleOverride('rejected')}
+                  disabled={!adminServiceKey || overrideReason.length < 10 || actionLoading !== null}
+                  style={{
+                    padding: '0.5rem 1rem', background: '#ef4444', color: 'white', border: 'none',
+                    cursor: 'pointer', fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 700,
+                    opacity: (!adminServiceKey || overrideReason.length < 10) ? 0.4 : 1,
+                  }}
+                >
+                  ✗ Reject
+                </button>
+                <button
+                  onClick={() => { setShowAdminOverride(false); setOverrideReason(''); }}
+                  style={{
+                    padding: '0.5rem 1rem', background: 'transparent', color: 'var(--dim)',
+                    border: '1px solid var(--dimmer)', cursor: 'pointer', fontSize: 12,
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ═══ APPEAL FORM (for provider on rejected evaluations) ═══ */}
+      {isProvider && (job as any).evaluation && ((job as any).evaluation.decision === 'reject' || (job as any).evaluation.decision === 'revision') && (
+        <section style={{ marginBottom: 32, padding: '16px 20px', border: '1px solid #cc8800' }}>
+          {!showAppealForm ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2 }}>
+                // appeal evaluation
+              </div>
+              <button
+                onClick={() => setShowAppealForm(true)}
+                style={{ padding: '0.4rem 0.8rem', fontSize: 11, background: '#cc8800', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+              >
+                Submit Appeal
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>
+                // appeal evaluation
+              </div>
+              <label style={{ display: 'block', marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--dim)' }}>Appeal Reason (min 20 characters)</span>
+                <textarea
+                  value={appealReason}
+                  onChange={(e) => setAppealReason(e.target.value)}
+                  placeholder="Explain why you believe the evaluation should be reconsidered..."
+                  style={{
+                    display: 'block', width: '100%', marginTop: 4, padding: 10,
+                    background: 'var(--bg)', border: '1px solid var(--dimmer)', color: 'var(--text)',
+                    fontFamily: 'var(--font)', fontSize: 12, minHeight: 80, resize: 'vertical',
+                  }}
+                />
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={handleAppeal}
+                  disabled={appealReason.length < 20 || actionLoading !== null}
+                  style={{
+                    padding: '0.5rem 1rem', background: '#cc8800', color: 'white', border: 'none',
+                    cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                    opacity: appealReason.length < 20 ? 0.4 : 1,
+                  }}
+                >
+                  {actionLoading === 'appeal' ? 'Submitting...' : 'Submit Appeal'}
+                </button>
+                <button
+                  onClick={() => { setShowAppealForm(false); setAppealReason(''); }}
+                  style={{
+                    padding: '0.5rem 1rem', background: 'transparent', color: 'var(--dim)',
+                    border: '1px solid var(--dimmer)', cursor: 'pointer', fontSize: 12,
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ═══ ACTION BUTTONS ═══ */}
       {/* Provider: Submit deliverable (when job is Funded) */}
