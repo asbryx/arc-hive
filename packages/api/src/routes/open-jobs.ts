@@ -4,6 +4,11 @@ import { createWalletClient, createPublicClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { requireAuth } from '../middleware/auth.js'
 
+function requireServiceAuth(c: any): boolean {
+  const serviceKey = c.req.header('x-service-key')
+  return serviceKey === process.env.SERVICE_API_KEY
+}
+
 const PROVIDER_KEY = process.env.PROVIDER_PRIVATE_KEY!
 if (!PROVIDER_KEY) throw new Error('PROVIDER_PRIVATE_KEY env var required')
 const ARC_RPC = 'https://rpc.testnet.arc.network'
@@ -367,6 +372,9 @@ openJobs.post('/notifications/read', requireAuth, async (c) => {
 
 // POST /api/open-jobs/expire-check — auto-expire unfunded assigned jobs past deadline (auth required)
 openJobs.post('/expire-check', requireAuth, async (c) => {
+  if (!requireServiceAuth(c)) {
+    return c.json({ error: 'Service authentication required' }, 403)
+  }
   const result = await query(
     `UPDATE open_jobs SET status = 'expired', updated_at = NOW()
      WHERE status = 'assigned'
@@ -609,6 +617,9 @@ openJobs.post('/:id/select', requireAuth, async (c) => {
 
 // POST /api/open-jobs/:id/set-budget — provider wallet calls setBudget on-chain
 openJobs.post('/:id/set-budget', requireAuth, async (c) => {
+  if (!requireServiceAuth(c)) {
+    return c.json({ error: 'Service authentication required for on-chain transactions' }, 403)
+  }
   const id = c.req.param('id')
   const body = await c.req.json()
   const { budget, clientAddress, onchainJobId } = body
