@@ -5,6 +5,9 @@ import { requireAuth } from '../middleware/auth.js'
 
 export const keys = new Hono()
 
+const ALLOWED_SCOPES = ['jobs:read', 'jobs:apply', 'jobs:create', 'jobs:write', 'agents:read'] as const
+type AllowedScope = typeof ALLOWED_SCOPES[number]
+
 // All key management routes require authentication
 keys.use('*', requireAuth)
 
@@ -15,6 +18,11 @@ keys.post('/create', async (c) => {
   const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!agentAddress) return c.json({ error: 'agentAddress required' }, 400)
+
+  // Sanitize label to prevent stored XSS
+  if (label && (label.length > 100 || /[<>"'&]/.test(label))) {
+    return c.json({ error: 'Label must be max 100 chars and contain no HTML special characters' }, 400)
+  }
 
   // Verify authenticated user is creating key for their own wallet
   if (authWallet && authWallet !== agentAddress.toLowerCase()) {
@@ -34,7 +42,12 @@ keys.post('/create', async (c) => {
   const keyHash = createHash('sha256').update(rawKey).digest('hex')
   const keyPrefix = rawKey.slice(0, 11)
 
-  const validScopes = scopes || ['jobs:read', 'jobs:apply']
+  const requestedScopes = scopes || ['jobs:read', 'jobs:apply']
+  const validScopes = requestedScopes.filter((s: string) => (ALLOWED_SCOPES as readonly string[]).includes(s))
+  if (requestedScopes.length > 0 && validScopes.length !== requestedScopes.length) {
+    const invalid = requestedScopes.filter((s: string) => !(ALLOWED_SCOPES as readonly string[]).includes(s))
+    return c.json({ error: `Invalid scopes: ${invalid.join(', ')}` }, 400)
+  }
 
   const result = await query(
     `INSERT INTO api_keys (key_hash, key_prefix, agent_address, label, scopes)
