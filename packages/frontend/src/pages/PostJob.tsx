@@ -2,10 +2,11 @@ import { authFetch } from '@/api/client'
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAccount, useWriteContract } from 'wagmi'
+import { waitForTransactionReceipt } from '@wagmi/core'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { zeroAddress } from 'viem'
 import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI } from '@/lib/contracts'
-import { arcTestnet } from '@/lib/wagmi'
+import { arcTestnet, config } from '@/lib/wagmi'
 import { SECTOR_LIST, getSector, type SectorConfig, type SectorDetailField } from '@/lib/sectors'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
@@ -103,14 +104,20 @@ export default function PostJob() {
         chain: arcTestnet,
       })
 
-      const receipt = await waitForTx(createHash)
+      const receipt = await waitForTransactionReceipt(config, { hash: createHash })
 
       const jobCreatedLog = receipt.logs?.find(
         (log: any) => log.topics?.[0] === '0xb0f0239bfdd96453e24733e18bfc24b70d8fadf123dd977473518dd577ee79b9'
       )
-      const newJobId = jobCreatedLog
-        ? BigInt(jobCreatedLog.topics[1])
-        : null
+
+      if (!jobCreatedLog || !jobCreatedLog.topics?.[1]) {
+        console.error('[PostJob] JobCreated event not found in receipt', receipt)
+        throw new Error(
+          'JobCreated event not found in transaction receipt. The on-chain job was created but could not be linked. Please contact support with tx hash: ' + createHash
+        )
+      }
+
+      const newJobId = BigInt(jobCreatedLog.topics[1])
       setJobId(newJobId)
 
       // Build sector_config from filled details only
@@ -133,31 +140,37 @@ export default function PostJob() {
         }
       }
 
-      const res = await authFetch(`/open-jobs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobId: newJobId?.toString(),
-          title: form.title,
-          description: form.description,
-          category: form.category,
-          requirements: form.requirements || null,
-          budgetMin: form.budgetMin || null,
-          budgetMax: form.budgetMax || null,
-          deadlineHours: form.deadlineHours,
-          clientAddress: address,
-          onChainTx: createHash,
-          sectorConfig: Object.keys(sectorConfig).length > 0 ? sectorConfig : null,
-        }),
-      })
+      try {
+        const res = await authFetch(`/open-jobs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobId: newJobId.toString(),
+            title: form.title,
+            description: form.description,
+            category: form.category,
+            requirements: form.requirements || null,
+            budgetMin: form.budgetMin || null,
+            budgetMax: form.budgetMax || null,
+            deadlineHours: form.deadlineHours,
+            clientAddress: address,
+            onChainTx: createHash,
+            sectorConfig: Object.keys(sectorConfig).length > 0 ? sectorConfig : null,
+          }),
+        })
 
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to save job details')
+        if (!res.ok) {
+          console.error('[PostJob] API call failed after on-chain creation', res.status)
+          // Still show success since on-chain job exists
+        } else {
+          const { id } = await res.json()
+          setOpenJobId(id)
+        }
+      } catch (apiErr) {
+        console.error('[PostJob] API call error after on-chain creation:', apiErr)
+        // Still show success since on-chain job exists
       }
 
-      const { id } = await res.json()
-      setOpenJobId(id)
       setStep('done')
     } catch (err: any) {
       setError(err.shortMessage || err.message || 'Failed to post job')
@@ -631,17 +644,4 @@ export default function PostJob() {
   )
 }
 
-async function waitForTx(hash: `0x${string}`): Promise<any> {
-  const maxAttempts = 30
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, 1000))
-    const res = await fetch('https://rpc.testnet.arc.network', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionReceipt', params: [hash] })
-    })
-    const data = await res.json()
-    if (data.result) return data.result
-  }
-  throw new Error('Transaction not confirmed after 30s')
-}
+
