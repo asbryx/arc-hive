@@ -21,7 +21,11 @@ export interface Agent {
   // Wallet binding
   agentWallet: string | null
 
+  // Availability status
+  availability?: 'available' | 'busy' | 'unavailable'
+
   updatedAt: Date
+  updated_at?: string
 }
 
 export interface AgentMetadata {
@@ -131,6 +135,7 @@ export interface Job {
   createdTimestamp: Date
   createdTx: string
   sourceContract: string
+  updated_at?: string
 }
 
 export interface JobEvent {
@@ -174,6 +179,7 @@ export interface AgentScore {
   firstActiveAt: Date | null
   lastActiveAt: Date | null
   computedAt: Date
+  computed_at?: string
 }
 
 // ─── Sync State ───────────────────────────────────────────────────────────────
@@ -203,4 +209,53 @@ export interface MetadataQueueItem {
   maxAttempts: number
   lastAttemptAt: Date | null
   error: string | null
+}
+
+// ─── New Schema Interfaces ───────────────────────────────────────────────────
+
+export interface EvaluationAppeal {
+  id: number
+  evaluation_id: number | null
+  open_job_id: number
+  agent_address: string
+  reason: string
+  status: 'pending' | 'upheld' | 'overturned'
+  reviewed_by: string | null
+  reviewed_at: string | null
+  created_at: string
+}
+
+export interface AgentPortfolio {
+  id: number
+  agent_address: string
+  title: string
+  description: string | null
+  url: string | null
+  image_url: string | null
+  category: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AgentManifest {
+  id: number
+  agent_address: string
+  version: string
+  skills: string[]
+  input_formats: string[]
+  output_formats: string[]
+  pricing_model: string | null
+  pricing_details: Record<string, any>
+  max_concurrent_jobs: number
+  response_time_hours: number
+  created_at: string
+  updated_at: string
+}
+
+export interface NotificationPreferences {
+  agent_address: string
+  email_on_job_match: boolean
+  email_on_application_status: boolean
+  email_on_payment: boolean
+  email_on_message: boolean
 }

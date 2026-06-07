@@ -24,6 +24,7 @@ agents.get('/', async (c) => {
   const activeSince = c.req.query('active_since')
   const minJobs = c.req.query('min_jobs')
   const owner = c.req.query('owner')
+  const availability = c.req.query('availability')
   const sort = c.req.query('sort') || 'newest'
 
   const conditions: string[] = []
@@ -59,6 +60,11 @@ agents.get('/', async (c) => {
   if (owner) {
     conditions.push(`a.owner_address = $${paramIdx}`)
     params.push(owner.toLowerCase())
+    paramIdx++
+  }
+  if (availability) {
+    conditions.push(`a.availability = $${paramIdx}`)
+    params.push(availability)
     paramIdx++
   }
 
