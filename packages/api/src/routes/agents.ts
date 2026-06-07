@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { query, queryAgents } from '../db.js'
+import { requireAuth } from '../middleware/auth.js'
 
 export const agents = new Hono()
 
@@ -346,6 +347,42 @@ agents.get('/:id/validations', async (c) => {
       respondedAt: r.responded_at,
     })),
   })
+})
+
+// GET /api/agents/:id/portfolio
+agents.get('/:id/portfolio', async (c) => {
+  const id = c.req.param('id')
+  const isAddress = id.startsWith('0x')
+
+  const result = await query(
+    `SELECT * FROM agent_portfolio WHERE ${isAddress ? 'LOWER(agent_address) = LOWER($1)' : 'agent_address = (SELECT owner_address FROM agents WHERE agent_id = $1)'} ORDER BY created_at DESC`,
+    [id]
+  )
+  return c.json({ data: result.rows })
+})
+
+// POST /api/agents/:id/portfolio (requireAuth)
+agents.post('/:id/portfolio', requireAuth, async (c) => {
+  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { title, description, url, image_url, category } = body
+
+  if (!title) return c.json({ error: 'Title required' }, 400)
+  if (title.length > 200) return c.json({ error: 'Title too long' }, 400)
+
+  // Verify ownership
+  const agent = await query(`SELECT owner_address FROM agents WHERE agent_id = $1`, [id])
+  if (!agent.rows.length || agent.rows[0].owner_address?.toLowerCase() !== authWallet) {
+    return c.json({ error: 'Not your agent' }, 403)
+  }
+
+  const result = await query(
+    `INSERT INTO agent_portfolio (agent_address, title, description, url, image_url, category)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [agent.rows[0].owner_address, title, description || null, url || null, image_url || null, category || null]
+  )
+  return c.json({ data: result.rows[0] }, 201)
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

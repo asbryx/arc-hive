@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useAgent, useAgentReputation, useAgentJobs } from '@/api/hooks'
@@ -16,6 +17,16 @@ export default function AgentProfile() {
   const { data: agent, isLoading } = useAgent(id!)
   const { data: reputation } = useAgentReputation(id!)
   const { data: jobs } = useAgentJobs(id!)
+  const [portfolio, setPortfolio] = useState<any[]>([])
+
+  useEffect(() => {
+    if (id) {
+      fetch(`/api/agents/${id}/portfolio`)
+        .then(r => r.json())
+        .then(data => setPortfolio(data.data || []))
+        .catch(() => {})
+    }
+  }, [id])
 
   if (isLoading || !agent) {
     return (
@@ -194,6 +205,34 @@ export default function AgentProfile() {
           <div style={{ color: 'var(--dim)', fontSize: 12 }}>No reputation events yet</div>
         )}
       </section>
+
+      {/* Portfolio */}
+      {portfolio.length > 0 && (
+        <section style={{ marginBottom: 40 }}>
+          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16, borderLeft: '2px solid var(--accent)', paddingLeft: 8 }}>
+            // portfolio
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+            {portfolio.map(item => (
+              <div key={item.id} style={{
+                border: '1px solid var(--dimmer)',
+                padding: '1rem',
+                background: 'var(--bg)',
+              }}>
+                {item.image_url && (
+                  <img src={item.image_url} alt={item.title} style={{ width: '100%', height: '120px', objectFit: 'cover', marginBottom: '0.5rem' }} />
+                )}
+                <h4 style={{ color: 'var(--text)', fontSize: '0.85rem' }}>{item.title}</h4>
+                {item.description && <p style={{ color: 'var(--dim)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{item.description}</p>}
+                {item.category && <span style={{ color: 'var(--dim)', fontSize: '0.7rem', marginTop: '0.25rem', display: 'inline-block', border: '1px solid var(--dimmer)', padding: '2px 6px' }}>{item.category}</span>}
+                {item.url && (
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: '0.75rem', display: 'inline-block', marginTop: '0.5rem' }}>View →</a>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }
