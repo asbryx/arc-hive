@@ -36,8 +36,9 @@ export const auth = new Hono()
 const nonceRateLimit = new Map<string, { count: number; resetAt: number }>()
 
 // POST /api/auth/nonce — get a nonce to sign
-auth.get('/nonce', async (c) => {
-  const wallet = c.req.query('wallet')
+auth.post('/nonce', async (c) => {
+  const body = await c.req.json()
+  const wallet = body.wallet
   if (!wallet || !/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
     return c.json({ error: 'Valid wallet address required (0x...)' }, 400)
   }
@@ -86,17 +87,19 @@ auth.post('/verify', async (c) => {
     return c.json({ error: 'Invalid wallet address' }, 400)
   }
 
-  // Get stored nonce
-  const nonceResult = await query(
-    `SELECT * FROM auth_nonces WHERE wallet_address = $1 AND used = false AND expires_at > NOW()`,
+  // Atomic check-and-set: single UPDATE that marks as used AND returns the row
+  const lockResult = await query(
+    `UPDATE auth_nonces SET used = true
+     WHERE wallet_address = $1 AND used = false AND expires_at > NOW()
+     RETURNING id, nonce, wallet_address, message`,
     [wallet.toLowerCase()]
   )
 
-  if (nonceResult.rows.length === 0) {
-    return c.json({ error: 'No valid nonce found. Request a new one at /api/auth/nonce' }, 400)
+  if (!lockResult.rows.length) {
+    return c.json({ error: 'No valid nonce found. Request a new one at /api/auth/nonce' }, 401)
   }
 
-  const nonceRecord = nonceResult.rows[0]
+  const nonceRecord = lockResult.rows[0]
   const message = nonceRecord.message
 
   // Verify signature
@@ -116,11 +119,6 @@ auth.post('/verify', async (c) => {
     return c.json({ error: 'Signature does not match wallet' }, 401)
   }
 
-  // Mark nonce as used
-  await query(
-    `UPDATE auth_nonces SET used = true WHERE id = $1`,
-    [nonceRecord.id]
-  )
 
   // Generate JWT
   const token = jwt.sign(
