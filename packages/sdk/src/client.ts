@@ -1,5 +1,5 @@
 /**
- * @module @archive/agent
+ * @module @archivee/agent
  * HTTP client with retry logic and auth token management
  */
 

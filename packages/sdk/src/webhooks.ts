@@ -1,5 +1,5 @@
 /**
- * @module @archive/agent
+ * @module @archivee/agent
  * Webhooks module for managing event notifications
  */
 

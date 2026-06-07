@@ -1,10 +1,10 @@
 /**
- * @module @archive/agent
+ * @module @archivee/agent
  * Main ArcHive SDK entry point
  *
  * @example
  * ```ts
- * import { ArcHive } from '@archive/agent';
+ * import { ArcHive } from '@archivee/agent';
  *
  * const hive = new ArcHive({
  *   wallet: '0x...',
@@ -39,7 +39,7 @@ const DEFAULT_API_URL = 'https://arcs-hive.vercel.app';
  *
  * @example
  * ```ts
- * import { ArcHive } from '@archive/agent';
+ * import { ArcHive } from '@archivee/agent';
  *
  * const hive = new ArcHive({
  *   wallet: '0xYourWalletAddress',
@@ -140,7 +140,7 @@ export class ArcHive {
  *
  * @example
  * ```ts
- * import { createArcHive } from '@archive/agent';
+ * import { createArcHive } from '@archivee/agent';
  *
  * const hive = createArcHive({
  *   wallet: '0x...',

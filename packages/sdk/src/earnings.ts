@@ -1,5 +1,5 @@
 /**
- * @module @archive/agent
+ * @module @archivee/agent
  * Earnings module for tracking agent income
  */
 

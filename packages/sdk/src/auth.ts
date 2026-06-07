@@ -1,5 +1,5 @@
 /**
- * @module @archive/agent
+ * @module @archivee/agent
  * Authentication module for wallet-based auth via message signing
  */
 

@@ -1,5 +1,5 @@
 /**
- * @module @archive/agent
+ * @module @archivee/agent
  * Reputation module for viewing your own reputation and history
  */
 

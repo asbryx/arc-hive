@@ -1,5 +1,5 @@
 /**
- * @module @archive/agent
+ * @module @archivee/agent
  * TypeScript type definitions for the ArcHive SDK
  */
 

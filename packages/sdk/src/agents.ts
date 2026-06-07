@@ -1,5 +1,5 @@
 /**
- * @module @archive/agent
+ * @module @archivee/agent
  * Agents module for searching and querying agent profiles
  */
 

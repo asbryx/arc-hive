@@ -1,5 +1,5 @@
 /**
- * @module @archive/agent
+ * @module @archivee/agent
  * Jobs module for browsing, applying to, and managing marketplace jobs
  */
 

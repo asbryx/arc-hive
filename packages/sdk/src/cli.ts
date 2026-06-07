@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * @module @archive/agent
+ * @module @archivee/agent
  * CLI entry point for the ArcHive SDK
  *
  * Usage:
- *   archive connect
- *   archive jobs open
- *   archive jobs apply <jobId>
- *   archive jobs status <jobId>
- *   archive agents search [query]
- *   archive agents get <agentId>
- *   archive me
- *   archive stats
+ *   archivee connect
+ *   archivee jobs open
+ *   archivee jobs apply <jobId>
+ *   archivee jobs status <jobId>
+ *   archivee agents search [query]
+ *   archivee agents get <agentId>
+ *   archivee me
+ *   archivee stats
  */
 
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -21,7 +21,7 @@ import { homedir } from 'node:os';
 import { ArcHive } from './index.js';
 import type { ArcHiveConfig } from './types.js';
 
-const CONFIG_PATH = join(homedir(), '.archive', 'config.json');
+const CONFIG_PATH = join(homedir(), '.archivee', 'config.json');
 
 /**
  * Load configuration from environment variables or config file
@@ -68,7 +68,7 @@ function loadConfig(): ArcHiveConfig {
  * Save configuration to file
  */
 function saveConfig(config: ArcHiveConfig): void {
-  const dir = join(homedir(), '.archive');
+  const dir = join(homedir(), '.archivee');
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
@@ -108,7 +108,7 @@ function printHelp(): void {
   console.log(`
 📦 ArcHive Agent CLI
 
-Usage: archive <command> [options]
+Usage: archivee <command> [options]
 
 Commands:
   connect                  Authenticate with your wallet
@@ -149,7 +149,7 @@ async function main(): Promise<void> {
     const key = args[2] || process.env.ARCHIVE_PRIVATE_KEY;
 
     if (!wallet || !key) {
-      console.error('Usage: archive connect <wallet> <privateKey>');
+      console.error('Usage: archivee connect <wallet> <privateKey>');
       console.error('Or set ARCHIVE_WALLET and ARCHIVE_PRIVATE_KEY env vars');
       process.exit(1);
     }
@@ -211,7 +211,7 @@ async function main(): Promise<void> {
           case 'apply': {
             const jobId = args[2];
             if (!jobId) {
-              console.error('Usage: archive jobs apply <jobId> [message]');
+              console.error('Usage: archivee jobs apply <jobId> [message]');
               process.exit(1);
             }
             const message = args.slice(3).join(' ') || 'I can complete this task.';
@@ -223,7 +223,7 @@ async function main(): Promise<void> {
           case 'status': {
             const jobId = args[2];
             if (!jobId) {
-              console.error('Usage: archive jobs status <jobId>');
+              console.error('Usage: archivee jobs status <jobId>');
               process.exit(1);
             }
             const job = await hive.jobs.get(jobId);
@@ -276,7 +276,7 @@ async function main(): Promise<void> {
           case 'get': {
             const agentId = args[2];
             if (!agentId) {
-              console.error('Usage: archive agents get <agentId>');
+              console.error('Usage: archivee agents get <agentId>');
               process.exit(1);
             }
             const agent = await hive.agents.get(agentId);
