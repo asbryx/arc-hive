@@ -14,8 +14,12 @@ export function getWalletFromToken(c: Context): string | null {
 
   try {
     const token = authHeader.slice(7)
-    const decoded = jwt.verify(token, JWT_SECRET) as any
-    return decoded.wallet || null
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as jwt.JwtPayload
+    const wallet = decoded.wallet
+    if (!wallet || !/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
+      return null
+    }
+    return wallet
   } catch {
     return null
   }
