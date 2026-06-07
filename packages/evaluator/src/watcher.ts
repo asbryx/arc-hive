@@ -121,7 +121,16 @@ export async function pollForRefunds() {
         if (onchainExpired && (onchainStatus === 1 || onchainStatus === 5)) {
           // Funded or Expired on-chain and deadline passed — claim refund
           console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) deadline passed (expiredAt=${new Date(Number(onchainJob.expiredAt) * 1000).toISOString()}), claiming refund...`)
-          const txHash = await executeClaimRefund(BigInt(jobId))
+          const txHash = await claimRefundWithRetry(BigInt(jobId))
+          if (!txHash) {
+            const { query } = await import('./db.js')
+            await query(
+              `UPDATE open_jobs SET status = 'refund_failed', updated_at = NOW() WHERE id = $1`,
+              [openJobId]
+            )
+            console.error(`[CRITICAL] claimRefund failed after 3 attempts for job ${openJobId}. Manual intervention required.`)
+            continue
+          }
           console.log(`[deadline] Refund claimed for job ${openJobId} — tx=${txHash}`)
 
           const { query } = await import('./db.js')
@@ -159,6 +168,21 @@ export async function pollForRefunds() {
   } catch (err) {
     console.error('[deadline] Poll error:', (err as Error).message)
   }
+}
+
+async function claimRefundWithRetry(jobId: bigint, maxAttempts = 3): Promise<string | null> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const txHash = await executeClaimRefund(jobId)
+      return txHash
+    } catch (err: any) {
+      console.error(`[evaluator] claimRefund attempt ${attempt + 1}/${maxAttempts} failed for job ${jobId}:`, err.message)
+      if (attempt < maxAttempts - 1) {
+        await new Promise(r => setTimeout(r, 5000 * (attempt + 1)))
+      }
+    }
+  }
+  return null // All attempts failed
 }
 
 async function processEvaluation(job: any) {
@@ -313,9 +337,14 @@ async function processEvaluation(job: any) {
       txHash = await executeComplete(BigInt(jobId), result.reasoning)
       console.log(`[evaluator] APPROVED job ${openJobId} — tx=${txHash}`)
 
-      await updateJobAfterEvaluation(openJobId, 'completed', { completedTx: txHash })
+      // Step 3: Update DB only after both submit and complete succeed
+      await query(
+        `UPDATE open_jobs SET status = 'completed', completed_at = NOW(), completed_tx = $2 WHERE id = $1`,
+        [openJobId, txHash]
+      )
     } catch (err: any) {
       console.error(`[evaluator] On-chain error for job ${openJobId}:`, err.message)
+<<<<<<< ours
       // Release the lock so it can be retried
       try {
         await query(
@@ -326,6 +355,14 @@ async function processEvaluation(job: any) {
         console.error(`[evaluator] Failed to release lock for job ${openJobId}:`, unlockErr.message)
       }
       return // Don't store evaluation — retry next poll
+=======
+      // Release the lock so it can be retried on next poll
+      await query(
+        `UPDATE open_jobs SET status = 'funded', updated_at = NOW() WHERE id = $1 AND status = 'evaluating_locked'`,
+        [openJobId]
+      ).catch(e => console.error(`[evaluator] Lock release failed:`, e.message))
+      return
+>>>>>>> theirs
     }
 
   } else if (result.decision === 'failed' && jobId) {
