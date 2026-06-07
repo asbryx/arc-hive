@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import Nav from './components/layout/Nav'
 import BottomBar from './components/layout/BottomBar'
 import BackgroundCanvas from './components/BackgroundCanvas'
@@ -19,6 +20,7 @@ import Docs from './pages/Docs'
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <BackgroundCanvas />
       <Nav />
@@ -45,5 +47,6 @@ export default function App() {
       </main>
       <BottomBar />
     </div>
+    </ErrorBoundary>
   )
 }

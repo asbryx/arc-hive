@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { getSector } from '@/lib/sectors'
+import Skeleton from '@/components/graphics/Skeleton'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -182,7 +183,15 @@ export default function Dashboard() {
 
       {/* Job list */}
       {loading ? (
-        <div style={{ fontSize: 12, color: 'var(--dim)' }}>Loading...</div>
+        <div>
+          {[...Array(5)].map((_, i) => (
+            <div key={i} style={{ padding: '14px 12px', border: '1px solid var(--dimmer)', marginBottom: 12, borderRadius: 4 }}>
+              <Skeleton width="60%" height={14} style={{ marginBottom: 8 }} />
+              <Skeleton width="40%" height={10} style={{ marginBottom: 8 }} />
+              <Skeleton width="100%" height={10} />
+            </div>
+          ))}
+        </div>
       ) : currentList.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--dim)', fontSize: 12 }}>
           {tab === 'open' ? 'No active jobs.' : 'No completed jobs yet.'}
