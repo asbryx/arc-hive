@@ -3,15 +3,13 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { getSector } from '@/lib/sectors'
-<<<<<<< ours
 import Skeleton from '@/components/graphics/Skeleton'
-=======
 import { EmptyState } from '@/components/EmptyState'
->>>>>>> theirs
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 type Tab = 'open' | 'history'
+type DashTab = 'jobs' | 'earnings'
 
 interface WalletStats {
   posted: number
@@ -51,6 +49,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [walletStats, setWalletStats] = useState<WalletStats | null>(null)
   const [tab, setTab] = useState<Tab>('open')
+  const [dashTab, setDashTab] = useState<DashTab>('jobs')
   const [activeJobs, setActiveJobs] = useState<JobRow[]>([])
   const [historyJobs, setHistoryJobs] = useState<JobRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -157,44 +156,75 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Tabs */}
+      {/* Top-level dashboard tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--dimmer)', marginBottom: 24 }}>
         <button
-          onClick={() => setTab('open')}
+          onClick={() => setDashTab('jobs')}
           style={{
-            padding: '10px 20px', fontSize: 12, fontWeight: tab === 'open' ? 700 : 400,
+            padding: '10px 20px', fontSize: 12, fontWeight: dashTab === 'jobs' ? 700 : 400,
             background: 'transparent', border: 'none', cursor: 'pointer',
-            color: tab === 'open' ? 'var(--text)' : 'var(--dim)',
-            borderBottom: tab === 'open' ? '2px solid var(--accent)' : '2px solid transparent',
+            color: dashTab === 'jobs' ? 'var(--text)' : 'var(--dim)',
+            borderBottom: dashTab === 'jobs' ? '2px solid var(--accent)' : '2px solid transparent',
             marginBottom: -1,
           }}
         >
-          Open ({activeJobs.length})
+          JOBS
         </button>
         <button
-          onClick={() => setTab('history')}
+          onClick={() => setDashTab('earnings')}
           style={{
-            padding: '10px 20px', fontSize: 12, fontWeight: tab === 'history' ? 700 : 400,
+            padding: '10px 20px', fontSize: 12, fontWeight: dashTab === 'earnings' ? 700 : 400,
             background: 'transparent', border: 'none', cursor: 'pointer',
-            color: tab === 'history' ? 'var(--text)' : 'var(--dim)',
-            borderBottom: tab === 'history' ? '2px solid var(--accent)' : '2px solid transparent',
+            color: dashTab === 'earnings' ? 'var(--text)' : 'var(--dim)',
+            borderBottom: dashTab === 'earnings' ? '2px solid var(--accent)' : '2px solid transparent',
             marginBottom: -1,
           }}
         >
-          History ({historyJobs.length})
+          EARNINGS
         </button>
       </div>
 
-      {/* Job list */}
-      {loading ? (
+
+      {dashTab === 'earnings' ? (
+        /* ─── EARNINGS DASHBOARD ─── */
         <div>
-          {[...Array(5)].map((_, i) => (
-            <div key={i} style={{ padding: '14px 12px', border: '1px solid var(--dimmer)', marginBottom: 12, borderRadius: 4 }}>
-              <Skeleton width="60%" height={14} style={{ marginBottom: 8 }} />
-              <Skeleton width="40%" height={10} style={{ marginBottom: 8 }} />
-              <Skeleton width="100%" height={10} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+            <div style={{ border: '1px solid var(--dimmer)', padding: '1rem' }}>
+              <div style={{ color: 'var(--dim)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>TOTAL EARNED</div>
+              <div style={{ color: 'var(--accent)', fontSize: '1.5rem', fontFamily: 'var(--font)' }}>
+                ${(walletStats?.earned ? parseFloat(walletStats.earned) : 0).toLocaleString()} USDC
+              </div>
             </div>
-          ))}
+            <div style={{ border: '1px solid var(--dimmer)', padding: '1rem' }}>
+              <div style={{ color: 'var(--dim)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>TOTAL SPENT</div>
+              <div style={{ color: 'var(--text)', fontSize: '1.5rem', fontFamily: 'var(--font)' }}>
+                ${(walletStats?.spent ? parseFloat(walletStats.spent) : 0).toLocaleString()} USDC
+              </div>
+            </div>
+            <div style={{ border: '1px solid var(--dimmer)', padding: '1rem' }}>
+              <div style={{ color: 'var(--dim)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>JOBS COMPLETED</div>
+              <div style={{ color: 'var(--text)', fontSize: '1.5rem', fontFamily: 'var(--font)' }}>
+                {(walletStats?.completedAsProvider || 0).toLocaleString()}
+              </div>
+            </div>
+            <div style={{ border: '1px solid var(--dimmer)', padding: '1rem' }}>
+              <div style={{ color: 'var(--dim)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>AVG PER JOB</div>
+              <div style={{ color: 'var(--text)', fontSize: '1.5rem', fontFamily: 'var(--font)' }}>
+                ${walletStats?.completedAsProvider ? ((walletStats.earned ? parseFloat(walletStats.earned) : 0) / walletStats.completedAsProvider).toFixed(0) : '0'}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 8 }}>
+            {walletStats?.completedAsProvider
+              ? `You've completed ${walletStats.completedAsProvider} job${walletStats.completedAsProvider !== 1 ? 's' : ''} as a provider with a total volume of $${(walletStats.earned ? parseFloat(walletStats.earned) : 0).toLocaleString()} USDC.`
+              : 'No completed jobs as provider yet.'}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+            {walletStats?.completedAsClient
+              ? `As a client, you've completed ${walletStats.completedAsClient} job${walletStats.completedAsClient !== 1 ? 's' : ''} spending $${(walletStats.spent ? parseFloat(walletStats.spent) : 0).toLocaleString()} USDC.`
+              : 'No completed jobs as client yet.'}
+          </div>
+
         </div>
       ) : currentList.length === 0 ? (
         tab === 'open' ? (
@@ -207,52 +237,95 @@ export default function Dashboard() {
           <EmptyState title="No completed jobs yet" />
         )
       ) : (
+        /* ─── JOBS TAB (with inner open/history sub-tabs) ─── */
         <div>
-          {currentList.map(job => {
-            const role = job.role || (job.clientAddress?.toLowerCase() === address?.toLowerCase() ? 'client' : 'provider')
-            return (
-              <Link
-                key={`${job.id}-${job.applicationStatus || ''}`}
-                to={`/marketplace/${job.id}`}
-                style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 12 }}
-              >
-                <div style={{ padding: '14px 12px', border: '1px solid var(--dimmer)', transition: 'border-color 0.2s', borderRadius: 4 }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--dimmer)')}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>{job.title}</div>
-                      <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        {job.category && (() => {
-                          const sector = getSector(job.category)
-                          return <span>{sector?.icon ? `${sector.icon} ` : ''}{job.category}</span>
-                        })()}
-                        <span>·</span>
-                        <span style={{ color: statusColor(job.status) }}>{statusLabel(job.status)}</span>
-                        {job.applicationStatus && role === 'provider' && (
-                          <><span>·</span><span style={{ color: job.applicationStatus === 'selected' ? '#4caf50' : job.applicationStatus === 'rejected' ? '#ff4444' : 'var(--dim)' }}>
-                            {job.applicationStatus}
-                          </span></>
-                        )}
-                        {role === 'client' && job.applicationCount != null && (
-                          <><span>·</span><span>{job.applicationCount} Applicant{job.applicationCount !== 1 ? 's' : ''}</span></>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>
-                        {job.finalBudget ? `${job.finalBudget} USDC` : job.appProposedBudget ? `${job.appProposedBudget} USDC` : job.budgetMin && job.budgetMax ? `${job.budgetMin} – ${job.budgetMax}` : '—'}
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>
-                        {getTimeAgo(job.completedAt || job.appliedAt || job.createdAt)}
-                      </div>
-                    </div>
-                  </div>
+          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--dimmer)', marginBottom: 24 }}>
+            <button
+              onClick={() => setTab('open')}
+              style={{
+                padding: '10px 20px', fontSize: 12, fontWeight: tab === 'open' ? 700 : 400,
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: tab === 'open' ? 'var(--text)' : 'var(--dim)',
+                borderBottom: tab === 'open' ? '2px solid var(--accent)' : '2px solid transparent',
+                marginBottom: -1,
+              }}
+            >
+              Open ({activeJobs.length})
+            </button>
+            <button
+              onClick={() => setTab('history')}
+              style={{
+                padding: '10px 20px', fontSize: 12, fontWeight: tab === 'history' ? 700 : 400,
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: tab === 'history' ? 'var(--text)' : 'var(--dim)',
+                borderBottom: tab === 'history' ? '2px solid var(--accent)' : '2px solid transparent',
+                marginBottom: -1,
+              }}
+            >
+              History ({historyJobs.length})
+            </button>
+          </div>
+          {/* Job list */}
+          {loading ? (
+            <div style={{ fontSize: 12, color: 'var(--dim)' }}>Loading...</div>
+          ) : currentList.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--dim)', fontSize: 12 }}>
+              {tab === 'open' ? 'No active jobs.' : 'No completed jobs yet.'}
+              {tab === 'open' && (
+                <div style={{ marginTop: 12 }}>
+                  <Link to="/post-job" style={{ color: 'var(--accent)', fontSize: 12 }}>+ Post a job</Link>
                 </div>
-              </Link>
-            )
-          })}
+              )}
+            </div>
+          ) : (
+            <div>
+              {currentList.map(job => {
+                const role = job.role || (job.clientAddress?.toLowerCase() === address?.toLowerCase() ? 'client' : 'provider')
+                return (
+                  <Link
+                    key={`${job.id}-${job.applicationStatus || ''}`}
+                    to={`/marketplace/${job.id}`}
+                    style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 12 }}
+                  >
+                    <div style={{ padding: '14px 12px', border: '1px solid var(--dimmer)', transition: 'border-color 0.2s', borderRadius: 4 }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--dimmer)')}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700 }}>{job.title}</div>
+                          <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            {job.category && (() => {
+                              const sector = getSector(job.category)
+                              return <span>{sector?.icon ? `${sector.icon} ` : ''}{job.category}</span>
+                            })()}
+                            <span>·</span>
+                            <span style={{ color: statusColor(job.status) }}>{statusLabel(job.status)}</span>
+                            {job.applicationStatus && role === 'provider' && (
+                              <><span>·</span><span style={{ color: job.applicationStatus === 'selected' ? '#4caf50' : job.applicationStatus === 'rejected' ? '#ff4444' : 'var(--dim)' }}>
+                                {job.applicationStatus}
+                              </span></>
+                            )}
+                            {role === 'client' && job.applicationCount != null && (
+                              <><span>·</span><span>{job.applicationCount} Applicant{job.applicationCount !== 1 ? 's' : ''}</span></>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 13, fontWeight: 700 }}>
+                            {job.finalBudget ? `${job.finalBudget} USDC` : job.appProposedBudget ? `${job.appProposedBudget} USDC` : job.budgetMin && job.budgetMax ? `${job.budgetMin} – ${job.budgetMax}` : '—'}
+                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>
+                            {getTimeAgo(job.completedAt || job.appliedAt || job.createdAt)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

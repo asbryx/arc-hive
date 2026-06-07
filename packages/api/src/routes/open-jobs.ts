@@ -1179,6 +1179,33 @@ openJobs.post('/:id/cancel', requireAuth, async (c) => {
   return c.json({ success: true })
 })
 
+// ─── Deadline Extension ────────────────────────────────────────────────────────
+
+// POST /api/open-jobs/:id/extend
+openJobs.post('/:id/extend', requireAuth, async (c) => {
+  const authWallet = (c.get('wallet') as string)?.toLowerCase()
+  const id = c.req.param('id')
+  const { additionalHours } = await c.req.json()
+
+  if (!additionalHours || additionalHours < 1 || additionalHours > 720) {
+    return c.json({ error: 'Extension must be 1-720 hours' }, 400)
+  }
+
+  // Verify ownership
+  const job = await query(`SELECT client_address, deadline_hours, created_at FROM open_jobs WHERE id = $1`, [id])
+  if (!job.rows.length) return c.json({ error: 'Job not found' }, 404)
+  if (job.rows[0].client_address?.toLowerCase() !== authWallet) {
+    return c.json({ error: 'Only the job owner can extend deadline' }, 403)
+  }
+
+  await query(
+    `UPDATE open_jobs SET deadline_hours = deadline_hours + $2, updated_at = NOW() WHERE id = $1`,
+    [id, additionalHours]
+  )
+
+  return c.json({ message: `Deadline extended by ${additionalHours} hours` })
+})
+
 // ─── Comments ─────────────────────────────────────────────────────────────────
 
 // GET /api/open-jobs/:id/comments

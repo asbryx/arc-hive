@@ -9,6 +9,7 @@ import StatusPill from '@/components/graphics/StatusPill'
 import Skeleton from '@/components/graphics/Skeleton'
 import { truncateAddress, timeAgo, formatUsdc } from '@/utils/format'
 import { explorerAddress, explorerTx } from '@/utils/explorer'
+import { JobChat } from '@/components/JobChat'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -480,6 +481,9 @@ export default function JobDetail() {
           </div>
         </section>
       )}
+
+      {/* Communication */}
+      <JobChat jobId={id!} isParticipant={isClient || isProvider} userAddress={address} />
     </div>
   )
 }
