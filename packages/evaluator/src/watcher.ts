@@ -310,9 +310,10 @@ async function processEvaluation(job: any) {
       files: fileContents.length > 0 ? fileContents : undefined,
     }, job.max_revisions || CONFIG.MAX_REVISIONS)
   } catch (err) {
-    console.error(`[evaluator] LLM error for job ${openJobId}:`, (err as Error).message)
-    // Unlock — let next poll retry
-    await query(`UPDATE open_jobs SET status = 'evaluating' WHERE id = $1`, [openJobId])
+    console.error(`[evaluator] All LLM providers failed for job ${openJobId}:`, (err as Error).message)
+    // Queue for manual review instead of getting stuck in retry loop (E-06)
+    await query(`UPDATE open_jobs SET status = 'evaluating_pending' WHERE id = $1`, [openJobId])
+    console.warn(`[evaluator] Job ${openJobId} set to evaluating_pending — manual review needed`)
     return
   }
 

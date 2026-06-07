@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js'
 import { buildEvaluationPrompt, parseEvaluationResponse, EvalContext } from './prompt.js'
 import { SECTOR_HINTS } from './sectors.js'
-import { callWithFallback, callMultiModel } from './providers.js'
+import { callWithFallback, callMultiModel, callLLMWithFallback } from './providers.js'
 
 export type EvalInput = EvalContext
 

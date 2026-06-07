@@ -131,6 +131,74 @@ export async function callWithFallback(prompt: string): Promise<LLMResponse> {
 }
 
 /**
+ * Simplified fallback chain interface (E-06).
+ * Uses a standard OpenAI-compatible chat/completions endpoint.
+ * Tries each provider in order; first success wins.
+ */
+const PROVIDER_CHAIN: LLMProvider[] = [
+  {
+    name: 'primary',
+    apiKey: process.env.LLM_API_KEY || '',
+    baseUrl: process.env.LLM_BASE_URL || 'https://token-plan-sgp.xiaomimimo.com/v1',
+    model: process.env.LLM_MODEL || 'mimo-v2.5-pro',
+    timeoutMs: parseInt(process.env.LLM_TIMEOUT_MS || '60000'),
+  },
+  {
+    name: 'fallback-1',
+    apiKey: process.env.LLM_FALLBACK_API_KEY || process.env.LLM_API_KEY || '',
+    baseUrl: process.env.LLM_FALLBACK_BASE_URL || 'https://api.anthropic.com/v1',
+    model: process.env.LLM_FALLBACK_MODEL || 'claude-3-haiku-20240307',
+    timeoutMs: 60000,
+  },
+]
+
+export async function callLLMWithFallback(prompt: string): Promise<{ content: string; provider: string; usage: any }> {
+  const errors: string[] = []
+
+  for (const provider of PROVIDER_CHAIN) {
+    if (!provider.apiKey) continue
+
+    try {
+      const response = await fetch(`${provider.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${provider.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: provider.model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 2000,
+          temperature: 0.1,
+        }),
+        signal: AbortSignal.timeout(provider.timeoutMs),
+      })
+
+      if (!response.ok) {
+        const msg = `Provider ${provider.name} returned ${response.status}`
+        console.warn(`[evaluator] ${msg}`)
+        errors.push(msg)
+        continue
+      }
+
+      const data = await response.json() as any
+      return {
+        content: data.choices?.[0]?.message?.content || '',
+        provider: provider.name,
+        usage: data.usage,
+      }
+    } catch (err: any) {
+      const msg = `Provider ${provider.name} failed: ${err.message}`
+      console.warn(`[evaluator] ${msg}`)
+      errors.push(msg)
+      continue
+    }
+  }
+
+  throw new Error(`All LLM providers failed:\n${errors.join('\n')}`)
+}
+
+/**
  * Multi-model evaluation: call 2 providers in parallel, average scores
  * Falls back to single provider if one fails
  */
