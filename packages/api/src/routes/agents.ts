@@ -349,40 +349,63 @@ agents.get('/:id/validations', async (c) => {
   })
 })
 
-// GET /api/agents/:id/portfolio
-agents.get('/:id/portfolio', async (c) => {
+// GET /api/agents/:id/manifest
+agents.get('/:id/manifest', async (c) => {
   const id = c.req.param('id')
   const isAddress = id.startsWith('0x')
 
   const result = await query(
-    `SELECT * FROM agent_portfolio WHERE ${isAddress ? 'LOWER(agent_address) = LOWER($1)' : 'agent_address = (SELECT owner_address FROM agents WHERE agent_id = $1)'} ORDER BY created_at DESC`,
+    `SELECT m.* FROM agent_manifests m ${isAddress ? 'WHERE LOWER(m.agent_address) = LOWER($1)' : 'JOIN agents a ON m.agent_address = a.owner_address WHERE a.id = $1'}`,
     [id]
   )
-  return c.json({ data: result.rows })
+
+  if (!result.rows.length) return c.json({ data: null })
+  return c.json({ data: result.rows[0] })
 })
 
-// POST /api/agents/:id/portfolio (requireAuth)
-agents.post('/:id/portfolio', requireAuth, async (c) => {
+// PUT /api/agents/:id/manifest (create or update)
+agents.put('/:id/manifest', requireAuth, async (c) => {
   const authWallet = (c.get('wallet') as string)?.toLowerCase()
   const id = c.req.param('id')
   const body = await c.req.json()
-  const { title, description, url, image_url, category } = body
-
-  if (!title) return c.json({ error: 'Title required' }, 400)
-  if (title.length > 200) return c.json({ error: 'Title too long' }, 400)
 
   // Verify ownership
-  const agent = await query(`SELECT owner_address FROM agents WHERE agent_id = $1`, [id])
+  const agent = await query(`SELECT owner_address FROM agents WHERE id = $1`, [id])
   if (!agent.rows.length || agent.rows[0].owner_address?.toLowerCase() !== authWallet) {
     return c.json({ error: 'Not your agent' }, 403)
   }
 
-  const result = await query(
-    `INSERT INTO agent_portfolio (agent_address, title, description, url, image_url, category)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [agent.rows[0].owner_address, title, description || null, url || null, image_url || null, category || null]
+  const { skills, input_formats, output_formats, pricing_model, pricing_details, max_concurrent_jobs, response_time_hours } = body
+
+  await query(
+    `INSERT INTO agent_manifests (agent_address, skills, input_formats, output_formats, pricing_model, pricing_details, max_concurrent_jobs, response_time_hours)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT (agent_address) DO UPDATE SET
+       skills = $2, input_formats = $3, output_formats = $4,
+       pricing_model = $5, pricing_details = $6,
+       max_concurrent_jobs = $7, response_time_hours = $8, updated_at = NOW()`,
+    [authWallet, JSON.stringify(skills || []), JSON.stringify(input_formats || []), JSON.stringify(output_formats || []),
+     pricing_model || null, JSON.stringify(pricing_details || {}), max_concurrent_jobs || 1, response_time_hours || 24]
   )
-  return c.json({ data: result.rows[0] }, 201)
+
+  return c.json({ message: 'Manifest updated' })
+})
+
+// GET /api/manifests/search — search agents by capability
+agents.get('/manifests/search', async (c) => {
+  const skill = c.req.query('skill')
+  if (!skill) return c.json({ data: [] })
+
+  const result = await query(
+    `SELECT m.*, a.name as agent_name, a.composite_score
+     FROM agent_manifests m
+     JOIN agents a ON m.agent_address = a.owner_address
+     WHERE m.skills @> $1
+     ORDER BY a.composite_score DESC LIMIT 20`,
+    [JSON.stringify([skill])]
+  )
+
+  return c.json({ data: result.rows })
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
