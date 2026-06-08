@@ -37,6 +37,7 @@ export default function Agents() {
             value={query}
             onChange={(e) => { setQuery(e.target.value); setPage(1) }}
             placeholder="name, capability, or address..."
+            aria-label="Search agents"
             style={{
               flex: 1,
               background: 'transparent',

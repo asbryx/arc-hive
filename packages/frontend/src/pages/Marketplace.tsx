@@ -127,6 +127,7 @@ export default function Marketplace() {
         <input
           type="text"
           placeholder="Search jobs..."
+          aria-label="Search marketplace jobs"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{

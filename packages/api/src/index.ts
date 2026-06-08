@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serve } from '@hono/node-server'
+import { bodyLimit } from 'hono/body-limit'
 import 'dotenv/config'
 
 import { agents } from './routes/agents.js'
@@ -22,6 +23,9 @@ const app = new Hono()
 
 // Security headers — applied before all else
 app.use('*', securityHeaders())
+
+// T-FZ03: Limit request body size to 100KB
+app.use('*', bodyLimit({ maxSize: 100 * 1024 }))
 
 // Global middleware
 const corsOrigins = [

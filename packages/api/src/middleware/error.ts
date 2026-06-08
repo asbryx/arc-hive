@@ -15,6 +15,12 @@ export const errorHandler: ErrorHandler = (err, c) => {
   const timestamp = new Date().toISOString()
   const method = c.req.method
   const path = c.req.path
+
+  // T-FZ03/FZ04: Handle JSON parse errors and oversized bodies as 400
+  if (err.message?.includes('Invalid JSON') || err.message?.includes('JSON') || err.message?.includes('parse') || err.message?.includes('Unexpected token') || err.message?.includes('too large') || err.message?.includes('Body limit') || err.message?.includes('null byte')) {
+    return c.json({ error: 'Bad request', status: 400 }, 400)
+  }
+
   console.error(`[API] ${timestamp} ${method} ${path} Error:`, err.message)
   if (err.stack) console.error(err.stack)
 

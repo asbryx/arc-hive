@@ -82,6 +82,7 @@ export function JobChat({ jobId, isParticipant, userAddress }: JobChatProps) {
             onChange={e => setNewComment(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSend()}
             placeholder="Type a message..."
+            aria-label="Chat message"
             style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: 'none', color: 'var(--text)', fontFamily: 'var(--font)', fontSize: '0.85rem' }}
           />
           <button onClick={handleSend} disabled={sending} style={{ padding: '0.75rem 1.5rem', background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'var(--font)' }}>

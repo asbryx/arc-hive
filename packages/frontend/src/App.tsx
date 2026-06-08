@@ -25,8 +25,8 @@ export default function App() {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <BackgroundCanvas />
       <Nav />
-      {/* T-AC01: ARIA label for main landmark */}
-      <main style={{ flex: 1, paddingTop: 48, paddingBottom: 60 }} aria-label="Main content">
+      {/* T-AC01: ARIA label for main landmark + skip link target */}
+      <main id="main-content" style={{ flex: 1, paddingTop: 48, paddingBottom: 60 }} aria-label="Main content">
         <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 24px' }}>
           <Breadcrumbs />
         </div>
