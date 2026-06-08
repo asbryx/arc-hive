@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { query, queryAgents } from '../db.js'
+import { createHmac } from 'crypto'
 import { createWalletClient, createPublicClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { requireAuth } from '../middleware/auth.js'
@@ -86,31 +87,56 @@ openJobs.post('/', requireAuth, async (c) => {
     )
     
     for (const wh of webhooks.rows) {
-      // Fire webhook (non-blocking)
-      fetch(wh.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-ArcHive-Event': 'job.created',
-          'X-ArcHive-Signature': wh.secret || '',
+      // Fire webhook (non-blocking, with HMAC signature + retry)
+      const payload = JSON.stringify({
+        event: 'job.created',
+        job: {
+          id: newJob.id,
+          title,
+          category,
+          budget_min: budgetMin,
+          budget_max: budgetMax,
+          deadline_hours: deadlineHours,
+          client_address: clientAddress,
         },
-        body: JSON.stringify({
-          event: 'job.created',
-          job: {
-            id: newJob.id,
-            title,
-            category,
-            budget_min: budgetMin,
-            budget_max: budgetMax,
-            deadline_hours: deadlineHours,
-            client_address: clientAddress,
-          },
-          timestamp: new Date().toISOString(),
-        }),
-        signal: AbortSignal.timeout(10_000),
-      }).catch((err: any) => {
-        console.warn(`[webhook] Failed to notify ${wh.url}: ${err.message}`)
+        timestamp: new Date().toISOString(),
       })
+
+      // T-W04: HMAC-SHA256 signature of payload using webhook secret
+      const signature = wh.secret
+        ? createHmac('sha256', wh.secret).update(payload).digest('hex')
+        : ''
+
+      const fireWebhook = async (attempt: number) => {
+        try {
+          const res = await fetch(wh.url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-ArcHive-Event': 'job.created',
+              'X-ArcHive-Signature': signature,
+            },
+            body: payload,
+            signal: AbortSignal.timeout(10_000),
+          })
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          // Reset failure count on success
+          await query(`UPDATE webhooks SET failure_count = 0, last_triggered_at = NOW() WHERE id = $1`, [wh.id])
+        } catch (err: any) {
+          if (attempt < 2) {
+            // T-W02: Retry up to 3 times with exponential backoff
+            await new Promise(r => setTimeout(r, 2000 * (attempt + 1)))
+            return fireWebhook(attempt + 1)
+          }
+          console.warn(`[webhook] Failed to notify ${wh.url} after ${attempt + 1} attempts: ${err.message}`)
+          // Increment failure count; deactivate after 10 consecutive failures
+          await query(
+            `UPDATE webhooks SET failure_count = failure_count + 1, active = CASE WHEN failure_count >= 9 THEN FALSE ELSE active END WHERE id = $1`,
+            [wh.id]
+          )
+        }
+      }
+      fireWebhook(0) // non-blocking
     }
   } catch (err: any) {
     console.warn('[webhook] Matching error:', err.message)

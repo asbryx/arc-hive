@@ -134,6 +134,8 @@ export class HttpClient {
           headers,
           body: options.body as any,
           responseType: 'json',
+          // T-SE01: Timeout handling
+          timeout: 30_000,
         });
 
         // Check for API error in response body
@@ -150,8 +152,28 @@ export class HttpClient {
       } catch (error: any) {
         lastError = error;
 
-        // Don't retry on client errors — propagate immediately
-        if (error.message && !error.message.includes('network') && !error.message.includes('timeout')) {
+        // T-SE03: 429 backoff — retry with Retry-After header if available
+        if (error.statusCode === 429) {
+          const retryAfter = error.data?.retryAfter || Math.pow(2, attempt) * 2;
+          if (attempt < MAX_RETRIES - 1) {
+            await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
+            continue;
+          }
+          throw new Error(`Rate limited after ${MAX_RETRIES} retries`);
+        }
+
+        // T-SE04: JSON parse error handling
+        if (error.message?.includes('JSON') || error.name === 'SyntaxError') {
+          throw new Error('Invalid JSON response from server');
+        }
+
+        // Don't retry on client errors (4xx) — propagate immediately
+        if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
+          throw new Error(error.message || `Request failed: ${error.statusCode}`);
+        }
+
+        // Don't retry on non-network errors
+        if (error.message && !error.message.includes('network') && !error.message.includes('timeout') && !error.message.includes('ECONNREFUSED')) {
           throw new Error(error.message || `Request failed: ${error.statusCode}`);
         }
 

@@ -10,11 +10,12 @@
   --text: #ffffff;
   --dim: #8a8a8a;
   --dimmer: #444444;
-  --accent: #273F4F;
-  --accent-light: #3a5f6f;
-  --accent-dark: #1a2f3a;
-  --glow: rgba(39, 63, 79, 0.4);
-  --glow-soft: rgba(39, 63, 79, 0.15);
+  /* T-AC03: Lightened accent for WCAG AA contrast ratio >= 4.5:1 on black */
+  --accent: #4A7A8C;
+  --accent-light: #6A9AAC;
+  --accent-dark: #2A5A6C;
+  --glow: rgba(74, 122, 140, 0.4);
+  --glow-soft: rgba(74, 122, 140, 0.15);
   --font: 'JetBrains Mono', monospace;
   --nav-bg: rgba(0, 0, 0, 0.35);
   --code-bg: #0d1117;
@@ -199,6 +200,24 @@ input, select { font-family: var(--font); }
 }
 .pulse-live {
   animation: pulseLive 2s ease-in-out infinite;
+}
+
+/* T-AC02: Focus styles for keyboard navigation */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent-light);
+  outline-offset: 2px;
+}
+
+/* Remove default outline for mouse users */
+a:focus:not(:focus-visible),
+button:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+select:focus:not(:focus-visible) {
+  outline: none;
 }
 
 /* Mobile responsive */

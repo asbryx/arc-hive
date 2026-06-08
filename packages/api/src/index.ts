@@ -50,16 +50,48 @@ app.route('/api/open-jobs', fileRoutes) // file upload/download routes
 app.route('/api/keys', keys)
 app.route('/api/auth', auth)
 
-// Proxy indexer health
+// T-MO01: Health check — API + DB + indexer + evaluator
 app.get('/api/health', async (c) => {
+  const checks: any = { api: 'ok' }
+  const errors: string[] = []
+
+  // Check DB connectivity
+  try {
+    const { query } = await import('./db.js')
+    await query('SELECT 1')
+    checks.db = 'ok'
+  } catch (err: any) {
+    checks.db = 'error'
+    errors.push(`db: ${err.message}`)
+  }
+
+  // Check indexer
   try {
     const res = await fetch('http://localhost:3001/health', { signal: AbortSignal.timeout(5000) })
     const data = await res.json()
     const syncing = data.historicalProgress?.some((p: any) => p.progress !== '100%') || false
-    return c.json({ syncing, liveSync: data.liveSync, block: data.contracts?.[0]?.last_synced_block })
+    checks.indexer = 'ok'
+    checks.syncing = syncing
+    checks.liveSync = data.liveSync
+    checks.block = data.contracts?.[0]?.last_synced_block
   } catch {
-    return c.json({ syncing: false, liveSync: false, block: null })
+    checks.indexer = 'unreachable'
+    errors.push('indexer: unreachable')
   }
+
+  // Check evaluator (polls DB every 10s, check if evaluating_pending or evaluating jobs are recent)
+  try {
+    const { query } = await import('./db.js')
+    const stale = await query(
+      `SELECT COUNT(*) FROM open_jobs WHERE status IN ('evaluating', 'evaluating_pending') AND updated_at < NOW() - INTERVAL '5 minutes'`
+    )
+    checks.evaluator = parseInt(stale.rows[0].count) === 0 ? 'ok' : 'stale_jobs'
+  } catch {
+    checks.evaluator = 'unknown'
+  }
+
+  const healthy = errors.length === 0
+  return c.json(checks, healthy ? 200 : 503)
 })
 
 // Root

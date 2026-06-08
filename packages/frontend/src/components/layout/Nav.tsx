@@ -43,6 +43,7 @@ export default function Nav() {
       <button
         onClick={toggle}
         title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         style={{
           background: 'transparent',
           border: '1px solid var(--dimmer)',
@@ -57,6 +58,7 @@ export default function Nav() {
       {isConnected ? (
         <button
           onClick={() => disconnect()}
+          aria-label={`Disconnect wallet ${truncateAddr(address!)}`}
           style={{
             background: 'transparent',
             border: '1px solid var(--dimmer)',
@@ -73,6 +75,7 @@ export default function Nav() {
       ) : (
         <button
           onClick={() => openConnectModal?.()}
+          aria-label="Connect wallet"
           style={{
             background: 'transparent',
             border: '1px solid var(--accent)',
@@ -94,14 +97,15 @@ export default function Nav() {
     // Mobile: top bar = logo + actions only. Links at bottom.
     return (
       <>
-        <nav className={styles.nav}>
+        {/* T-AC01: ARIA labels for navigation landmarks */}
+        <nav className={styles.nav} aria-label="Mobile navigation">
           <NavLink to="/" className={styles.logo}>
             <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto', marginRight: 6, verticalAlign: 'middle' }} />
             ArcHive
           </NavLink>
           {actions}
         </nav>
-        <ul className={styles.bottomLinks}>
+        <ul className={styles.bottomLinks} role="navigation" aria-label="Main navigation">
           {navLinks}
         </ul>
       </>
@@ -110,7 +114,7 @@ export default function Nav() {
 
   // Desktop: everything in one bar
   return (
-    <nav className={styles.nav}>
+    <nav className={styles.nav} aria-label="Main navigation">
       <NavLink to="/" className={styles.logo}>
         <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto', marginRight: 6, verticalAlign: 'middle' }} className="nav-logo-img" />
         ArcHive
