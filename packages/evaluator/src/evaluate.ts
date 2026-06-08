@@ -92,6 +92,13 @@ export async function evaluateDeliverable(input: EvalInput, maxRevisions: number
 
   const { score, breakdown, reasoning, suggestions } = parseEvaluationResponse(text)
 
+  // Post-evaluation sanity check: flag suspicious perfect scores with injection-related reasoning
+  let adjustedScore = score
+  if (adjustedScore === 100 && reasoning?.toLowerCase().includes('injection')) {
+    console.warn(`[evaluator] Suspicious perfect score with injection-related reasoning`)
+    adjustedScore = Math.min(adjustedScore, 75)
+  }
+
   // Clamp breakdown to sector max values (LLM often exceeds limits)
   const sectorWeights = input.sectorConfig?.weights || SECTOR_HINTS[input.category || '']?.weights
   const maxes: Record<string, number> = sectorWeights
@@ -125,5 +132,5 @@ export async function evaluateDeliverable(input: EvalInput, maxRevisions: number
   const estimatedCost = estimateCost(tokensUsed.input, tokensUsed.output)
   console.log(`[evaluator] Tokens: ${tokensUsed.input}in + ${tokensUsed.output}out = $${estimatedCost.toFixed(4)}`)
 
-  return { score, breakdown, reasoning, suggestions, decision, providerUsed, tokensUsed, estimatedCost }
+  return { score: adjustedScore, breakdown, reasoning, suggestions, decision, providerUsed, tokensUsed, estimatedCost }
 }

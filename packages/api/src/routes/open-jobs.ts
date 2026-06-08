@@ -195,6 +195,12 @@ openJobs.get('/my-applications', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
 
+  // Require auth — reject if no JWT present
+  const authHeaderM = c.req.header('authorization')
+  if (!authHeaderM?.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required' }, 401)
+  }
+
   // Optional auth — verify wallet if JWT present
   const authHeader = c.req.header('authorization')
   let authWallet: string | null = null
@@ -234,6 +240,12 @@ openJobs.get('/my-active', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
 
+  // Require auth — reject if no JWT present
+  const authHeaderA = c.req.header('authorization')
+  if (!authHeaderA?.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required' }, 401)
+  }
+
   // Optional auth — verify wallet if JWT present
   const authHeader = c.req.header('authorization')
   let authWallet: string | null = null
@@ -266,6 +278,12 @@ openJobs.get('/my-active', async (c) => {
 openJobs.get('/my-active-all', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
+
+  // Require auth — reject if no JWT present
+  const authHeaderB = c.req.header('authorization')
+  if (!authHeaderB?.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required' }, 401)
+  }
 
   // Optional auth — verify wallet if JWT present
   const authHeader = c.req.header('authorization')
@@ -319,6 +337,12 @@ openJobs.get('/my-history', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
 
+  // Require auth — reject if no JWT present
+  const authHeaderC = c.req.header('authorization')
+  if (!authHeaderC?.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required' }, 401)
+  }
+
   // Optional auth — verify wallet if JWT present
   const authHeader = c.req.header('authorization')
   let authWallet: string | null = null
@@ -355,6 +379,12 @@ openJobs.get('/my-completed', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
 
+  // Require auth — reject if no JWT present
+  const authHeaderD = c.req.header('authorization')
+  if (!authHeaderD?.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required' }, 401)
+  }
+
   // Optional auth — verify wallet if JWT present
   const authHeader = c.req.header('authorization')
   let authWallet: string | null = null
@@ -387,6 +417,12 @@ openJobs.get('/my-completed', async (c) => {
 openJobs.get('/my-posted', async (c) => {
   const address = c.req.query('address')
   if (!address) return c.json({ error: 'address required' }, 400)
+
+  // Require auth — reject if no JWT present
+  const authHeaderE = c.req.header('authorization')
+  if (!authHeaderE?.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required' }, 401)
+  }
 
   // Optional auth — verify wallet if JWT present
   const authHeader = c.req.header('authorization')

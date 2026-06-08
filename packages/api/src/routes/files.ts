@@ -174,6 +174,11 @@ fileRoutes.post('/:id/deliver', requireAuth, async (c) => {
     })
   }
 
+  // If all files failed validation and no files were uploaded, return 400
+  if (errors.length > 0 && uploadedFiles.length === 0) {
+    return c.json({ error: 'All files failed validation', errors }, 400)
+  }
+
   // Update job status
   await query(
     `UPDATE open_jobs SET status = 'evaluating', updated_at = NOW() WHERE id = $1`,
