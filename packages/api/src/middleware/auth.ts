@@ -41,7 +41,7 @@ export function getWalletFromToken(c: Context): string | null {
 
 // Sign new tokens with the current (primary) secret only
 export function signToken(payload: { wallet: string }, expiresIn: string = '7d'): string {
-  return jwt.sign(payload, JWT_SECRET, { algorithm: 'HS256', expiresIn })
+  return jwt.sign(payload, JWT_SECRET, { algorithm: 'HS256', expiresIn: expiresIn as any })
 }
 
 // Middleware: require valid JWT for write operations

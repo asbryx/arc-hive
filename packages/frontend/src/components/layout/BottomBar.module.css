@@ -1,10 +1,13 @@
 .bar {
   padding: 16px 24px;
+  background: var(--accent);
+  border-top: 1px solid var(--dimmer);
+}
+
+.bar nav {
   display: flex;
   justify-content: center;
   gap: 32px;
-  background: var(--accent);
-  border-top: 1px solid var(--dimmer);
 }
 
 [data-theme="light"] .bar {

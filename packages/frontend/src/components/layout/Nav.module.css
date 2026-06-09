@@ -19,6 +19,9 @@
   color: var(--text);
   text-decoration: none;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .links {
@@ -56,9 +59,64 @@
 .actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
   margin-left: auto;
+}
+
+.themeBtn {
+  background: transparent;
+  border: 1px solid var(--dimmer);
+  color: var(--dim);
+  font-size: 12px;
+  padding: 2px 6px;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: unset;
+  min-width: unset;
+}
+
+.themeBtn:hover {
+  border-color: var(--dim);
+  color: var(--text);
+}
+
+.walletBtn {
+  background: transparent;
+  border: 1px solid var(--dimmer);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 3px 10px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  min-height: unset;
+  min-width: unset;
+}
+
+.walletBtn:hover {
+  border-color: var(--dim);
+}
+
+.connectBtn {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 3px 10px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  min-height: unset;
+  min-width: unset;
+}
+
+.connectBtn:hover {
+  background: var(--accent);
+  color: #fff;
 }
 
 /* Mobile bottom nav — rendered by JS when touch device detected */

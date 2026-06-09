@@ -188,7 +188,7 @@ export default function Dashboard() {
       {dashTab === 'earnings' ? (
         /* ─── EARNINGS DASHBOARD ─── */
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+          <div className="earnings-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
             <div style={{ border: '1px solid var(--dimmer)', padding: '1rem' }}>
               <div style={{ color: 'var(--dim)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>TOTAL EARNED</div>
               <div style={{ color: 'var(--accent)', fontSize: '1.5rem', fontFamily: 'var(--font)' }}>

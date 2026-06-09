@@ -44,14 +44,7 @@ export default function Nav() {
         onClick={toggle}
         title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        style={{
-          background: 'transparent',
-          border: '1px solid var(--dimmer)',
-          color: 'var(--dim)',
-          fontSize: 11,
-          padding: '3px 8px',
-          cursor: 'pointer',
-        }}
+        className={styles.themeBtn}
       >
         {theme === 'dark' ? '☀' : '☾'}
       </button>
@@ -59,16 +52,7 @@ export default function Nav() {
         <button
           onClick={() => disconnect()}
           aria-label={`Disconnect wallet ${truncateAddr(address!)}`}
-          style={{
-            background: 'transparent',
-            border: '1px solid var(--dimmer)',
-            color: 'var(--text)',
-            fontFamily: 'var(--font)',
-            fontSize: 11,
-            padding: '5px 10px',
-            cursor: 'pointer',
-            letterSpacing: '0.5px',
-          }}
+          className={styles.walletBtn}
         >
           {truncateAddr(address!)} ✕
         </button>
@@ -76,16 +60,7 @@ export default function Nav() {
         <button
           onClick={() => openConnectModal?.()}
           aria-label="Connect wallet"
-          style={{
-            background: 'transparent',
-            border: '1px solid var(--accent)',
-            color: 'var(--text)',
-            fontFamily: 'var(--font)',
-            fontSize: 11,
-            padding: '5px 10px',
-            cursor: 'pointer',
-            letterSpacing: '0.5px',
-          }}
+          className={styles.connectBtn}
         >
           [Connect ↗]
         </button>
@@ -100,7 +75,7 @@ export default function Nav() {
         {/* T-AC01: ARIA labels for navigation landmarks */}
         <nav className={styles.nav} aria-label="Mobile navigation">
           <NavLink to="/" className={styles.logo}>
-            <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto', marginRight: 6, verticalAlign: 'middle' }} />
+            <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto' }} />
             ArcHive
           </NavLink>
           {actions}
@@ -116,7 +91,7 @@ export default function Nav() {
   return (
     <nav className={styles.nav} aria-label="Main navigation">
       <NavLink to="/" className={styles.logo}>
-        <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto', marginRight: 6, verticalAlign: 'middle' }} className="nav-logo-img" />
+        <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto' }} className="nav-logo-img" />
         ArcHive
       </NavLink>
       <ul className={styles.links}>
