@@ -389,15 +389,29 @@ openJobs.get('/my-history', async (c) => {
       CASE
         WHEN lower(oj.client_address) = lower($1) THEN 'client'
         ELSE 'provider'
-      END as role
+      END as role,
+      e.score as eval_score,
+      e.reasoning as eval_reasoning,
+      e.status as eval_status,
+      e.breakdown as eval_breakdown
      FROM open_jobs oj
+     LEFT JOIN evaluations e ON e.open_job_id = oj.id AND e.version = (
+       SELECT MAX(e2.version) FROM evaluations e2 WHERE e2.open_job_id = oj.id
+     )
      WHERE (lower(oj.client_address) = lower($1) OR lower(oj.selected_applicant) = lower($1))
      AND oj.status IN ('completed', 'failed', 'rejected', 'refunded', 'cancelled', 'expired')
      ORDER BY oj.updated_at DESC`,
     [address]
   )
 
-  return c.json({ data: result.rows.map(row => ({ ...formatOpenJob(row), role: row.role })) })
+  return c.json({ data: result.rows.map(row => ({
+    ...formatOpenJob(row),
+    role: row.role,
+    evalScore: row.eval_score ?? null,
+    evalReasoning: row.eval_reasoning ?? null,
+    evalStatus: row.eval_status ?? null,
+    evalBreakdown: row.eval_breakdown ?? null,
+  })) })
 })
 
 // GET /api/open-jobs/my-completed?address=0x...

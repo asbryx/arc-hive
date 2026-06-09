@@ -5,6 +5,7 @@ import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { getSector } from '@/lib/sectors'
 import Skeleton from '@/components/graphics/Skeleton'
 import { EmptyState } from '@/components/EmptyState'
+import { authFetch } from '@/api/client'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -41,6 +42,10 @@ interface JobRow {
   appliedAt?: string
   applicationCount?: number
   role?: string
+  evalScore?: number | null
+  evalReasoning?: string | null
+  evalStatus?: string | null
+  evalBreakdown?: Record<string, number> | null
 }
 
 export default function Dashboard() {
@@ -64,9 +69,9 @@ export default function Dashboard() {
     setLoading(true)
     try {
       const [activeRes, historyRes, statsRes] = await Promise.all([
-        fetch(`${API_BASE}/open-jobs/my-active-all?address=${address}`),
-        fetch(`${API_BASE}/open-jobs/my-history?address=${address}`),
-        fetch(`${API_BASE}/stats/wallet?address=${address}`),
+        authFetch(`/open-jobs/my-active-all?address=${address}`),
+        authFetch(`/open-jobs/my-history?address=${address}`),
+        authFetch(`/stats/wallet?address=${address}`),
       ])
       if (activeRes.ok) {
         const d = await activeRes.json()
@@ -315,6 +320,11 @@ export default function Dashboard() {
                           <div style={{ fontSize: 13, fontWeight: 700 }}>
                             {job.finalBudget ? `${job.finalBudget} USDC` : job.appProposedBudget ? `${job.appProposedBudget} USDC` : job.budgetMin && job.budgetMax ? `${job.budgetMin} – ${job.budgetMax}` : '—'}
                           </div>
+                          {job.evalScore != null && (
+                            <div style={{ fontSize: 11, marginTop: 2, color: job.evalScore >= 70 ? '#4caf50' : job.evalScore >= 50 ? '#ff9800' : '#ff4444', fontWeight: 700 }}>
+                              Score: {job.evalScore}/100
+                            </div>
+                          )}
                           <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>
                             {getTimeAgo(job.completedAt || job.appliedAt || job.createdAt)}
                           </div>
