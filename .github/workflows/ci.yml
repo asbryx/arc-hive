@@ -53,6 +53,9 @@ jobs:
             psql $DATABASE_URL -f "$f" 2>/dev/null || true
           done
       
+      - name: Build shared
+        run: pnpm --filter @arc-hive/shared build
+
       - name: Lint
         run: pnpm lint || true
       
