@@ -1,5 +1,5 @@
 .bar {
-  padding: 8px 24px;
+  padding: 4px 24px;
   background: var(--accent);
   border-top: 1px solid var(--dimmer);
 }
@@ -20,6 +20,8 @@
   font-size: 11px;
   letter-spacing: 1px;
   transition: color 0.2s;
+  min-height: unset;
+  min-width: unset;
 }
 
 .bar a:hover {
