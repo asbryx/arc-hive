@@ -9,3 +9,4 @@ dist/
 coverage/
 packages/api/.env
 .vercel
+packages/*/tsconfig.tsbuildinfo

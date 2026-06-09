@@ -54,7 +54,7 @@ jobs:
           done
       
       - name: Build shared
-        run: pnpm --filter @arc-hive/shared build
+        run: cd packages/shared && npx tsc
 
       - name: Lint
         run: pnpm lint || true
