@@ -149,7 +149,7 @@ export default function MarketplaceDetail() {
       const [jobRes, appsRes, delRes, commRes, evalRes, filesRes] = await Promise.all([
         fetch(`${API_BASE}/open-jobs/${id}`),
         fetch(`${API_BASE}/open-jobs/${id}/applications`),
-        authFetch(`/open-jobs/${id}/deliverables`),
+        fetch(`${API_BASE}/open-jobs/${id}/deliverables`),
         authFetch(`/open-jobs/${id}/comments`),
         fetch(`${API_BASE}/open-jobs/${id}/evaluations`),
         authFetch(`/open-jobs/${id}/files`),
@@ -1065,6 +1065,60 @@ export default function MarketplaceDetail() {
               <span onClick={() => setActionError(null)} style={{ cursor: 'pointer', opacity: 0.6 }}>✕</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ═══ Standalone Evaluations (when no deliverables loaded but evaluations exist) ═══ */}
+      {deliverables.length === 0 && evaluations.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--dimmer)', paddingTop: 24, marginBottom: 24 }}>
+          <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
+            Evaluation
+          </div>
+          {evaluations.map(ev => {
+            const scoreColor = ev.score >= 70 ? '#4caf50' : ev.score >= 50 ? '#ff9800' : '#ff4444'
+            const statusLabel = ev.status === 'approved' ? '✓ APPROVED' : ev.status === 'failed' ? '✗ FAILED' : '↻ REVISION NEEDED'
+            const evStatusColor = ev.status === 'approved' ? '#4caf50' : ev.status === 'failed' ? '#ff4444' : '#ff9800'
+            return (
+              <div key={ev.id} style={{ padding: 16, border: `1px solid ${evStatusColor}33`, background: `${evStatusColor}08`, marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 10, color: 'var(--dim)' }}>Evaluation v{ev.version}</span>
+                    <span style={{ fontSize: 11, color: evStatusColor, fontWeight: 700 }}>{statusLabel}</span>
+                  </div>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: scoreColor }}>{ev.score}<span style={{ fontSize: 11, color: 'var(--dim)' }}>/100</span></span>
+                </div>
+                <div style={{ height: 3, background: 'var(--dimmer)', width: '100%', marginBottom: 12 }}>
+                  <div style={{ height: 3, width: `${ev.score}%`, background: scoreColor }} />
+                </div>
+                {ev.breakdown && (
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                    {Object.entries(ev.breakdown).map(([key, val]) => (
+                      <span key={key} style={{ fontSize: 10, color: 'var(--dim)' }}>
+                        {key}: <span style={{ color: 'var(--text)', fontWeight: 600 }}>{val as number}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div style={{ fontSize: 12, lineHeight: 1.7, color: 'var(--text)', whiteSpace: 'pre-wrap', marginBottom: 8 }}>
+                  {ev.reasoning}
+                </div>
+                {ev.suggestions && (
+                  <div style={{ fontSize: 11, color: '#ff9800', marginBottom: 8, padding: '8px 12px', background: '#ff980010', border: '1px solid #ff980033' }}>
+                    💡 {ev.suggestions}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 10, color: 'var(--dim)' }}>
+                  {ev.llmModel && <span>model: {ev.llmModel}</span>}
+                  <span>{new Date(ev.createdAt).toLocaleString()}</span>
+                  {ev.txHash && (
+                    <a href={`https://testnet.arcscan.app/tx/${ev.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--dim)', textDecoration: 'underline' }}>
+                      tx ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 

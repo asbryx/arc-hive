@@ -1010,10 +1010,21 @@ openJobs.post('/:id/start', requireAuth, async (c) => {
 // NOTE: Deliver endpoint moved to routes/files.ts (supports file uploads)
 // POST /api/open-jobs/:id/deliver — see routes/files.ts
 
-// GET /api/open-jobs/:id/deliverables — list deliverables for a job (auth required)
-openJobs.get('/:id/deliverables', requireAuth, async (c) => {
+// GET /api/open-jobs/:id/deliverables — list deliverables for a job
+// Auth optional: terminal-state jobs (completed/failed/refunded) are public
+openJobs.get('/:id/deliverables', async (c) => {
   const id = c.req.param('id')
-  const requester = ((c as any).get('wallet') as string)?.toLowerCase() || null
+
+  // Try to get auth wallet (optional — don't reject if missing)
+  let requester: string | null = null
+  const authHeader = c.req.header('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const jwt = await import('jsonwebtoken')
+      const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
+      requester = decoded?.wallet?.toLowerCase() || null
+    } catch {}
+  }
 
   const jobResult = await query(
     `SELECT id, client_address, selected_applicant, status FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
@@ -1024,8 +1035,15 @@ openJobs.get('/:id/deliverables', requireAuth, async (c) => {
   }
 
   const job = jobResult.rows[0]
+  const terminalStates = ['completed', 'failed', 'rejected', 'refunded', 'cancelled', 'expired']
+  const isTerminal = terminalStates.includes(job.status)
   const isClient = requester && job.client_address && requester === job.client_address.toLowerCase()
   const isProvider = requester && job.selected_applicant && requester === job.selected_applicant.toLowerCase()
+
+  // For active jobs, require auth and restrict to client/provider
+  if (!isTerminal && !requester) {
+    return c.json({ error: 'Authentication required' }, 401)
+  }
 
   const result = await query(
     `SELECT * FROM marketplace_deliverables WHERE open_job_id = $1 ORDER BY version DESC`,
