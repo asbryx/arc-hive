@@ -53,7 +53,8 @@ export class AuthModule {
       }
 
       // Step 2: Sign the message with viem
-      const account = privateKeyToAccount(privateKey as `0x${string}`);
+      const normalizedKey = (privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`) as `0x${string}`;
+      const account = privateKeyToAccount(normalizedKey);
       const signature = await account.signMessage({
         message: nonceResponse.message,
       });

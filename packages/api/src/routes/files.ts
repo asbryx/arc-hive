@@ -324,16 +324,22 @@ fileRoutes.get('/:id/files/:fileId/download', requireAuth, async (c) => {
     )
   } catch {}
 
-  // Return file
+  // Determine safe MIME type: override SVG to prevent stored XSS via embedded JS
+  const isSvg = file.mime_type === 'image/svg+xml' || file.filename?.toLowerCase().endsWith('.svg')
+  const safeMimeType = isSvg ? 'application/octet-stream' : (file.mime_type || 'application/octet-stream')
+
+  // Return file — always force attachment disposition to prevent inline rendering
   return new Response(data, {
     headers: {
-      'Content-Type': file.mime_type || 'application/octet-stream',
+      'Content-Type': safeMimeType,
       'Content-Disposition': (() => {
         const safeName = (file.filename || 'download').replace(/[^a-zA-Z0-9._-]/g, '_')
         const encodedName = encodeURIComponent(file.filename || 'download')
         return `attachment; filename="${safeName}"; filename*=UTF-8''${encodedName}`
       })(),
       'Content-Length': file.file_size.toString(),
+      // Prevent MIME sniffing so browsers don't reinterpret the content
+      'X-Content-Type-Options': 'nosniff',
     },
   })
 })

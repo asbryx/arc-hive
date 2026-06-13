@@ -533,7 +533,7 @@ export default function MarketplaceDetail() {
       })
 
       // Status 1 = FUNDED, need submit first
-      if (onchainJob.status === 1) {
+      if (Number(onchainJob.status) === 1) {
         if (address.toLowerCase() === onchainJob.provider.toLowerCase()) {
           const deliverableContent = deliverables[0]?.content || 'deliverable'
           const deliverableBytes = new TextEncoder().encode(deliverableContent.slice(0, 100))
@@ -556,12 +556,13 @@ export default function MarketplaceDetail() {
           setCompleting(false)
           return
         }
-      } else if (onchainJob.status === 3) {
+      } else if (Number(onchainJob.status) === 3) {
         setActionError('This job is already completed on-chain.')
         setCompleting(false)
         return
-      } else if (onchainJob.status !== 2) {
-        setActionError('Job is not ready to be approved yet. Current state: ' + ['Open', 'Funded', 'Submitted', 'Completed', 'Rejected', 'Expired'][onchainJob.status] || 'Unknown')
+      } else if (Number(onchainJob.status) !== 2) {
+        const statusNames = ['Open', 'Funded', 'Submitted', 'Completed', 'Rejected', 'Expired']
+        setActionError('Job is not ready to be approved yet. Current state: ' + (statusNames[Number(onchainJob.status)] ?? 'Unknown'))
         setCompleting(false)
         return
       }

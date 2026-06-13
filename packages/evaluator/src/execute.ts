@@ -17,20 +17,26 @@ const ABI = [
   { inputs: [{ name: 'jobId', type: 'uint256' }], name: 'getJob', outputs: [{ components: [{ name: 'id', type: 'uint256' }, { name: 'client', type: 'address' }, { name: 'provider', type: 'address' }, { name: 'evaluator', type: 'address' }, { name: 'description', type: 'string' }, { name: 'budget', type: 'uint256' }, { name: 'expiredAt', type: 'uint256' }, { name: 'status', type: 'uint8' }, { name: 'hook', type: 'address' }], name: '', type: 'tuple' }], stateMutability: 'view', type: 'function' },
 ] as const
 
-// FIX O-02: Nonce management to prevent concurrent txn nonce races
-let currentNonce: number = -1
+// FIX: Per-wallet nonce management to prevent cross-wallet nonce collision
+const nonceMap = new Map<string, number>()
 
 async function getNextNonce(client: any, address: string): Promise<number> {
-  if (currentNonce === -1) {
-    currentNonce = await client.getTransactionCount({ address })
+  const key = address.toLowerCase()
+  if (!nonceMap.has(key) || nonceMap.get(key) === -1) {
+    const onChainNonce = await client.getTransactionCount({ address })
+    nonceMap.set(key, onChainNonce)
   }
-  const nonce = currentNonce
-  currentNonce++
+  const nonce = nonceMap.get(key)!
+  nonceMap.set(key, nonce + 1)
   return nonce
 }
 
-function resetNonce() {
-  currentNonce = -1
+function resetNonce(address?: string) {
+  if (address) {
+    nonceMap.delete(address.toLowerCase())
+  } else {
+    nonceMap.clear()
+  }
 }
 
 function getPublicClient() {

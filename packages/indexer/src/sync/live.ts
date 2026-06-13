@@ -116,6 +116,7 @@ async function startPollingSync(addresses: Address[]): Promise<void> {
       const headBlock = await client.getBlockNumber()
       const safeBlock = headBlock - BigInt(CONFIRMATION_DEPTH)
       if (safeBlock > lastBlock!) {
+        let reorgDetected = false
         for (let block = lastBlock! + 1n; block <= safeBlock; block++) {
           if (!isRunning) break
 
@@ -123,25 +124,31 @@ async function startPollingSync(addresses: Address[]): Promise<void> {
           const blockData = await client.getBlock({ blockNumber: block })
           if (lastBlockHash && blockData.parentHash !== lastBlockHash) {
             console.warn(`[Live] Reorg detected at block ${block}! Rolling back from ${lastBlock}`)
-            await db.deleteEventsFromBlock(lastBlock!)
+            await db.deleteEventsFromBlock(block)
             for (const address of addresses) {
-              await db.rollbackSyncState(address, lastBlock! - 1n)
+              await db.rollbackSyncState(address, block - 1n)
             }
             // Re-fetch lastBlock data to re-verify the chain
-            lastBlock = lastBlock! - 1n
+            lastBlock = block - 1n
             if (lastBlock > 0n) {
               const prev = await client.getBlock({ blockNumber: lastBlock })
               lastBlockHash = prev.hash
             } else {
               lastBlockHash = null
             }
+            reorgDetected = true
             break // abort this poll cycle, retry from rolled-back position
           }
           lastBlockHash = blockData.hash
 
           await processBlock(block, addresses)
+          // Only advance lastBlock after successful processing
+          lastBlock = block
         }
-        lastBlock = safeBlock
+        // Only advance to safeBlock if no reorg and all blocks processed
+        if (!reorgDetected) {
+          lastBlock = safeBlock
+        }
       }
     } catch (err) {
       console.error(`[Live] Polling error:`, (err as Error).message)

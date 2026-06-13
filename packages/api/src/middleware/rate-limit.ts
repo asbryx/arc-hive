@@ -9,15 +9,26 @@ const CLEANUP_INTERVAL = 1000 // Check every 1000 requests
 let requestCounter = 0
 
 function getClientIP(c: any): string {
+  // Prefer Cloudflare/Vercel headers which cannot be spoofed by the client
+  const cfIp = c.req.header('cf-connecting-ip')
+  if (cfIp) return cfIp
+
+  const vercelIp = c.req.header('x-vercel-forwarded-for')
+  if (vercelIp) return vercelIp.split(',')[0].trim()
+
+  // Fallback to X-Forwarded-For with trust count
   const trustCount = parseInt(process.env.TRUSTED_PROXY_COUNT || '1', 10)
   const xff = c.req.header('x-forwarded-for')
   if (xff) {
     const ips = xff.split(',').map((s: string) => s.trim()).filter(Boolean)
+    // Take the rightmost IP that is NOT from a trusted proxy
     if (ips.length > trustCount) {
       return ips[ips.length - 1 - trustCount]
     }
+    // If fewer IPs than trust count, use the leftmost (client)
+    return ips[0] || 'unknown'
   }
-  return c.req.header('x-real-ip') || c.req.header('cf-connecting-ip') || 'unknown'
+  return c.req.header('x-real-ip') || 'unknown'
 }
 
 export function rateLimiter(): MiddlewareHandler {

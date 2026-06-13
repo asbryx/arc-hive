@@ -138,9 +138,9 @@ export class HttpClient {
           timeout: 30_000,
         });
 
-        // Check for API error in response body
-        if (response && typeof response === 'object' && 'error' in response) {
-          throw new Error((response as any).error || 'Request failed');
+        // Check for API error in response body (only if error is truthy)
+        if (response && typeof response === 'object' && 'error' in response && (response as any).error) {
+          throw new Error((response as any).error);
         }
 
         // Unwrap list endpoints that return {data: [...]}
