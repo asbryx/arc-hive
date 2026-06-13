@@ -54,6 +54,22 @@ app.route('/api/open-jobs', fileRoutes) // file upload/download routes
 app.route('/api/keys', keys)
 app.route('/api/auth', auth)
 
+// GET /api/files/cleanup — Vercel Cron endpoint for expired-file cleanup
+app.get('/api/files/cleanup', async (c) => {
+  const cronSecret = process.env.CRON_SECRET || process.env.SERVICE_AUTH_KEY
+  if (!cronSecret) {
+    return c.json({ error: 'Cleanup endpoint not configured' }, 500)
+  }
+  const authHeader = c.req.header('Authorization') || ''
+  const queryKey = c.req.query('key')
+  const provided = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : queryKey
+  if (provided !== cronSecret) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+  const { deleted, failed } = await cleanupExpiredFiles()
+  return c.json({ deleted, failed })
+})
+
 // T-MO01: Health check — API + DB + indexer + evaluator
 app.get('/api/health', async (c) => {
   const checks: any = { api: 'ok' }

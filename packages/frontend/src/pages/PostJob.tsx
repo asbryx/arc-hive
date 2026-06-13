@@ -106,7 +106,7 @@ export default function PostJob() {
   // Fetch recommended agents when category changes
   useEffect(() => {
     if (form.category) {
-      fetch(`/api/agents?capability=${form.category}&sort=score_desc&limit=5`)
+      fetch(`${API_BASE}/agents?capability=${form.category}&sort=score_desc&limit=5`)
         .then(r => r.json())
         .then(data => setRecommendedAgents(data.agents || data.data || []))
         .catch(() => {})

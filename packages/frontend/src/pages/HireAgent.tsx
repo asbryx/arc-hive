@@ -3,9 +3,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAccount, useWriteContract } from 'wagmi'
 import { parseUnits, zeroAddress } from 'viem'
+import { waitForTransactionReceipt } from '@wagmi/core'
 import { useAgent } from '@/api/hooks'
 import { AGENTIC_COMMERCE, USDC_ADDRESS, AGENTIC_COMMERCE_ABI, USDC_ABI } from '@/lib/contracts'
-import { arcTestnet } from '@/lib/wagmi'
+import { arcTestnet, config as wagmiConfig } from '@/lib/wagmi'
 
 /**
  * Contract flow (verified on-chain):
@@ -31,7 +32,7 @@ export default function HireAgent() {
   const { data: agent } = useAgent(id!)
 
   const [step, setStep] = useState<Step>('configure')
-  const [config, setConfig] = useState<JobConfig>({
+  const [jobConfig, setJobConfig] = useState<JobConfig>({
     description: '',
     budget: '',
     deadline: 72,
@@ -115,8 +116,8 @@ export default function HireAgent() {
     )
   }
 
-  const expiredAt = Math.floor(Date.now() / 1000) + config.deadline * 3600
-  const evaluatorAddr = config.evaluator === 'self' ? address! : config.evaluator
+  const expiredAt = Math.floor(Date.now() / 1000) + jobConfig.deadline * 3600
+  const evaluatorAddr = jobConfig.evaluator === 'self' ? address! : jobConfig.evaluator
 
   async function executeCreate() {
     setStep('execute')
@@ -134,7 +135,7 @@ export default function HireAgent() {
           agent!.owner as `0x${string}`,
           evaluatorAddr as `0x${string}`,
           BigInt(expiredAt),
-          config.description,
+          jobConfig.description,
           zeroAddress,
         ],
         chain: arcTestnet,
@@ -173,17 +174,20 @@ export default function HireAgent() {
     try {
       const budgetAmount = onChainBudget
         ? parseUnits(onChainBudget, 6)
-        : parseUnits(config.budget || '0', 6)
+        : parseUnits(jobConfig.budget || '0', 6)
 
       // Step 1: approve USDC
       setTxStep(1)
-      await writeContractAsync({
+      const approveHash = await writeContractAsync({
         address: USDC_ADDRESS,
         abi: USDC_ABI,
         functionName: 'approve',
         args: [AGENTIC_COMMERCE, budgetAmount],
         chain: arcTestnet,
       })
+
+      // Wait for approve to be mined before funding
+      await waitForTransactionReceipt(wagmiConfig, { hash: approveHash })
 
       // Step 2: fund
       setTxStep(2)
@@ -222,8 +226,8 @@ export default function HireAgent() {
           <label style={{ display: 'block', marginBottom: 16 }}>
             <span style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1 }}>Job Description</span>
             <textarea
-              value={config.description}
-              onChange={(e) => setConfig({ ...config, description: e.target.value })}
+              value={jobConfig.description}
+              onChange={(e) => setJobConfig({ ...jobConfig, description: e.target.value })}
               placeholder="Describe what you need this agent to do..."
               style={{
                 display: 'block', width: '100%', marginTop: 8, padding: 12,
@@ -240,8 +244,8 @@ export default function HireAgent() {
                 type="number"
                 step="0.01"
                 min="0.01"
-                value={config.budget}
-                onChange={(e) => setConfig({ ...config, budget: e.target.value })}
+                value={jobConfig.budget}
+                onChange={(e) => setJobConfig({ ...jobConfig, budget: e.target.value })}
                 placeholder="1.00"
                 style={{
                   display: 'block', width: '100%', marginTop: 8, padding: 10,
@@ -256,8 +260,8 @@ export default function HireAgent() {
               <input
                 type="number"
                 min="1"
-                value={config.deadline}
-                onChange={(e) => setConfig({ ...config, deadline: parseInt(e.target.value) || 72 })}
+                value={jobConfig.deadline}
+                onChange={(e) => setJobConfig({ ...jobConfig, deadline: parseInt(e.target.value) || 72 })}
                 style={{
                   display: 'block', width: '100%', marginTop: 8, padding: 10,
                   background: 'var(--bg)', border: '1px solid var(--dimmer)', color: 'var(--text)',
@@ -274,8 +278,8 @@ export default function HireAgent() {
           <label style={{ display: 'block', marginBottom: 24 }}>
             <span style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1 }}>Evaluator</span>
             <select
-              value={config.evaluator === 'self' ? 'self' : 'custom'}
-              onChange={(e) => setConfig({ ...config, evaluator: e.target.value === 'self' ? 'self' : '' })}
+              value={jobConfig.evaluator === 'self' ? 'self' : 'custom'}
+              onChange={(e) => setJobConfig({ ...jobConfig, evaluator: e.target.value === 'self' ? 'self' : '' })}
               style={{
                 display: 'block', width: '100%', marginTop: 8, padding: 10,
                 background: 'var(--bg)', border: '1px solid var(--dimmer)', color: 'var(--text)',
@@ -285,11 +289,11 @@ export default function HireAgent() {
               <option value="self">Self (you approve/reject)</option>
               <option value="custom">Custom address</option>
             </select>
-            {config.evaluator !== 'self' && (
+            {jobConfig.evaluator !== 'self' && (
               <input
                 type="text"
-                value={config.evaluator}
-                onChange={(e) => setConfig({ ...config, evaluator: e.target.value })}
+                value={jobConfig.evaluator}
+                onChange={(e) => setJobConfig({ ...jobConfig, evaluator: e.target.value })}
                 placeholder="0x..."
                 style={{
                   display: 'block', width: '100%', marginTop: 8, padding: 10,
@@ -302,11 +306,11 @@ export default function HireAgent() {
 
           <button
             onClick={() => setStep('preview')}
-            disabled={!config.description || !config.budget || parseFloat(config.budget) <= 0}
+            disabled={!jobConfig.description || !jobConfig.budget || parseFloat(jobConfig.budget) <= 0}
             style={{
               width: '100%', padding: '12px 0', fontSize: 13, fontWeight: 700,
               background: 'var(--accent)', color: '#ffffff', border: 'none', cursor: 'pointer',
-              opacity: (!config.description || !config.budget) ? 0.4 : 1,
+              opacity: (!jobConfig.description || !jobConfig.budget) ? 0.4 : 1,
             }}
           >
             Preview →
@@ -319,16 +323,16 @@ export default function HireAgent() {
         <div>
           <div style={{ fontSize: 12, marginBottom: 24 }}>
             <div style={{ padding: '12px 0', borderBottom: '1px solid var(--dimmer)' }}>
-              <span style={{ color: 'var(--dim)' }}>Description:</span> {config.description}
+              <span style={{ color: 'var(--dim)' }}>Description:</span> {jobConfig.description}
             </div>
             <div style={{ padding: '12px 0', borderBottom: '1px solid var(--dimmer)' }}>
-              <span style={{ color: 'var(--dim)' }}>Suggested budget:</span> {config.budget} USDC
+              <span style={{ color: 'var(--dim)' }}>Suggested budget:</span> {jobConfig.budget} USDC
             </div>
             <div style={{ padding: '12px 0', borderBottom: '1px solid var(--dimmer)' }}>
-              <span style={{ color: 'var(--dim)' }}>Deadline:</span> {config.deadline}h from now
+              <span style={{ color: 'var(--dim)' }}>Deadline:</span> {jobConfig.deadline}h from now
             </div>
             <div style={{ padding: '12px 0', borderBottom: '1px solid var(--dimmer)' }}>
-              <span style={{ color: 'var(--dim)' }}>Evaluator:</span> {config.evaluator === 'self' ? 'You' : config.evaluator}
+              <span style={{ color: 'var(--dim)' }}>Evaluator:</span> {jobConfig.evaluator === 'self' ? 'You' : jobConfig.evaluator}
             </div>
             <div style={{ padding: '12px 0', borderBottom: '1px solid var(--dimmer)' }}>
               <span style={{ color: 'var(--dim)' }}>Provider:</span> {agent.name || `agent-${agent.agentId}`} ({agent.owner.slice(0, 6)}...{agent.owner.slice(-4)})
@@ -406,7 +410,7 @@ export default function HireAgent() {
             <div style={{ margin: '0 auto', width: 24, height: 24, border: '2px solid var(--dimmer)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
             <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 24 }}>
-              Suggested budget: {config.budget} USDC · Polling every 3s
+              Suggested budget: {jobConfig.budget} USDC · Polling every 3s
             </div>
             <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 8 }}>
               You can close this page — fund from <Link to="/dashboard" style={{ color: 'var(--accent)' }}>My Jobs</Link> later.
@@ -476,7 +480,7 @@ export default function HireAgent() {
           <div style={{ fontSize: 24, marginBottom: 16 }}>✓</div>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Job Funded</div>
           <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 24 }}>
-            Job #{jobId?.toString()} · {onChainBudget || config.budget} USDC in escrow
+            Job #{jobId?.toString()} · {onChainBudget || jobConfig.budget} USDC in escrow
           </div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
             <Link
