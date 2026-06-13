@@ -7,9 +7,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const migrationsDir = join(__dirname, '..', '..', '..', '..', 'migrations')
 
 async function migrate() {
-  const databaseUrl = process.env.DATABASE_URL
+  // Match getPool() resolution order so `pnpm migrate` lands on the same DB
+  // the indexer actually reads from at runtime.
+  const databaseUrl =
+    process.env.AGENTS_DATABASE_URL ||
+    process.env.INDEXER_DATABASE_URL ||
+    process.env.DATABASE_URL
   if (!databaseUrl) {
-    console.error('DATABASE_URL not set')
+    console.error('AGENTS_DATABASE_URL (or DATABASE_URL) not set')
     process.exit(1)
   }
 
