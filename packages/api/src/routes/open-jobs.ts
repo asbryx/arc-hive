@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { createWalletClient, createPublicClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { requireAuth } from '../middleware/auth.js'
+import jwt from 'jsonwebtoken'
 
 function requireServiceAuth(c: any): boolean {
   const serviceKey = c.req.header('x-service-key')
@@ -11,35 +12,20 @@ function requireServiceAuth(c: any): boolean {
   if (!serviceKey || !expected) return false
   try {
     return timingSafeEqual(Buffer.from(serviceKey), Buffer.from(expected))
-  } catch {
-    return false
-  }
+  } catch { return false }
 }
 
-/** Verify JWT and return authenticated wallet address. Returns null + sends 401 on failure. */
+/** Verify JWT and return authenticated wallet. Returns null + sets status on failure. */
 async function requireWalletAuth(c: any, address: string): Promise<string | null> {
   const authHeader = c.req.header('authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    c.status(401)
-    return null
-  }
+  if (!authHeader?.startsWith('Bearer ')) { c.status(401); return null }
   try {
-    const jwt = await import('jsonwebtoken')
     const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
     const authWallet = decoded?.wallet?.toLowerCase()
-    if (!authWallet) {
-      c.status(401)
-      return null
-    }
-    if (authWallet !== address.toLowerCase()) {
-      c.status(403)
-      return null
-    }
+    if (!authWallet) { c.status(401); return null }
+    if (authWallet !== address.toLowerCase()) { c.status(403); return null }
     return authWallet
-  } catch {
-    c.status(401)
-    return null
-  }
+  } catch { c.status(401); return null }
 }
 
 const PROVIDER_KEY = process.env.PROVIDER_PRIVATE_KEY!
@@ -482,11 +468,181 @@ openJobs.get('/recommended', async (c) => {
 // GET /api/open-jobs/agent-ratings?address=0x...
 openJobs.get('/agent-ratings', async (c) => {
   const address = c.req.query('address')
-  if (!address) return c.json({ error: 'address required' }
+  if (!address) return c.json({ error: 'address required' }, 400)
 
-... [OUTPUT TRUNCATED - 6692 chars omitted out of 56692 total] ...
+  // Strict auth — reject if JWT invalid or wallet mismatch
+  const authWallet = await requireWalletAuth(c, address)
+  if (!authWallet) {
+    return c.json({ error: 'Authentication required' }, 401)
+  }
 
-osed_budget)
+  const result = await query(
+    `SELECT mr.*, oj.title FROM marketplace_ratings mr
+     JOIN open_jobs oj ON oj.id = mr.open_job_id
+     WHERE lower(mr.agent_address) = lower($1)
+     ORDER BY mr.created_at DESC`,
+    [address]
+  )
+  const avg = await query(
+    `SELECT AVG(rating)::numeric(3,2) as avg_rating, COUNT(*) as total FROM marketplace_ratings WHERE lower(agent_address) = lower($1)`,
+    [address]
+  )
+
+  return c.json({
+    data: result.rows.map(row => ({
+      id: row.id, rating: row.rating, comment: row.comment,
+      clientAddress: row.client_address, jobTitle: row.title, createdAt: row.created_at,
+    })),
+    avgRating: parseFloat(avg.rows[0].avg_rating) || 0,
+    totalRatings: parseInt(avg.rows[0].total),
+  })
+})
+
+// GET /api/open-jobs/notifications?address=0x...
+openJobs.get('/notifications', requireAuth, async (c) => {
+  const address = c.req.query('address')
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
+  if (!address) return c.json({ error: 'address required' }, 400)
+  if (authWallet !== address.toLowerCase()) return c.json({ error: 'Can only read your own notifications' }, 403)
+
+  const result = await query(
+    `SELECT * FROM agent_notifications WHERE lower(agent_address) = lower($1) ORDER BY created_at DESC LIMIT 50`,
+    [address]
+  )
+  const unreadCount = await query(
+    `SELECT COUNT(*) FROM agent_notifications WHERE lower(agent_address) = lower($1) AND read = FALSE`,
+    [address]
+  )
+
+  return c.json({
+    data: result.rows.map(row => ({
+      id: row.id, type: row.type, referenceId: row.reference_id,
+      message: row.message, read: row.read, createdAt: row.created_at,
+    })),
+    unreadCount: parseInt(unreadCount.rows[0].count),
+  })
+})
+
+// POST /api/open-jobs/notifications/read
+openJobs.post('/notifications/read', requireAuth, async (c) => {
+  const body = await c.req.json()
+  const { address, ids } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
+  if (!address) return c.json({ error: 'address required' }, 400)
+  if (authWallet !== address.toLowerCase()) return c.json({ error: 'Can only update your own notifications' }, 403)
+
+  if (ids && ids.length > 0) {
+    await query(
+      `UPDATE agent_notifications SET read = TRUE WHERE lower(agent_address) = lower($1) AND id = ANY($2)`,
+      [address, ids]
+    )
+  } else {
+    await query(
+      `UPDATE agent_notifications SET read = TRUE WHERE lower(agent_address) = lower($1)`,
+      [address]
+    )
+  }
+  return c.json({ success: true })
+})
+
+// POST /api/open-jobs/expire-check — auto-expire unfunded assigned jobs past deadline (auth required)
+openJobs.post('/expire-check', requireAuth, async (c) => {
+  if (!requireServiceAuth(c)) {
+    return c.json({ error: 'Service authentication required' }, 403)
+  }
+  const result = await query(
+    `UPDATE open_jobs SET status = 'expired', updated_at = NOW()
+     WHERE status = 'assigned'
+     AND updated_at + (deadline_hours * INTERVAL '1 hour') < NOW()
+     RETURNING id, title, selected_applicant`
+  )
+
+  // Notify agents of expired jobs
+  for (const row of result.rows) {
+    if (row.selected_applicant) {
+      await query(
+        `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
+         VALUES ($1, 'job_expired', $2, $3)`,
+        [row.selected_applicant, row.id, `"${row.title}" expired — client did not fund in time.`]
+      )
+    }
+  }
+
+  return c.json({ expired: result.rows.length, jobs: result.rows.map(r => r.id) })
+})
+
+// GET /api/open-jobs/:id — single open job detail
+openJobs.get('/:id', async (c) => {
+  const id = c.req.param('id')
+
+  // Only allow numeric IDs to prevent SQL cast errors on route collisions
+  if (!/^\d+$/.test(id)) return c.json({ error: 'Not found' }, 404)
+
+  const result = await query(
+    `SELECT oj.*,
+      (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count,
+      (SELECT j.created_tx FROM jobs j WHERE j.job_id = oj.job_id LIMIT 1) as indexed_tx
+     FROM open_jobs oj WHERE oj.id = $1 OR oj.job_id = $1::bigint`,
+    [id]
+  )
+
+  if (result.rows.length === 0) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+
+  return c.json(formatOpenJob(result.rows[0]))
+})
+
+// POST /api/open-jobs/:id/apply — agent applies to a job
+openJobs.post('/:id/apply', requireAuth, async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { applicantAddress, agentId, message, proposedBudget } = body
+  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
+
+  const messageErr = validateFieldLength(message, 'message')
+  if (messageErr) {
+    return c.json({ error: messageErr }, 400)
+  }
+
+  if (!applicantAddress) {
+    return c.json({ error: 'applicantAddress required' }, 400)
+  }
+  if (authWallet !== applicantAddress.toLowerCase()) {
+    return c.json({ error: 'Can only apply as your own wallet' }, 403)
+  }
+
+  const jobResult = await query(
+    `SELECT * FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
+    [id]
+  )
+  if (jobResult.rows.length === 0) {
+    return c.json({ error: 'Job not found' }, 404)
+  }
+
+  const openJob = jobResult.rows[0]
+  if (openJob.status !== 'open') {
+    return c.json({ error: 'Job is no longer accepting applications' }, 400)
+  }
+
+  // Validate proposed budget is within job's budget range
+  if (proposedBudget) {
+    const proposedRaw = BigInt(Math.round(parseFloat(proposedBudget) * 1_000_000))
+    const minBudget = openJob.budget_min ? BigInt(openJob.budget_min) : null
+    const maxBudget = openJob.budget_max ? BigInt(openJob.budget_max) : null
+    if (minBudget && proposedRaw < minBudget) {
+      return c.json({ error: `Proposed budget below minimum (${Number(minBudget) / 1_000_000} USDC)` }, 400)
+    }
+    if (maxBudget && proposedRaw > maxBudget) {
+      return c.json({ error: `Proposed budget exceeds maximum (${Number(maxBudget) / 1_000_000} USDC)` }, 400)
+    }
+  }
+
+  const budgetRaw = proposedBudget ? BigInt(Math.round(parseFloat(proposedBudget) * 1_000_000)).toString() : null
+
+  try {
+    const result = await query(
+      `INSERT INTO job_applications (job_id, applicant_address, agent_id, message, proposed_budget)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id`,
       [openJob.id, applicantAddress.toLowerCase(), agentId || null, message || null, budgetRaw]
@@ -782,7 +938,6 @@ openJobs.get('/:id/deliverables', async (c) => {
   const authHeader = c.req.header('authorization')
   if (authHeader?.startsWith('Bearer ')) {
     try {
-      const jwt = await import('jsonwebtoken')
       const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
       requester = decoded?.wallet?.toLowerCase() || null
     } catch {}
