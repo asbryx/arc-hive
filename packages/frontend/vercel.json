@@ -1,4 +1,5 @@
 {
+  "_comment_security": "SEC-060: API rewrite changed from http://194.195.209.138 to https://api.arcs-hive.example. Vercel-edge to VPS plain HTTP leaks JWTs and signed messages on the wire. Set API_BACKEND_URL_HTTPS at deploy time and put the VPS behind a Cloudflare/Caddy TLS terminator (or a Cloudflared tunnel) before re-enabling.",
   "crons": [
     {
       "path": "/api/files/cleanup",
@@ -14,14 +15,17 @@
         { "key": "X-XSS-Protection", "value": "1; mode=block" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://rpc.testnet.arc.network wss: wss://*.walletconnect.com https://*.walletconnect.com; frame-ancestors 'none'; form-action 'self'" }
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Resource-Policy", "value": "same-origin" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://rpc.testnet.arc.network wss: wss://*.walletconnect.com https://*.walletconnect.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'" }
       ]
     }
   ],
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "http://194.195.209.138:3000/api/$1"
+      "destination": "https://api.arcs-hive.example.com/api/$1"
     },
     {
       "source": "/((?!assets/).*)",

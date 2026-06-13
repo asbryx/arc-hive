@@ -3,29 +3,28 @@ import { query, queryAgents } from '../db.js'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { createWalletClient, createPublicClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { requireAuth } from '../middleware/auth.js'
-import jwt from 'jsonwebtoken'
+import { requireAuth, verifyToken } from '../middleware/auth.js'
 
 function requireServiceAuth(c: any): boolean {
   const serviceKey = c.req.header('x-service-key')
   const expected = process.env.SERVICE_API_KEY
   if (!serviceKey || !expected) return false
-  try {
-    return timingSafeEqual(Buffer.from(serviceKey), Buffer.from(expected))
-  } catch { return false }
+  // SEC-005: Length must match before timingSafeEqual or it throws and leaks length via timing
+  const a = Buffer.from(serviceKey)
+  const b = Buffer.from(expected)
+  if (a.length !== b.length) return false
+  try { return timingSafeEqual(a, b) } catch { return false }
 }
 
-/** Verify JWT and return authenticated wallet. Returns null + sets status on failure. */
+/** Verify JWT and return authenticated wallet. Returns null + sets status on failure.
+ *  SEC-006: Uses central verifyToken which enforces alg=HS256 + iss/aud, rejects alg=none. */
 async function requireWalletAuth(c: any, address: string): Promise<string | null> {
   const authHeader = c.req.header('authorization')
   if (!authHeader?.startsWith('Bearer ')) { c.status(401); return null }
-  try {
-    const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
-    const authWallet = decoded?.wallet?.toLowerCase()
-    if (!authWallet) { c.status(401); return null }
-    if (authWallet !== address.toLowerCase()) { c.status(403); return null }
-    return authWallet
-  } catch { c.status(401); return null }
+  const result = verifyToken(authHeader.slice(7))
+  if (!result) { c.status(401); return null }
+  if (result.wallet !== address.toLowerCase()) { c.status(403); return null }
+  return result.wallet
 }
 
 const PROVIDER_KEY = process.env.PROVIDER_PRIVATE_KEY!
@@ -127,16 +126,27 @@ openJobs.post('/', requireAuth, async (c) => {
 
       const fireWebhook = async (attempt: number) => {
         try {
+          // SEC-023: Re-validate URL at fire time to defeat DNS rebinding —
+          // a hostname may have resolved to a public IP at registration and
+          // since rebound to 127.0.0.1 / 169.254.169.254 / Tailscale CGNAT.
+          const { _validateWebhookUrlForDelivery } = await import('./keys.js')
+          const stillSafe = await _validateWebhookUrlForDelivery(wh.url)
+          if (!stillSafe) throw new Error('webhook url no longer resolves to a safe public host')
+
           const res = await fetch(wh.url, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'X-ArcHive-Event': 'job.created',
               'X-ArcHive-Signature': signature,
+              'X-ArcHive-Timestamp': new Date().toISOString(),
+              'User-Agent': 'archive-webhook/1.0',
             },
             body: payload,
+            redirect: 'manual',                   // SEC-024: don't follow redirects to internal hosts
             signal: AbortSignal.timeout(10_000),
           })
+          if (res.status >= 300 && res.status < 400) throw new Error(`webhook redirected (${res.status}) — refusing to follow`)
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
           // Reset failure count on success
           await query(`UPDATE webhooks SET failure_count = 0, last_triggered_at = NOW() WHERE id = $1`, [wh.id])
@@ -934,13 +944,12 @@ openJobs.get('/:id/deliverables', async (c) => {
   const id = c.req.param('id')
 
   // Try to get auth wallet (optional — don't reject if missing)
+  // SEC-006: use central verifyToken (alg=HS256 + iss/aud + signature checks)
   let requester: string | null = null
   const authHeader = c.req.header('authorization')
   if (authHeader?.startsWith('Bearer ')) {
-    try {
-      const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET!) as any
-      requester = decoded?.wallet?.toLowerCase() || null
-    } catch {}
+    const result = verifyToken(authHeader.slice(7))
+    requester = result?.wallet || null
   }
 
   const jobResult = await query(
