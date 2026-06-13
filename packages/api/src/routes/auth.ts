@@ -1,28 +1,29 @@
 import { Hono } from 'hono'
-import jwt from 'jsonwebtoken'
 import { randomBytes } from 'crypto'
 import { query } from '../db.js'
 import { verifyMessage } from 'viem'
+import { signToken, verifyToken } from '../middleware/auth.js'
 
-const JWT_SECRET = process.env.JWT_SECRET as string
-if (!JWT_SECRET) {
-  console.error('[auth] FATAL: JWT_SECRET environment variable is required')
-  process.exit(1)
-}
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '24h'
+const APP_DOMAIN = process.env.APP_DOMAIN || 'arcs-hive.vercel.app'
+const APP_URI = process.env.APP_URI || `https://${APP_DOMAIN}`
+const CHAIN_ID = parseInt(process.env.AUTH_CHAIN_ID || '5042002', 10)
 
-// Generate a nonce message for the agent to sign (EIP-4361 style with domain)
+// SEC-014: Sign-in message binds to the actual application chain (Arc Testnet 5042002),
+// makes clear no transaction is being signed, and follows EIP-4361 / SIWE shape.
 function buildSignMessage(nonce: string, timestamp: string, wallet: string): string {
-  return `arcs-hive.vercel.app wants you to sign in with your wallet:
+  return `${APP_DOMAIN} wants you to sign in with your wallet:
 
 ${wallet}
+
+Sign in to ArcHive. This signature does not authorize any transaction or token transfer.
 
 Nonce: ${nonce}
 Issued At: ${timestamp}
 
-URI: https://arcs-hive.vercel.app
+URI: ${APP_URI}
 Version: 1
-Chain ID: 1`
+Chain ID: ${CHAIN_ID}`
 }
 
 // Generate cryptographically secure random nonce
@@ -35,11 +36,19 @@ export const auth = new Hono()
 // Per-wallet nonce rate limit — 5 per minute per wallet
 const nonceRateLimit = new Map<string, { count: number; resetAt: number }>()
 
+// Periodic cleanup so the in-memory map can't grow unbounded under abuse
+setInterval(() => {
+  const now = Date.now()
+  for (const [wallet, entry] of nonceRateLimit) {
+    if (entry.resetAt < now) nonceRateLimit.delete(wallet)
+  }
+}, 5 * 60_000).unref()
+
 // POST /api/auth/nonce — get a nonce to sign
 auth.post('/nonce', async (c) => {
-  const body = await c.req.json()
-  const wallet = body.wallet
-  if (!wallet || !/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
+  const body = await c.req.json().catch(() => null)
+  const wallet = body?.wallet
+  if (!wallet || typeof wallet !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
     return c.json({ error: 'Valid wallet address required (0x...)' }, 400)
   }
 
@@ -59,7 +68,6 @@ auth.post('/nonce', async (c) => {
   const timestamp = new Date().toISOString()
   const message = buildSignMessage(nonce, timestamp, wallet.toLowerCase())
 
-  // Store nonce in DB (expires in 5 min)
   await query(
     `INSERT INTO auth_nonces (wallet_address, nonce, message, expires_at)
      VALUES ($1, $2, $3, NOW() + INTERVAL '5 minutes')
@@ -76,15 +84,19 @@ auth.post('/nonce', async (c) => {
 
 // POST /api/auth/verify — verify signed message, return JWT
 auth.post('/verify', async (c) => {
-  const body = await c.req.json()
-  const { wallet, signature } = body
+  const body = await c.req.json().catch(() => null)
+  const wallet = body?.wallet
+  const signature = body?.signature
 
   if (!wallet || !signature) {
     return c.json({ error: 'wallet and signature required' }, 400)
   }
-
-  if (!/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
+  // SEC-016: Type and shape check before any DB / crypto work
+  if (typeof wallet !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
     return c.json({ error: 'Invalid wallet address' }, 400)
+  }
+  if (typeof signature !== 'string' || !/^0x[0-9a-fA-F]{2,520}$/.test(signature)) {
+    return c.json({ error: 'Invalid signature format' }, 400)
   }
 
   // Atomic check-and-set: single UPDATE that marks as used AND returns the row
@@ -102,7 +114,6 @@ auth.post('/verify', async (c) => {
   const nonceRecord = lockResult.rows[0]
   const message = nonceRecord.message
 
-  // Verify signature
   let isValid = false
   try {
     isValid = await verifyMessage({
@@ -119,23 +130,16 @@ auth.post('/verify', async (c) => {
     return c.json({ error: 'Signature does not match wallet' }, 401)
   }
 
+  // Generate JWT (HS256, iss + aud bound) using the central signer
+  const token = signToken({ wallet: wallet.toLowerCase() }, JWT_EXPIRY)
 
-  // Generate JWT
-  const token = jwt.sign(
-    {
-      wallet: wallet.toLowerCase(),
-      iat: Math.floor(Date.now() / 1000),
-    },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRY } as any
-  )
-
-  const decoded = jwt.decode(token) as any
+  // SEC-015: Compute expiresAt from configured expiry rather than jwt.decode (which can return null).
+  const expiresAt = new Date(Date.now() + parseExpiryToMs(JWT_EXPIRY)).toISOString()
 
   return c.json({
     token,
     wallet: wallet.toLowerCase(),
-    expiresAt: new Date(decoded.exp * 1000).toISOString(),
+    expiresAt,
   })
 })
 
@@ -147,14 +151,23 @@ auth.get('/verify', async (c) => {
   }
 
   const token = authHeader.slice(7)
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any
-    return c.json({
-      valid: true,
-      wallet: decoded.wallet,
-      expiresAt: new Date(decoded.exp * 1000).toISOString(),
-    })
-  } catch (err: any) {
-    return c.json({ valid: false, error: err.message }, 401)
+  const result = verifyToken(token)
+  if (!result) {
+    return c.json({ valid: false, error: 'Invalid or expired token' }, 401)
   }
+  return c.json({ valid: true, wallet: result.wallet })
 })
+
+function parseExpiryToMs(expiry: string): number {
+  // Mirrors jsonwebtoken's basic accepted forms — used only to report expiresAt to the client.
+  const m = /^(\d+)\s*(s|m|h|d)$/.exec(expiry)
+  if (!m) return 24 * 3600 * 1000
+  const n = parseInt(m[1], 10)
+  switch (m[2]) {
+    case 's': return n * 1000
+    case 'm': return n * 60 * 1000
+    case 'h': return n * 3600 * 1000
+    case 'd': return n * 24 * 3600 * 1000
+    default: return 24 * 3600 * 1000
+  }
+}

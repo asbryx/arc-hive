@@ -94,55 +94,100 @@ keys.post('/:id/revoke', async (c) => {
 
 // ─── Webhooks ─────────────────────────────────────────────────────────────────
 
-// Check if an IP address is private/internal
-function isPrivateIP(ip: string): boolean {
-  if (ip.startsWith('127.') || ip === '::1' || ip === 'localhost') return true
-  if (ip.startsWith('10.')) return true
-  if (ip.startsWith('192.168.')) return true
-  if (ip.startsWith('172.')) {
-    const second = parseInt(ip.split('.')[1])
-    if (second >= 16 && second <= 31) return true
-  }
-  if (ip.startsWith('::ffff:')) {
-    return isPrivateIP(ip.substring(7))
-  }
+// SEC-020: Strict private/SSRF-target detection. Covers IPv4 + IPv6 ranges that
+// public webhooks should never resolve to (loopback, RFC1918, link-local, CGNAT,
+// metadata services, IPv6 ULA / link-local, IPv4-mapped IPv6, broadcast).
+function isPrivateIPv4(ip: string): boolean {
+  // Validate IPv4 form
+  const parts = ip.split('.').map(p => parseInt(p, 10))
+  if (parts.length !== 4 || parts.some(n => !Number.isInteger(n) || n < 0 || n > 255)) return false
+  const [a, b] = parts
+  if (a === 10) return true
+  if (a === 127) return true
+  if (a === 0) return true
+  if (a === 169 && b === 254) return true              // link-local + AWS/Azure metadata
+  if (a === 172 && b >= 16 && b <= 31) return true     // 172.16/12
+  if (a === 192 && b === 168) return true
+  if (a === 192 && b === 0 && parts[2] === 0) return true  // 192.0.0/24 (IETF protocol)
+  if (a === 192 && b === 0 && parts[2] === 2) return true  // TEST-NET-1
+  if (a === 198 && (b === 18 || b === 19)) return true     // benchmarking
+  if (a === 100 && b >= 64 && b <= 127) return true        // CGNAT (Tailscale uses this)
+  if (a >= 224) return true                                 // multicast/reserved/broadcast
+  // Cloud metadata endpoints
+  if (a === 100 && b === 100 && parts[2] === 100 && parts[3] === 200) return true // Alibaba
   return false
 }
 
-// Validate webhook URL to prevent SSRF (including DNS rebinding)
+function isPrivateIPv6(ip: string): boolean {
+  const lower = ip.toLowerCase().replace(/^\[|\]$/g, '')
+  if (lower === '::1' || lower === '::') return true
+  if (lower.startsWith('fe80:')) return true       // link-local
+  if (lower.startsWith('fc') || lower.startsWith('fd')) return true // ULA fc00::/7
+  if (lower.startsWith('ff')) return true          // multicast
+  // IPv4-mapped IPv6 (::ffff:a.b.c.d) — extract trailing IPv4 and re-check
+  const m = lower.match(/^(?:0+:){0,5}(?:ffff:)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/)
+  if (m && isPrivateIPv4(m[1])) return true
+  // Cloud metadata over IPv6
+  if (lower === 'fd00:ec2::254') return true       // AWS IMDSv6
+  return false
+}
+
+function isPrivateIP(ip: string): boolean {
+  if (!ip) return true
+  const lower = ip.toLowerCase()
+  if (lower === 'localhost') return true
+  if (lower.includes(':')) return isPrivateIPv6(lower)
+  return isPrivateIPv4(lower)
+}
+
+// SEC-021: Webhook URLs must be HTTPS and resolve to non-private IPs at fetch time too,
+// not only at registration. Caller (open-jobs.ts) re-resolves before each fire.
 async function validateWebhookUrl(url: string): Promise<boolean> {
   try {
     const parsed = new URL(url)
-    if (!['http:', 'https:'].includes(parsed.protocol)) return false
-    const hostname = parsed.hostname.toLowerCase()
+    // Force HTTPS — error message already promises it
+    if (parsed.protocol !== 'https:') return false
+    if (parsed.username || parsed.password) return false         // no userinfo
 
-    // Block direct IP addresses that are private
-    if (isPrivateIP(hostname)) return false
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    if (!hostname) return false
 
-    // Block metadata endpoints
-    if (hostname === '169.254.169.254') return false
-
-    // Block non-routable addresses
-    if (hostname === '0.0.0.0' || hostname === '[::]') return false
+    // Direct IP literals
+    if (/^[\d.]+$/.test(hostname) || hostname.includes(':')) {
+      if (isPrivateIP(hostname)) return false
+    }
 
     // Block common internal hostnames
-    if (hostname.endsWith('.internal') || hostname.endsWith('.local')) return false
+    if (hostname === 'metadata.google.internal') return false
+    if (hostname.endsWith('.internal') || hostname.endsWith('.local') ||
+        hostname.endsWith('.localdomain') || hostname.endsWith('.lan') ||
+        hostname.endsWith('.intranet') || hostname.endsWith('.corp') ||
+        hostname.endsWith('.home') || hostname.endsWith('.private')) return false
 
-    // DNS rebinding protection: resolve and check resolved IPs
+    // DNS rebinding protection: resolve A and AAAA, reject if any address is private.
+    // SEC-022: Fail-closed when DNS resolution fails so attacker-controlled domains
+    // that intentionally NXDOMAIN at registration cannot smuggle past the check.
+    let resolvedAny = false
     try {
-      const addresses = await dns.resolve4(hostname)
-      for (const addr of addresses) {
-        if (isPrivateIP(addr)) return false
-      }
-    } catch {
-      // If DNS fails, allow it (might be valid but temporarily unreachable)
-    }
+      const addrs = await dns.resolve4(hostname)
+      resolvedAny ||= addrs.length > 0
+      for (const a of addrs) if (isPrivateIPv4(a)) return false
+    } catch {}
+    try {
+      const addrs6 = await dns.resolve6(hostname)
+      resolvedAny ||= addrs6.length > 0
+      for (const a of addrs6) if (isPrivateIPv6(a)) return false
+    } catch {}
+    if (!resolvedAny) return false
 
     return true
   } catch {
     return false
   }
 }
+
+// Exposed so the webhook firer can re-validate at delivery time (DNS rebinding mitigation).
+export { validateWebhookUrl as _validateWebhookUrlForDelivery }
 
 // POST /api/keys/webhooks — create webhook subscription
 keys.post('/webhooks', async (c) => {

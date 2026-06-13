@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { query } from '../db.js'
+import { requireAuth } from '../middleware/auth.js'
 
 export const jobs = new Hono()
 
