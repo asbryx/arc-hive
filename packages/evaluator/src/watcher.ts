@@ -18,7 +18,7 @@ export async function pollForEvaluations() {
     try {
       const { query } = await import('./db.js')
       const expiredLocks = await query(
-        `UPDATE open_jobs SET status = 'funded', updated_at = NOW()
+        `UPDATE open_jobs SET status = 'evaluating', updated_at = NOW()
          WHERE status = 'evaluating_locked'
          AND updated_at < NOW() - INTERVAL '10 minutes'
          RETURNING id, title`
@@ -308,7 +308,7 @@ async function processEvaluation(job: any) {
       category: job.category || null,
       sectorConfig,
       files: fileContents.length > 0 ? fileContents : undefined,
-    }, job.max_revisions || CONFIG.MAX_REVISIONS)
+    }, job.max_revisions ?? CONFIG.MAX_REVISIONS)
   } catch (err) {
     console.error(`[evaluator] All LLM providers failed for job ${openJobId}:`, (err as Error).message)
     // Queue for manual review instead of getting stuck in retry loop (E-06)
@@ -400,7 +400,7 @@ async function processEvaluation(job: any) {
 
   } else if (result.decision === 'rejected') {
     // REVISION REQUESTED: off-chain only
-    console.log(`[evaluator] Revision ${revisionNumber + 1}/${job.max_revisions || CONFIG.MAX_REVISIONS} requested for job ${openJobId}`)
+    console.log(`[evaluator] Revision ${revisionNumber + 1}/${job.max_revisions ?? CONFIG.MAX_REVISIONS} requested for job ${openJobId}`)
     await updateJobAfterEvaluation(openJobId, 'revision_requested', {
       revisionCount: revisionNumber + 1,
     })

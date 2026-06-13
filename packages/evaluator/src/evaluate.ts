@@ -132,5 +132,5 @@ export async function evaluateDeliverable(input: EvalInput, maxRevisions: number
   const estimatedCost = estimateCost(tokensUsed.input, tokensUsed.output)
   console.log(`[evaluator] Tokens: ${tokensUsed.input}in + ${tokensUsed.output}out = $${estimatedCost.toFixed(4)}`)
 
-  return { score: adjustedScore, breakdown, reasoning, suggestions, decision, providerUsed, tokensUsed, estimatedCost }
+  return { score: adjustedScore, breakdown: clampedBreakdown, reasoning, suggestions, decision, providerUsed, tokensUsed, estimatedCost }
 }

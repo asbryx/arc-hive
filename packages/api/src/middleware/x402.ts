@@ -25,9 +25,11 @@ export function x402PaymentRequired(config: Partial<X402Config> = {}) {
     const paymentProof = c.req.header('x-payment-proof')
     const apiKey = c.req.header('x-api-key')
     
-    // If valid API key, skip payment
+    // If valid API key, skip payment — but ONLY if key is actually validated
     if (apiKey) {
-      // API key validation happens elsewhere
+      // API key must be validated by downstream apiKeyAuth middleware
+      // Just mark that an API key was provided; don't skip payment verification
+      c.set('hasApiKey', true)
       await next()
       return
     }

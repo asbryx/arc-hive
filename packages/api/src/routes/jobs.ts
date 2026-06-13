@@ -268,13 +268,19 @@ jobs.get('/:id', async (c) => {
 // ─── Deliverables ─────────────────────────────────────────────────────────────
 
 // POST /api/jobs/:id/deliverable — provider submits deliverable content
-jobs.post('/:id/deliverable', async (c) => {
+jobs.post('/:id/deliverable', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { providerAddress, content, link, notes } = body
+  const authWallet = (c as any).get('wallet')?.toLowerCase()
 
   if (!providerAddress || !content) {
     return c.json({ error: 'providerAddress and content required' }, 400)
+  }
+
+  // Verify authenticated wallet matches claimed provider
+  if (authWallet && authWallet !== providerAddress.toLowerCase()) {
+    return c.json({ error: 'Authenticated wallet does not match provider' }, 403)
   }
 
   // Verify job exists and caller is provider
@@ -286,6 +292,12 @@ jobs.post('/:id/deliverable', async (c) => {
     return c.json({ error: 'Only the provider can submit deliverables' }, 403)
   }
 
+  // Prevent status regression — only allow submission from valid states
+  const currentStatus = jobResult.rows[0].status
+  if (![1, '1', 'Funded', 'funded'].includes(currentStatus)) {
+    return c.json({ error: `Cannot submit deliverable for job in status: ${currentStatus}` }, 400)
+  }
+
   try {
     await query(
       `INSERT INTO job_deliverables (job_id, provider_address, content, link, notes)
@@ -294,7 +306,7 @@ jobs.post('/:id/deliverable', async (c) => {
       [id, providerAddress.toLowerCase(), content, link || null, notes || null]
     )
     // Update job status to Submitted (2 = Submitted in on-chain status map)
-    await query(`UPDATE jobs SET status = 2 WHERE job_id = $1`, [id])
+    await query(`UPDATE jobs SET status = 2 WHERE job_id = $1 AND status = 1`, [id])
     return c.json({ success: true }, 201)
   } catch (e: any) {
     return c.json({ error: 'Failed to save deliverable' }, 500)
