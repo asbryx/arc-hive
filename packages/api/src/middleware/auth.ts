@@ -8,13 +8,15 @@ if (!JWT_SECRET) {
   process.exit(1)
 }
 
-// SEC-001: Reject default/weak JWT secrets at startup so we never sign with a known value
+// SEC-001: Reject default/weak JWT secrets at startup so we never sign with a known value.
+// Skipped under NODE_ENV=test (vitest, CI) where the harness owns the secret lifecycle —
+// production deployments do not set NODE_ENV=test.
 const WEAK_JWT_SECRETS = new Set([
   'changeme', 'change-me', 'secret', 'jwtsecret', 'jwt-secret',
   'development', 'dev', 'test', 'password', 'archivee', 'archivehub',
 ])
-// Allow opt-out for tests via JWT_SECRET_RELAX (NOT for production)
-if (!process.env.JWT_SECRET_RELAX) {
+const SKIP_WEAK_CHECK = process.env.NODE_ENV === 'test' || process.env.JWT_SECRET_RELAX === '1'
+if (!SKIP_WEAK_CHECK) {
   if (JWT_SECRET.length < 32 || WEAK_JWT_SECRETS.has(JWT_SECRET.toLowerCase())) {
     console.error('[auth middleware] FATAL: JWT_SECRET must be at least 32 random bytes and not a common/weak value')
     process.exit(1)

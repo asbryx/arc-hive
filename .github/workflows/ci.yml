@@ -28,7 +28,9 @@ jobs:
     env:
       DATABASE_URL: postgresql://test:test@localhost:5432/archive_test
       AGENTS_DATABASE_URL: postgresql://test:test@localhost:5432/archive_test
-      JWT_SECRET: test-secret-for-ci
+      JWT_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      JWT_ISSUER: arcs-hive
+      JWT_AUDIENCE: arcs-hive-api
       NODE_ENV: test
 
     steps:
