@@ -212,8 +212,27 @@ agents.get('/:id', async (c) => {
   // For wallet lookups, cast to BIGINT if numeric
   const param = isWallet ? id.toLowerCase() : id
 
+  // BUG FIX 2026-06-15: previously `SELECT a.*, s.*` — pg-driver row dedupe
+  // overwrote a.agent_id with s.agent_id, which is NULL when no agent_scores
+  // row exists yet (i.e. a freshly registered agent). That made the response
+  // return agentId=null even though the agent existed. Project the join
+  // explicitly and rename score columns so a.agent_id wins.
+  // BUG FIX 2026-06-15: previously `SELECT a.*, s.*`. node-postgres returns
+  // duplicate column names in last-wins order, so s.agent_id (NULL for an
+  // agent with no agent_scores row yet — e.g. a freshly registered one)
+  // overwrote a.agent_id and the response returned agentId=null. Project the
+  // join explicitly: keep a.agent_id and a.last_active_at as the canonical
+  // values, prefix score columns with `s_` so they don't collide.
   const agentResult = await queryAgents(
-    `SELECT a.*, s.*
+    `SELECT a.agent_id, a.owner_address, a.metadata_uri, a.image_uri,
+            a.name, a.description, a.capabilities, a.agent_type, a.version,
+            a.agent_wallet, a.registered_at, a.last_active_at,
+            s.avg_score, s.total_feedback_count, s.positive_feedback_count,
+            s.negative_feedback_count, s.unique_raters,
+            s.total_jobs, s.completed_jobs, s.rejected_jobs, s.expired_jobs,
+            s.completion_rate, s.total_earned,
+            s.total_validations, s.approved_validations,
+            s.trust_tier
      FROM agents a
      LEFT JOIN agent_scores s ON a.agent_id = s.agent_id
      WHERE ${whereClause}`,
