@@ -257,11 +257,13 @@ async function processEvaluation(job: any) {
   const validation = preValidate(job.deliverable_content, fileContents)
   if (!validation.valid) {
     console.log(`[evaluator] Pre-validation failed for job ${openJobId}: ${validation.reason}`)
-    // Store as failed evaluation without calling LLM
+    // Store as failed evaluation without calling LLM. Bug fixed 2026-06-15:
+    // omitting evaluator_address violated the NOT NULL constraint, so every
+    // pre-validation rejection threw and the deliverable looped on each poll.
     await query(
-      `INSERT INTO evaluations (open_job_id, version, score, reasoning, suggestions, status, llm_model)
-       VALUES ($1, $2, 0, $3, 'Improve your deliverable and resubmit.', 'failed', 'pre-validation')`,
-      [openJobId, revisionNumber + 1, validation.reason]
+      `INSERT INTO evaluations (open_job_id, version, score, reasoning, suggestions, status, llm_model, evaluator_address)
+       VALUES ($1, $2, 0, $3, 'Improve your deliverable and resubmit.', 'failed', 'pre-validation', $4)`,
+      [openJobId, revisionNumber + 1, validation.reason, CONFIG.EVALUATOR_ADDRESS.toLowerCase()]
     )
     // Reject on-chain if needed
     if (jobId) {
