@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { query, queryAgents } from '../db.js'
 import { requireAuth } from '../middleware/auth.js'
+import { formatUsdc } from '../lib/format.js'
 
 export const agents = new Hono()
 
@@ -443,14 +444,3 @@ function formatJobListItem(row: any) {
   }
 }
 
-function formatUsdc(raw: string | null): string | null {
-  if (!raw || raw === '0') return null
-  try {
-    const num = BigInt(raw)
-    const whole = num / 1_000_000n
-    const frac = num % 1_000_000n
-    return `${whole}.${frac.toString().padStart(6, '0').replace(/0+$/, '') || '0'}`
-  } catch {
-    return null
-  }
-}
