@@ -223,8 +223,12 @@ fileRoutes.get('/:id/files', requireAuth, async (c) => {
   const isClient = requester && job.client_address && requester === job.client_address.toLowerCase()
   const isProvider = requester && job.selected_applicant && requester === job.selected_applicant.toLowerCase()
 
-  // Only client (after approval) or provider can see files
-  const isApproved = ['completed', 'approved'].includes(job.status)
+  // Job is unlocked for the client only when an approved deliverable exists,
+  // i.e. job.status === 'completed'. After 3 failed evaluations the job is
+  // 'failed'/'refunded' — client gets money back but NEVER the files.
+  // (The previous check also accepted job.status === 'approved' but that
+  // status is for deliverables, not jobs — it was dead code.)
+  const isClientUnlocked = job.status === 'completed'
 
   // Gate: must be client or provider to list files
   if (!isClient && !isProvider) {
@@ -247,6 +251,13 @@ fileRoutes.get('/:id/files', requireAuth, async (c) => {
     const expired = expiresAt ? expiresAt < now : false
     const hoursLeft = expiresAt ? Math.max(0, (expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60)) : null
 
+    // Per-row: this file is downloadable to the requester if either
+    //   (a) requester is the provider (always sees own files), or
+    //   (b) requester is the client AND the job is completed AND this file's
+    //       deliverable was the one approved.
+    const isThisApproved = row.deliverable_status === 'approved'
+    const downloadable = isProvider || (isClient && isClientUnlocked && isThisApproved)
+
     return {
       id: row.id,
       filename: row.filename,
@@ -259,8 +270,7 @@ fileRoutes.get('/:id/files', requireAuth, async (c) => {
       expired,
       expiresAt: row.expires_at,
       hoursUntilExpiry: hoursLeft ? Math.round(hoursLeft * 10) / 10 : null,
-      // Only show download URL if client (after approval) or provider
-      downloadable: (isClient && isApproved) || isProvider,
+      downloadable,
     }
   })
 
@@ -289,19 +299,27 @@ fileRoutes.get('/:id/files/:fileId/download', requireAuth, async (c) => {
   const job = jobResult.rows[0]
   const isClient = requester === job.client_address?.toLowerCase()
   const isProvider = requester === job.selected_applicant?.toLowerCase()
-  const isApproved = ['completed', 'approved'].includes(job.status)
+  // Client only unlocks files once the job is 'completed' (= an approved
+  // deliverable exists). 'failed'/'refunded' jobs (3-strike rejection) keep
+  // files private — the client got their money back, the agent keeps the work.
+  const isClientUnlocked = job.status === 'completed'
 
   // Access control: only client (after approval) or provider can download
   if (!isClient && !isProvider) {
     return c.json({ error: 'Access denied' }, 403)
   }
-  if (isClient && !isApproved) {
-    return c.json({ error: 'Files not available until job is approved' }, 403)
+  if (isClient && !isClientUnlocked) {
+    return c.json({ error: 'Files not available until the deliverable is approved by the evaluator (score ≥ 70)' }, 403)
   }
 
-  // Find file
+  // Find file. For clients, additionally require this specific file's
+  // deliverable to be the approved one — files from earlier rejected
+  // attempts stay locked even after a later attempt was approved.
   const fileResult = await query(
-    `SELECT * FROM deliverable_files WHERE id = $1 AND open_job_id = $2`,
+    `SELECT df.*, md.status AS deliverable_status
+       FROM deliverable_files df
+       JOIN marketplace_deliverables md ON md.id = df.deliverable_id
+      WHERE df.id = $1 AND df.open_job_id = $2`,
     [fileId, job.id]
   )
   if (fileResult.rows.length === 0) {
@@ -309,6 +327,9 @@ fileRoutes.get('/:id/files/:fileId/download', requireAuth, async (c) => {
   }
 
   const file = fileResult.rows[0]
+  if (isClient && file.deliverable_status !== 'approved') {
+    return c.json({ error: 'This file belongs to a rejected attempt and is not viewable by the client' }, 403)
+  }
 
   // Check if expired
   if (file.expires_at && new Date(file.expires_at) < new Date()) {

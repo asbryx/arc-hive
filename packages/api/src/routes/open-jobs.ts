@@ -966,13 +966,26 @@ openJobs.get('/:id/deliverables', async (c) => {
   }
 
   const job = jobResult.rows[0]
-  const terminalStates = ['completed', 'failed', 'rejected', 'refunded', 'cancelled', 'expired']
-  const isTerminal = terminalStates.includes(job.status)
   const isClient = requester && job.client_address && requester === job.client_address.toLowerCase()
   const isProvider = requester && job.selected_applicant && requester === job.selected_applicant.toLowerCase()
 
-  // For active jobs, require auth and restrict to client/provider
-  if (!isTerminal && !requester) {
+  // Visibility rules (2026-06-15):
+  //   AGENT (provider): always sees their own content/files.
+  //   CLIENT: sees a deliverable's content ONLY when that deliverable's status
+  //           is 'approved' (= it scored ≥70 and money was released). Across
+  //           the 3-attempt cycle:
+  //             - attempts 1 & 2 score <70 → 'revision_requested', client sees
+  //               reasoning via /evaluations but NOT content/files.
+  //             - attempt 3 scores <70 → job goes 'failed'/'refunded'. Money
+  //               returns to client. Client sees all 3 reasonings but NEVER
+  //               the content/files (they didn't pay for it; agent keeps work).
+  //             - any attempt scores ≥70 → that deliverable is 'approved',
+  //               job is 'completed', client unlocks content/files.
+  //   ANON: only sees deliverables of jobs that reached 'completed' (= an
+  //         approved deliverable exists). 'failed'/'refunded' jobs stay
+  //         private — there's no public artefact to show.
+  const isJobCompleted = job.status === 'completed'
+  if (!requester && !isJobCompleted) {
     return c.json({ error: 'Authentication required' }, 401)
   }
 
@@ -983,19 +996,17 @@ openJobs.get('/:id/deliverables', async (c) => {
 
   return c.json({
     data: result.rows.map(row => {
-      const isApproved = row.status === 'approved'
-      const isRejected = row.status === 'revision_requested' || row.status === 'rejected'
-      // Hide content from client unless approved or client is also the provider
-      const showContent = isApproved || isProvider || (!isClient)
-      // Hide content for rejected deliverables too — only show after approval
-      const hideFromClient = isClient && !isApproved && !isRejected
+      const isThisApproved = row.status === 'approved'
+      // Provider: always see own work.
+      // Client / anon: see content only if this specific deliverable is approved.
+      const canSeeContent = isProvider || isThisApproved
 
       return {
         id: row.id,
         providerAddress: row.provider_address,
-        content: (isClient && !isApproved) ? null : row.content,
-        link: (isClient && !isApproved) ? null : row.link,
-        notes: (isClient && !isApproved) ? null : row.notes,
+        content: canSeeContent ? row.content : null,
+        link:    canSeeContent ? row.link    : null,
+        notes:   canSeeContent ? row.notes   : null,
         version: row.version,
         status: row.status,
         clientFeedback: row.client_feedback,
