@@ -118,8 +118,11 @@ export async function pollForRefunds() {
         const onchainJob = await getOnchainJob(BigInt(jobId))
         const onchainExpired = onchainJob && Number(onchainJob.expiredAt) * 1000 < Date.now()
 
-        if (onchainExpired && (onchainStatus === 1 || onchainStatus === 5)) {
-          // Funded or Expired on-chain and deadline passed — claim refund
+        // claimRefund() works for status 1 (FUNDED, never delivered),
+        // 4 (REJECTED, after 3-strike fail), or 5 (EXPIRED, contract self-marked).
+        // Bug fixed 2026-06-15: status 4 was missing — 3-strike-failed jobs
+        // never got their refund triggered.
+        if (onchainExpired && (onchainStatus === 1 || onchainStatus === 4 || onchainStatus === 5)) {
           console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) deadline passed (expiredAt=${new Date(Number(onchainJob.expiredAt) * 1000).toISOString()}), claiming refund...`)
           const txHash = await claimRefundWithRetry(BigInt(jobId))
           if (!txHash) {
@@ -373,18 +376,31 @@ async function processEvaluation(job: any) {
 
       console.log(`[evaluator] Rejecting on-chain for job ${jobId}...`)
       txHash = await executeReject(BigInt(jobId), result.reasoning)
-      console.log(`[evaluator] FAILED job ${openJobId} — reject tx=${txHash} (refund included)`)
+      console.log(`[evaluator] FAILED job ${openJobId} — reject tx=${txHash}`)
 
-      // reject() auto-refunds, so mark as refunded immediately
-      await updateJobAfterEvaluation(openJobId, 'refunded', {
+      // IMPORTANT (bug fixed 2026-06-15): reject() does NOT auto-refund.
+      // The contract just transitions status to REJECTED (4); funds stay
+      // escrowed until expiredAt passes and someone calls claimRefund(),
+      // which is what the deadline cron at the top of pollForEvaluations
+      // does. We were marking the off-chain row as 'refunded' here and
+      // emailing the client "USDC refunded" while their balance hadn't
+      // actually moved — for up to 24 hours.
+      //
+      // Mark off-chain as 'failed' (terminal but still pre-refund). The
+      // deadline-watcher will flip it to 'refunded' + record the actual
+      // refund tx once claimRefund succeeds after expiredAt.
+      await updateJobAfterEvaluation(openJobId, 'failed', {
         revisionCount: revisionNumber + 1,
       })
-      await recordRefund(openJobId, txHash)
 
-      // Notify client about refund
+      // Notify client + agent (factual messages — refund pending, not done)
       if (job.client_address) {
-        await notifyAgent(job.client_address, 'job_refunded', openJobId,
-          `Job "${job.title}" failed. USDC refunded. tx: ${txHash}`)
+        await notifyAgent(job.client_address, 'job_failed', openJobId,
+          `Job "${job.title}" failed evaluation (3 attempts under threshold). USDC will be refunded once the job's deadline passes. reject tx: ${txHash}`)
+      }
+      if (job.selected_applicant) {
+        await notifyAgent(job.selected_applicant, 'job_failed', openJobId,
+          `Job "${job.title}" was rejected after 3 attempts. No payment will be released.`)
       }
     } catch (err: any) {
       console.error(`[evaluator] On-chain reject error for job ${openJobId}:`, err.message)

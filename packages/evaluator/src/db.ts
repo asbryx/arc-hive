@@ -133,11 +133,18 @@ export async function recordRefund(openJobId: number, refundTx: string) {
 
 // Get funded/in_progress marketplace jobs past deadline
 export async function getExpiredFundedJobs() {
+  // Jobs whose on-chain escrow may need a claimRefund() call:
+  //   - 'funded' / 'in_progress' that just blew past the deadline (client
+  //     never got a deliverable they approved).
+  //   - 'failed' — a 3-strike-rejected job. The contract's reject() leaves
+  //     funds locked and only allows claimRefund() after expiredAt.
+  // Both share the same handler — call claimRefund once the on-chain
+  // deadline has passed.
   const result = await query(
     `SELECT oj.id, oj.job_id, oj.title, oj.client_address, oj.selected_applicant,
             oj.final_budget, oj.funded_at, oj.deadline_hours
      FROM open_jobs oj
-     WHERE oj.status IN ('funded', 'in_progress')
+     WHERE oj.status IN ('funded', 'in_progress', 'failed')
      AND oj.funded_at IS NOT NULL
      AND oj.funded_at + (oj.deadline_hours * INTERVAL '1 hour') < NOW()`
   )
