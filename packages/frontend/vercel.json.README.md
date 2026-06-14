@@ -4,15 +4,41 @@ Vercel's `vercel.json` schema rejects unknown properties (including underscore-p
 
 ## SEC-060 — API rewrite destination
 
-`rewrites[].destination` for `/api/(.*)` is currently set to **`https://api.arcs-hive.example.com/api/$1`**, a placeholder TLS host.
+`rewrites[].destination` for `/api/(.*)` currently points at the cloudflared **quick tunnel** running on the VPS (PM2 process `archivehub-cloudflare-api`):
 
-**Why a placeholder, not the VPS IP:** an earlier version of this file rewrote to `http://194.195.209.138` (plain HTTP). Vercel-edge → VPS plain HTTP leaks JWTs and signed-message bodies on the wire. Do not revert.
+```
+https://retired-informational-existing-fighting.trycloudflare.com
+```
 
-**Before re-enabling:**
+The tunnel terminates TLS at Cloudflare's edge and forwards plaintext to `127.0.0.1:3000` on the VPS, which is the right shape for SEC-060 (no JWT-over-plain-HTTP across the public internet).
 
-1. Put the VPS behind a TLS terminator — Cloudflare, a Caddy/Caddy reverse proxy, or a Cloudflared tunnel.
-2. Set the resulting HTTPS hostname as the `API_BACKEND_URL_HTTPS` deploy-time variable, or replace the placeholder in this file with the real `https://...` host.
-3. Verify the cert chain is valid (Vercel will not skip TLS verification).
+### ⚠️ This URL is unstable
+
+`pm2 show archivehub-cloudflare-api` runs:
+
+```
+cloudflared tunnel --url http://localhost:3000
+```
+
+That's a **quick tunnel**, which means a new random subdomain is allocated **every time the process restarts** (current restart count is in the hundreds). When that happens, the value in this file goes stale and the frontend stops being able to reach the API — exactly the failure mode that brought us here.
+
+**Until a stable hostname is wired up, every PM2 restart of the cloudflared process requires:**
+
+1. SSH the VPS, run `pm2 logs archivehub-cloudflare-api --lines 200 --nostream | grep -oE "https://[a-z0-9-]+\.trycloudflare\.com" | tail -1` to get the new URL.
+2. Update `rewrites[].destination` here.
+3. Push and let Vercel redeploy.
+
+### Proper fix (pending)
+
+Migrate to a **named cloudflared tunnel** with a stable hostname. Requires a Cloudflare-managed domain (free tier is fine):
+
+1. `cloudflared login` — generates `~/.cloudflared/cert.pem` for a domain you own
+2. `cloudflared tunnel create archive-api` — gets a stable UUID + credentials JSON
+3. `cloudflared tunnel route dns archive-api api.<your-domain>` — DNS record
+4. Update PM2 ecosystem to run `cloudflared tunnel run archive-api` instead of `--url`
+5. Set the destination here to `https://api.<your-domain>` permanently
+
+**Why the previous placeholder was rejected:** an earlier version of this file rewrote to `http://194.195.209.138` (plain HTTP, Vercel-edge → VPS). That leaked JWTs and signed messages on the wire. Don't revert to that. Use the tunnel.
 
 ## Crons
 
