@@ -24,8 +24,26 @@ const app = new Hono()
 // Security headers — applied before all else
 app.use('*', securityHeaders())
 
-// T-FZ03: Limit request body size to 100KB
-app.use('*', bodyLimit({ maxSize: 100 * 1024 }))
+// T-FZ03: Default request body cap is 100KB — applied to non-file routes only.
+// File-upload routes mount under /api/open-jobs/:id/deliver and /api/open-jobs/:id/files
+// (see fileRoutes) and need up to 10 files × 10MB each = ~100MB; they get a higher
+// cap below. Anything else is JSON-only and 100KB is plenty.
+const DEFAULT_BODY_LIMIT = 100 * 1024
+const FILE_UPLOAD_BODY_LIMIT = 110 * 1024 * 1024 // 10 files × 10MB + multipart overhead
+
+// Apply the default cap everywhere except the file-upload deliver route.
+// The deliver route enforces its own per-file size limit (10MB) and file-count
+// limit (10) inside files.ts after authentication; the body-limit here is just
+// a coarse first-line DoS guard.
+app.use('*', async (c, next) => {
+  const path = c.req.path
+  const isFileUpload =
+    c.req.method === 'POST' &&
+    /^\/api\/open-jobs\/[^/]+\/deliver$/.test(path) &&
+    (c.req.header('content-type') || '').includes('multipart/form-data')
+  const limit = isFileUpload ? FILE_UPLOAD_BODY_LIMIT : DEFAULT_BODY_LIMIT
+  return bodyLimit({ maxSize: limit })(c, next)
+})
 
 // Global middleware
 const corsOrigins = [
