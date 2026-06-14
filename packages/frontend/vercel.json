@@ -11,14 +11,14 @@
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
         { "key": "Cross-Origin-Resource-Policy", "value": "same-origin" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://rpc.testnet.arc.network wss: wss://*.walletconnect.com https://*.walletconnect.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'" }
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://rpc.testnet.arc.network wss: wss://*.walletconnect.com https://*.walletconnect.com https://*.ts.net https://archive-wsl.tail5a7075.ts.net; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'" }
       ]
     }
   ],
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://retired-informational-existing-fighting.trycloudflare.com/api/$1"
+      "destination": "https://archive-wsl.tail5a7075.ts.net/api/$1"
     },
     {
       "source": "/((?!assets/).*)",
