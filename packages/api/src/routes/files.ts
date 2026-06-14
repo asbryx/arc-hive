@@ -146,8 +146,14 @@ fileRoutes.post('/:id/deliver', requireAuth, async (c) => {
     const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const storagePath = `${job.job_id ?? job.id}/${nextVersion}/${safeFilename}`
 
+    // job.job_id comes back from pg as a string (BIGINT) — coerce to number for
+    // uploadFile's Number.isFinite check. Falls through to job.id (SERIAL) which
+    // is already a number. Bug fixed 2026-06-15: previous code passed the raw
+    // string and uploadFile rejected with "Invalid jobId/version", failing every
+    // deliverable upload.
+    const numericJobId = job.job_id != null ? Number(job.job_id) : job.id
     const uploadResult = await uploadFile(
-      job.job_id ?? job.id,
+      numericJobId,
       nextVersion,
       file.name,
       arrayBuffer,

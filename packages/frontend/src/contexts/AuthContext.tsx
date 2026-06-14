@@ -84,9 +84,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null)
 
     try {
-      // Step 1: Get nonce
-      const nonceRes = await fetch(`${API_BASE}/auth/nonce?wallet=${encodeURIComponent(address)}`)
-      if (!nonceRes.ok) throw new Error('Failed to get nonce')
+      // Step 1: Get nonce — API expects POST with JSON body, NOT GET with query param.
+      // The previous GET form 404'd, which silently aborted the entire SIWE flow:
+      // no signature popup appeared and no JWT was issued, so every authenticated
+      // endpoint (POST /open-jobs, /my-active-all, /my-posted, etc.) returned 401
+      // and the dashboard rendered as null. (Bug fixed 2026-06-15.)
+      const nonceRes = await fetch(`${API_BASE}/auth/nonce`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: address }),
+      })
+      if (!nonceRes.ok) {
+        const err = await nonceRes.json().catch(() => ({}))
+        throw new Error(err.error || `Failed to get nonce (HTTP ${nonceRes.status})`)
+      }
       const { message } = await nonceRes.json()
 
       // Step 2: Sign message

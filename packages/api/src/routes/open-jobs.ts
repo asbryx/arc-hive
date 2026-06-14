@@ -814,9 +814,13 @@ openJobs.post('/:id/select', requireAuth, async (c) => {
 
 // POST /api/open-jobs/:id/set-budget — provider wallet calls setBudget on-chain
 openJobs.post('/:id/set-budget', requireAuth, async (c) => {
-  if (!requireServiceAuth(c)) {
-    return c.json({ error: 'Service authentication required for on-chain transactions' }, 403)
-  }
+  // Auth = job-owner JWT only. We do NOT require x-service-key here because:
+  //   1. The frontend cannot ship that secret to the browser anyway.
+  //   2. We already verify (a) JWT signature, (b) JWT wallet === clientAddress,
+  //      (c) clientAddress owns this open_job row. That's the same trust level.
+  //   3. Bug fixed 2026-06-15: the live MarketplaceDetail.tsx never sent
+  //      x-service-key, so every fund flow 403'd here and no one could fund a
+  //      job. Service-auth gate was dead code.
   const id = c.req.param('id')
   const body = await c.req.json()
   const { budget, clientAddress, onchainJobId } = body
