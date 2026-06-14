@@ -226,13 +226,13 @@ agents.get('/:id', async (c) => {
   const agentResult = await queryAgents(
     `SELECT a.agent_id, a.owner_address, a.metadata_uri, a.image_uri,
             a.name, a.description, a.capabilities, a.agent_type, a.version,
-            a.agent_wallet, a.registered_at, a.last_active_at,
+            a.agent_wallet, a.registered_at,
             s.avg_score, s.total_feedback_count, s.positive_feedback_count,
             s.negative_feedback_count, s.unique_raters,
             s.total_jobs, s.completed_jobs, s.rejected_jobs, s.expired_jobs,
             s.completion_rate, s.total_earned,
             s.total_validations, s.approved_validations,
-            s.trust_tier
+            s.trust_tier, s.last_active_at
      FROM agents a
      LEFT JOIN agent_scores s ON a.agent_id = s.agent_id
      WHERE ${whereClause}`,
