@@ -1,11 +1,4 @@
 {
-  "_comment_security": "SEC-060: API rewrite changed from http://194.195.209.138 to https://api.arcs-hive.example. Vercel-edge to VPS plain HTTP leaks JWTs and signed messages on the wire. Set API_BACKEND_URL_HTTPS at deploy time and put the VPS behind a Cloudflare/Caddy TLS terminator (or a Cloudflared tunnel) before re-enabling.",
-  "crons": [
-    {
-      "path": "/api/files/cleanup",
-      "schedule": "0 * * * *"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
