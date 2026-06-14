@@ -1,9 +1,13 @@
 -- 008_evaluator_metrics.sql
--- Tracks evaluator health, provider usage, and scoring distribution
+-- Tracks evaluator health, provider usage, and scoring distribution.
+--
+-- NOTE: the FK to open_jobs(id) is added in 019_backfill_missing_fks.sql
+-- because open_jobs is not created until migration 010. See 019 for
+-- rationale.
 
 CREATE TABLE IF NOT EXISTS evaluator_metrics (
   id SERIAL PRIMARY KEY,
-  open_job_id INTEGER REFERENCES open_jobs(id) ON DELETE SET NULL,
+  open_job_id INTEGER,
   version INTEGER,
   provider_used VARCHAR(100),       -- 'primary', 'secondary', 'primary+secondary (averaged)'
   llm_model VARCHAR(100),
@@ -20,7 +24,7 @@ CREATE TABLE IF NOT EXISTS evaluator_metrics (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_evaluator_metrics_job ON evaluator_metrics(open_job_id);
-CREATE INDEX idx_evaluator_metrics_provider ON evaluator_metrics(provider_used);
-CREATE INDEX idx_evaluator_metrics_created ON evaluator_metrics(created_at);
-CREATE INDEX idx_evaluator_metrics_decision ON evaluator_metrics(decision);
+CREATE INDEX IF NOT EXISTS idx_evaluator_metrics_job ON evaluator_metrics(open_job_id);
+CREATE INDEX IF NOT EXISTS idx_evaluator_metrics_provider ON evaluator_metrics(provider_used);
+CREATE INDEX IF NOT EXISTS idx_evaluator_metrics_created ON evaluator_metrics(created_at);
+CREATE INDEX IF NOT EXISTS idx_evaluator_metrics_decision ON evaluator_metrics(decision);
