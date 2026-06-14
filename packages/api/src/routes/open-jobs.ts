@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { createWalletClient, createPublicClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { requireAuth, verifyToken } from '../middleware/auth.js'
+import { formatUsdc } from '../lib/format.js'
 
 function requireServiceAuth(c: any): boolean {
   const serviceKey = c.req.header('x-service-key')
@@ -1464,14 +1465,3 @@ function formatOpenJob(row: any) {
   }
 }
 
-function formatUsdc(raw: string | null): string | null {
-  if (!raw || raw === '0') return null
-  try {
-    const num = BigInt(raw)
-    const whole = num / 1_000_000n
-    const frac = num % 1_000_000n
-    return `${whole}.${frac.toString().padStart(6, '0').replace(/0+$/, '') || '0'}`
-  } catch {
-    return null
-  }
-}
