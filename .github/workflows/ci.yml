@@ -49,10 +49,16 @@ jobs:
         run: pnpm i --frozen-lockfile
       
       - name: Run migrations
+        # ON_ERROR_STOP=1 makes psql exit non-zero on any SQL error; the
+        # bash script's `set -euo pipefail` then fails the job. Previously
+        # this loop swallowed errors with `2>/dev/null || true`, which is
+        # how the broken 013_add_missing_indexes.sql shipped to main:
+        # the file aborted on every run but CI stayed green.
         run: |
+          set -euo pipefail
           for f in migrations/*.sql; do
             echo "Running $f..."
-            psql $DATABASE_URL -f "$f" 2>/dev/null || true
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
           done
       
       - name: Build shared

@@ -1,16 +1,27 @@
--- Migration 013: Add missing indexes for common query patterns
--- Applied: Performance optimization
+-- 013_add_missing_indexes.sql — INTENTIONALLY NO-OP
+--
+-- Original content of this file was broken in three ways and never
+-- successfully ran on any deployment:
+--
+--   1. CREATE INDEX CONCURRENTLY cannot run inside a BEGIN/COMMIT block,
+--      and the migration runner (packages/indexer/src/db/migrate.ts)
+--      always wraps each file in a transaction. Postgres aborted at the
+--      first statement on every `pnpm migrate`, the file rolled back,
+--      and `_migrations` never got an entry — so the runner re-tried
+--      the same broken file forever.
+--
+--   2. The CREATE INDEX statements referenced columns that don't exist:
+--        - job_applications.agent_address    (real column: applicant_address)
+--        - job_applications.open_job_id      (real column: job_id)
+--        - evaluations.status                (no such column; has `decision`)
+--
+--   3. Three of the indexes were already created in 010_create_marketplace.sql
+--      and would have been redundant.
+--
+-- This file is preserved as a no-op so the migration runner can mark it
+-- applied and stop retrying. The corrected indexes live in
+-- 017_add_missing_indexes.sql.
+--
+-- See docs/DATABASE_SCHEMA.md for the rationale.
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_open_jobs_status_created ON open_jobs(status, created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_open_jobs_category ON open_jobs(category) WHERE status = 'open';
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_open_jobs_client ON open_jobs(client_address);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_job_applications_agent ON job_applications(agent_address, status);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_job_applications_job ON job_applications(open_job_id, status);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agent_notifications_unread ON agent_notifications(agent_address) WHERE read = false;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_evaluations_job ON evaluations(open_job_id, status);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_evaluations_score ON evaluations(score);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_jobs_provider_status ON jobs(provider_address, status);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_jobs_client_status ON jobs(client_address, status);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_marketplace_ratings_agent ON marketplace_ratings(agent_address);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_marketplace_deliverables_job ON marketplace_deliverables(open_job_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_auth_nonces_wallet ON auth_nonces(wallet_address, used, expires_at);
+SELECT 1;
