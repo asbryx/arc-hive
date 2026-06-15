@@ -79,19 +79,18 @@ async function decodeForEvaluator(data: Blob, storagePath: string): Promise<stri
     try {
       const buf = Buffer.from(await data.arrayBuffer())
       // Dynamic import keeps pdf-parse out of the cold-start path for jobs
-      // with no PDF files. The lib reads test/data/05-versions-space.pdf at
-      // top-level by default — we route around that by importing the
-      // implementation module directly.
-      // @ts-expect-error pdf-parse ships no types for the deeper path
-      const mod: any = await import('pdf-parse/lib/pdf-parse.js')
-      const pdfParse = mod.default || mod
-      const parsed = await pdfParse(buf, { max: 0 }) // max=0 → all pages
-      const text = (parsed.text || '').trim()
+      // with no PDF files. v2 API: class-based; constructor takes
+      // { data: Uint8Array } (or url/path), .getText() returns { text, numpages }.
+      const { PDFParse } = await import('pdf-parse')
+      const parser = new PDFParse({ data: new Uint8Array(buf) })
+      const result = await parser.getText()
+      const text = (result.text || '').trim()
+      const pages = (result as any).numpages ?? (result as any).pages?.length ?? '?'
       if (!text) {
         console.warn(`[supabase] ${storagePath}: PDF parsed but extracted 0 chars of text (scanned image?)`)
-        return `[empty-pdf; ${buf.length} bytes, ${parsed.numpages || '?'} pages; no extractable text — likely a scanned image needing OCR]`
+        return `[empty-pdf; ${buf.length} bytes, ${pages} pages; no extractable text — likely a scanned image needing OCR]`
       }
-      console.log(`[supabase] ${storagePath}: extracted ${text.length} chars from ${parsed.numpages || '?'} PDF page(s)`)
+      console.log(`[supabase] ${storagePath}: extracted ${text.length} chars from ${pages} PDF page(s)`)
       return text
     } catch (err: any) {
       console.error(`[supabase] PDF extract failed for ${storagePath}:`, err.message)
