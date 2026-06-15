@@ -344,11 +344,15 @@ async function processEvaluation(job: any) {
       txHash = await executeComplete(BigInt(jobId), result.reasoning)
       console.log(`[evaluator] APPROVED job ${openJobId} — tx=${txHash}`)
 
-      // Step 3: Update DB only after both submit and complete succeed
-      await query(
-        `UPDATE open_jobs SET status = 'completed', completed_at = NOW(), completed_tx = $2 WHERE id = $1`,
-        [openJobId, txHash]
-      )
+      // Step 3: route the off-chain transition through the canonical helper
+      // so the deliverable row also flips to status='approved' and the
+      // expires_at gets stamped. Bug fixed 2026-06-15: previously this
+      // path only updated open_jobs.status, leaving the deliverable as
+      // 'submitted' — files.deliverableStatus stayed 'submitted', the
+      // /files endpoint returned downloadable=false to the client, and
+      // the UI showed '⏳ Pending approval' next to the file forever
+      // even though the job was complete and the agent had been paid.
+      await updateJobAfterEvaluation(openJobId, 'completed', { completedTx: txHash })
     } catch (err: any) {
       console.error(`[evaluator] On-chain error for job ${openJobId}:`, err.message)
       // Release the lock so it can be retried
