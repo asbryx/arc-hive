@@ -1046,12 +1046,21 @@ export default function MarketplaceDetail() {
             </div>
           )}
 
-          {/* Revision counter */}
-          {job.status === 'revision_requested' && (
-            <div style={{ fontSize: 11, color: '#ff9800', textAlign: 'center', marginTop: 8 }}>
-              Revision {evaluations.filter(e => e.status === 'rejected').length}/{job.maxRevisions || 2} — waiting for provider to resubmit
-            </div>
-          )}
+          {/* Revision counter
+              Audit T13 (2026-06-15): previously filtered only status==='rejected',
+              ignoring pre-validation 'failed' evaluations. A job that hit preval
+              fails for v2 and v3 would still display "Revision 1/2" even after
+              all attempts were consumed. Now count ALL non-approved evaluations
+              (rejected | failed) so the UI reflects what the agent actually used. */}
+          {job.status === 'revision_requested' && (() => {
+            const strikesUsed = evaluations.filter(e => e.status === 'rejected' || e.status === 'failed').length
+            const maxStrikes = (job.maxRevisions || 2) + 1
+            return (
+              <div style={{ fontSize: 11, color: '#ff9800', textAlign: 'center', marginTop: 8 }}>
+                Attempt {strikesUsed} of {maxStrikes} used — waiting for provider to resubmit
+              </div>
+            )
+          })()}
 
           {/* Failed + refund info */}
           {job.status === 'failed' && (

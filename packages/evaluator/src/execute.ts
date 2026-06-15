@@ -172,8 +172,32 @@ export async function executeComplete(jobId: bigint, reasoning: string): Promise
   }
 }
 
-// Evaluator calls reject — locks funds until expiry
-export async function executeReject(jobId: bigint, reasoning: string): Promise<string> {
+/** ERC-20 Transfer event topic — keccak256("Transfer(address,address,uint256)") */
+const ERC20_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+
+/**
+ * Refund details extracted from a reject() transaction receipt.
+ *
+ * On Arc Testnet (verified via on-chain trace of job 65's reject tx
+ * 0xfa300b…72391, Nov 2026), the contract's `reject()` instantly emits a
+ * USDC Transfer log moving the escrowed amount AgenticCommerce → client.
+ * The audit's earlier comment + PR #16 claimed reject() did NOT refund
+ * and that funds waited until expiredAt + claimRefund() — that was wrong.
+ * See packages/evaluator/src/__tests__/execute-reject.test.ts.
+ */
+export interface RejectResult {
+  txHash: string
+  /** Set when reject() emitted a USDC Transfer with the contract as sender. */
+  refund?: {
+    to: `0x${string}`
+    /** Amount in USDC base units (6 decimals). */
+    amount: bigint
+  }
+}
+
+// Evaluator calls reject — instantly refunds the client via the contract's
+// own escrow → client USDC Transfer (verified on-chain).
+export async function executeReject(jobId: bigint, reasoning: string): Promise<RejectResult> {
   const evaluatorWallet = getEvaluatorWallet()
   const publicClient = getPublicClient()
 
@@ -205,7 +229,23 @@ export async function executeReject(jobId: bigint, reasoning: string): Promise<s
     const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 })
     if (receipt.status !== 'success') throw new Error(`Reject tx reverted: ${hash}`)
 
-    return hash
+    // Parse USDC Transfer log: from=AgenticCommerce, any to, value=escrowed amount.
+    // Defensive — if the contract behaviour ever changes (e.g. a future deploy
+    // moves to deferred-refund semantics), we'd see refund=undefined and the
+    // caller treats it as "reject succeeded but refund deferred".
+    const result: RejectResult = { txHash: hash }
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== USDC_ADDRESS.toLowerCase()) continue
+      if (!log.topics[0] || log.topics[0].toLowerCase() !== ERC20_TRANSFER_TOPIC) continue
+      if (log.topics.length < 3 || !log.topics[1] || !log.topics[2]) continue
+      const fromAddr = ('0x' + log.topics[1].slice(-40)).toLowerCase()
+      if (fromAddr !== CONFIG.AGENTIC_COMMERCE.toLowerCase()) continue
+      const toAddr = ('0x' + log.topics[2].slice(-40)) as `0x${string}`
+      const amount = BigInt(log.data)
+      result.refund = { to: toAddr, amount }
+      break
+    }
+    return result
   } catch (err) {
     resetNonce()
     throw err
