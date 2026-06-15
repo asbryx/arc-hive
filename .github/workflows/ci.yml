@@ -9,7 +9,7 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -35,19 +35,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: pnpm/action-setup@v4
         with:
           version: 9
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
-      
+
       - name: Install dependencies
         run: pnpm i --frozen-lockfile
-      
+
       - name: Run migrations
         # ON_ERROR_STOP=1 makes psql exit non-zero on any SQL error; the
         # bash script's `set -euo pipefail` then fails the job. Previously
@@ -60,19 +60,33 @@ jobs:
             echo "Running $f..."
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
           done
-      
+
       - name: Build shared
+        # Must come before per-package type-check: api / evaluator / indexer
+        # all import @arc-hive/shared and the workspace symlink resolves to
+        # packages/shared/dist/index.d.ts.
         run: cd packages/shared && npx tsc
 
-      - name: Lint
-        run: pnpm lint || true
-      
-      - name: Type check
-        run: pnpm -r exec tsc --noEmit || true
-      
+      # Type-check each backend package independently. Previously this was a
+      # single `pnpm -r exec tsc --noEmit || true` — the `|| true` swallowed
+      # every type error in CI for who knows how long. Running per-package
+      # also produces cleaner error output: tsc's stderr is per-package
+      # rooted, so the file paths in error messages are usable in PR
+      # comments and IDE jump-to-line.
+      - name: Type check (shared)
+        run: cd packages/shared && npx tsc --noEmit
+      - name: Type check (api)
+        run: cd packages/api && npx tsc --noEmit
+      - name: Type check (evaluator)
+        run: cd packages/evaluator && npx tsc --noEmit
+      - name: Type check (indexer)
+        run: cd packages/indexer && npx tsc --noEmit
+      - name: Type check (sdk)
+        run: cd packages/sdk && npx tsc --noEmit
+
       - name: Test
         run: pnpm test
-      
+
       - name: Build
         run: pnpm build
 
@@ -80,19 +94,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: pnpm/action-setup@v4
         with:
           version: 9
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
-      
+
       - name: Install dependencies
         run: pnpm i --frozen-lockfile
-      
+
+      - name: Type check (frontend)
+        # Separate step so the failure is labeled "Type check" not "Build"
+        # — easier to triage in the GH check UI.
+        run: cd packages/frontend && npx tsc --noEmit
+
       - name: Build frontend
         run: cd packages/frontend && pnpm build
         env:
