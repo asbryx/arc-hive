@@ -1,50 +1,32 @@
 -- 025_add_missing_columns_and_indexes.sql
 --
--- Audit fix T1 (2026-06-15). Multiple columns referenced by production
--- code were never created in migrations and only existed in prod because
--- someone ALTER'd them by hand. This brings the migration set back into
--- sync with what the code actually reads/writes, and indexes the hot
--- evaluator-poll path.
+-- archivehub-only portion of the missing-columns sync. (Audit fix T1.)
 --
--- Each block is IF NOT EXISTS so it's a no-op on the host where the
+-- IMPORTANT: this project uses TWO databases:
+--   - archivehub:    marketplace state (open_jobs, applications, evaluations,
+--                     deliverables, comments, …) — what the api/evaluator
+--                     read/write under DATABASE_URL
+--   - archiveagents: chain mirror (agents, agent_scores, sync_state, …) —
+--                     what the indexer reads/writes under AGENTS_DATABASE_URL
+--
+-- The agent_scores.composite_score + agents.availability columns belong in
+-- archiveagents and have been moved to migrations-archiveagents/001_*.sql.
+-- DO NOT add chain-mirror columns to files in this directory.
+--
+-- Background: the migration runner historically only knew about archivehub.
+-- An earlier draft of this file ALTERed agents + agent_scores assuming they
+-- lived here and crashed on first run with `relation "agent_scores" does
+-- not exist`. Split below.
+--
+-- Every block is IF NOT EXISTS so it's a no-op on the host where the
 -- column was hand-created. On a fresh deploy / replica restore, this
 -- finally makes the schema correct.
-
--- ─── agent_scores.composite_score ─────────────────────────────────────
--- Written by indexer/src/scoring/aggregator.ts (ON CONFLICT … SET
--- composite_score = EXCLUDED.composite_score), read by api/src/routes/
--- agents.ts (ORDER BY, WHERE IS NOT NULL, projection). NUMERIC because
--- the aggregator stores a weighted floating value, not an integer rank.
-
-ALTER TABLE agent_scores
-  ADD COLUMN IF NOT EXISTS composite_score NUMERIC(10, 4);
-
--- Hot path: agents.ts ORDER BY composite_score DESC. Without the index
--- a profile list (~10k agents) is a seq scan + sort on every paginated
--- request.
-CREATE INDEX IF NOT EXISTS idx_scores_composite
-  ON agent_scores(composite_score DESC NULLS LAST);
-
--- ─── agents.availability ──────────────────────────────────────────────
--- Filtered by GET /api/agents?availability=… in routes/agents.ts:67.
--- Without this column the filter throws "column does not exist".
--- TEXT because we don't yet have a stable enum — current values seen
--- in production: 'available', 'busy', 'unavailable'. CHECK constraint
--- deliberately omitted to keep this migration risk-free.
-
-ALTER TABLE agents
-  ADD COLUMN IF NOT EXISTS availability TEXT;
-
-CREATE INDEX IF NOT EXISTS idx_agents_availability
-  ON agents(availability)
-  WHERE availability IS NOT NULL;
 
 -- ─── open_jobs missing tracking columns ───────────────────────────────
 -- All four are read by api/src/routes/open-jobs.ts:1473-1477 in the
 -- response projection. Silent NULL fallbacks meant refund tracking was
 -- effectively broken: the UI saw refundTx=null even when the on-chain
--- refund had landed and been recorded somewhere else (it wasn't —
--- evaluator/src/db.ts writes refund_tx but had no place to put it).
+-- refund had landed.
 
 ALTER TABLE open_jobs
   ADD COLUMN IF NOT EXISTS refund_tx       TEXT,
@@ -65,16 +47,12 @@ CREATE INDEX IF NOT EXISTS idx_deliverables_status
 
 -- Combined index for the joined evaluator query in getPendingEvaluations:
 -- `WHERE oj.status='evaluating' AND md.status='submitted' AND
---        md.version = (SELECT MAX(version) ...)`. The MAX subquery
--- still needs a per-job scan, but limiting the outer scan to submitted
--- rows is the bigger win.
+--        md.version = (SELECT MAX(version) ...)`.
 
 CREATE INDEX IF NOT EXISTS idx_deliverables_open_job_status
   ON marketplace_deliverables(open_job_id, status, version DESC);
 
-COMMENT ON COLUMN agent_scores.composite_score IS 'Weighted reputation score, 0–100. Computed by indexer aggregator.';
-COMMENT ON COLUMN agents.availability        IS 'Free-form availability label: available / busy / unavailable / etc.';
-COMMENT ON COLUMN open_jobs.refund_tx        IS 'tx hash of on-chain claimRefund (set by evaluator when deadline passes)';
-COMMENT ON COLUMN open_jobs.refunded_at      IS 'wall-clock timestamp the refund landed';
-COMMENT ON COLUMN open_jobs.max_revisions    IS 'Max evaluator revision rounds before final reject. Default 2 (3 strikes).';
-COMMENT ON COLUMN open_jobs.revision_count   IS 'Number of evaluator revision rounds already used.';
+COMMENT ON COLUMN open_jobs.refund_tx       IS 'tx hash of on-chain claimRefund (set by evaluator when deadline passes)';
+COMMENT ON COLUMN open_jobs.refunded_at     IS 'wall-clock timestamp the refund landed';
+COMMENT ON COLUMN open_jobs.max_revisions   IS 'Max evaluator revision rounds before final reject. Default 2 (3 strikes).';
+COMMENT ON COLUMN open_jobs.revision_count  IS 'Number of evaluator revision rounds already used.';
