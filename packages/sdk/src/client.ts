@@ -167,14 +167,30 @@ export class HttpClient {
           throw new Error('Invalid JSON response from server');
         }
 
+        // For 4xx and other non-retriable errors: surface the server's actual
+        // {error: "..."} message + status + path so callers can debug. The
+        // previous handler threw `new Error(error.message)` which dropped the
+        // status code AND any error-body detail, leaving SDK users with
+        // useless stack traces like "Request failed: 404". (Fixed 2026-06-15.)
+        const fail = (e: any) => {
+          const status = e?.statusCode ?? e?.status ?? null;
+          const apiErr = e?.data?.error ?? e?.response?._data?.error ?? null;
+          const baseMsg = apiErr || e?.message || 'Request failed';
+          const wrapped = new Error(`[${method} ${url}] ${status ? status + ': ' : ''}${baseMsg}`);
+          ;(wrapped as any).status = status;
+          ;(wrapped as any).cause = e;
+          ;(wrapped as any).response = e?.response;
+          return wrapped;
+        };
+
         // Don't retry on client errors (4xx) — propagate immediately
         if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
-          throw new Error(error.message || `Request failed: ${error.statusCode}`);
+          throw fail(error);
         }
 
         // Don't retry on non-network errors
         if (error.message && !error.message.includes('network') && !error.message.includes('timeout') && !error.message.includes('ECONNREFUSED')) {
-          throw new Error(error.message || `Request failed: ${error.statusCode}`);
+          throw fail(error);
         }
 
         // Wait before retrying (exponential backoff)
