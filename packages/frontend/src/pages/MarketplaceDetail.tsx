@@ -141,7 +141,12 @@ export default function MarketplaceDetail() {
   const [files, setFiles] = useState<DeliverableFile[]>([])
   const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null)
 
-  useEffect(() => { fetchJob() }, [id])
+  // Re-fetch when the SIWE token lands (`token`). Without this, the first
+  // mount fires before AuthContext finishes signing — applications/deliverables
+  // /files all 401 because authFetch has no JWT yet, and the result is the
+  // 'Select Agent' / 'Fund' / 'Deliver' UI silently failing to render. Once
+  // the JWT is stored, re-fetch so private endpoints succeed.
+  useEffect(() => { fetchJob() }, [id, token])
 
   async function fetchJob() {
     setLoading(true)
