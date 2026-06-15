@@ -8,6 +8,7 @@ import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI, USDC_ADDRESS, USDC_ABI } from '
 import { arcTestnet, config } from '@/lib/wagmi'
 import { getSector } from '@/lib/sectors'
 import { useAuth } from '@/contexts/AuthContext'
+import { safeHref } from '@/utils/safeUrl'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -906,9 +907,14 @@ export default function MarketplaceDetail() {
                   {d.content ? (
                     <>
                       <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', marginBottom: 8 }}>{d.content}</div>
-                      {d.link && (
-                        <a href={d.link} target="_blank" style={{ fontSize: 12, color: 'var(--accent)' }}>{d.link} ↗</a>
-                      )}
+                      {(() => {
+                        // Audit fix T4: deliverable.link is agent-controlled.
+                        const dLink = safeHref(d.link)
+                        if (!dLink) return null
+                        return (
+                          <a href={dLink} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--accent)' }}>{dLink} ↗</a>
+                        )
+                      })()}
                       {d.notes && <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8 }}>{d.notes}</div>}
                     </>
                   ) : (

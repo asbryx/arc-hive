@@ -9,6 +9,7 @@ import StatusPill from '@/components/graphics/StatusPill'
 import Skeleton from '@/components/graphics/Skeleton'
 import { truncateAddress, timeAgo, formatUsdc } from '@/utils/format'
 import { explorerAddress, explorerTx } from '@/utils/explorer'
+import { safeHref } from '@/utils/safeUrl'
 import { JobChat } from '@/components/JobChat'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
@@ -240,14 +241,19 @@ export default function JobDetail() {
               <div style={{ fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: 12 }}>
                 {(job as any).deliverable.content}
               </div>
-              {(job as any).deliverable.link && (
-                <div style={{ marginBottom: 8 }}>
-                  <span style={{ fontSize: 11, color: 'var(--dim)' }}>Link: </span>
-                  <a href={(job as any).deliverable.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'underline' }}>
-                    {(job as any).deliverable.link}
-                  </a>
-                </div>
-              )}
+              {(() => {
+                // Audit fix T4: deliverable.link is agent-controlled.
+                const deliverableLink = safeHref((job as any).deliverable.link)
+                if (!deliverableLink) return null
+                return (
+                  <div style={{ marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--dim)' }}>Link: </span>
+                    <a href={deliverableLink} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'underline' }}>
+                      {deliverableLink}
+                    </a>
+                  </div>
+                )
+              })()}
               {(job as any).deliverable.notes && (
                 <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8, fontStyle: 'italic' }}>
                   Note: {(job as any).deliverable.notes}

@@ -10,6 +10,7 @@ import Skeleton from '@/components/graphics/Skeleton'
 import { truncateAddress, timeAgo, formatUsdc } from '@/utils/format'
 import { TRUST_TIERS } from '@/utils/constants'
 import { explorerAddress, explorerTx } from '@/utils/explorer'
+import { safeHref, safeImageSrc } from '@/utils/safeUrl'
 
 export default function AgentProfile() {
   const { id } = useParams<{ id: string }>()
@@ -213,23 +214,29 @@ export default function AgentProfile() {
             // portfolio
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
-            {portfolio.map(item => (
+            {portfolio.map(item => {
+              // Audit fix T4: image_url + url are agent-controlled.
+              // Reject javascript: / data:text/html / etc. before rendering.
+              const itemImage = safeImageSrc(item.image_url)
+              const itemHref = safeHref(item.url)
+              return (
               <div key={item.id} style={{
                 border: '1px solid var(--dimmer)',
                 padding: '1rem',
                 background: 'var(--bg)',
               }}>
-                {item.image_url && (
-                  <img src={item.image_url} alt={item.title} style={{ width: '100%', height: '120px', objectFit: 'cover', marginBottom: '0.5rem' }} />
+                {itemImage && (
+                  <img src={itemImage} alt={item.title} style={{ width: '100%', height: '120px', objectFit: 'cover', marginBottom: '0.5rem' }} />
                 )}
                 <h4 style={{ color: 'var(--text)', fontSize: '0.85rem' }}>{item.title}</h4>
                 {item.description && <p style={{ color: 'var(--dim)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{item.description}</p>}
                 {item.category && <span style={{ color: 'var(--dim)', fontSize: '0.7rem', marginTop: '0.25rem', display: 'inline-block', border: '1px solid var(--dimmer)', padding: '2px 6px' }}>{item.category}</span>}
-                {item.url && (
-                  <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: '0.75rem', display: 'inline-block', marginTop: '0.5rem' }}>View →</a>
+                {itemHref && (
+                  <a href={itemHref} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: '0.75rem', display: 'inline-block', marginTop: '0.5rem' }}>View →</a>
                 )}
               </div>
-            ))}
+              )
+            })}
           </div>
         </section>
       )}
