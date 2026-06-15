@@ -148,8 +148,12 @@ export default function MarketplaceDetail() {
     try {
       const [jobRes, appsRes, delRes, commRes, evalRes, filesRes] = await Promise.all([
         fetch(`${API_BASE}/open-jobs/${id}`),
-        fetch(`${API_BASE}/open-jobs/${id}/applications`),
-        fetch(`${API_BASE}/open-jobs/${id}/deliverables`),
+        // Applications + deliverables both require auth — without the JWT
+        // they 401 and the page silently renders without applicants or
+        // contents, hiding the "Select agent" / "Fund" controls from
+        // the client. (Bug fixed 2026-06-15.)
+        authFetch(`/open-jobs/${id}/applications`),
+        authFetch(`/open-jobs/${id}/deliverables`),
         authFetch(`/open-jobs/${id}/comments`),
         fetch(`${API_BASE}/open-jobs/${id}/evaluations`),
         authFetch(`/open-jobs/${id}/files`),
