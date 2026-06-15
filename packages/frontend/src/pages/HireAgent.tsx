@@ -1,7 +1,8 @@
 import { authFetch } from '@/api/client'
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useAccount, useWriteContract } from 'wagmi'
+import { useAccount } from 'wagmi'
+import { useGuardedWriteContract } from '@/hooks/useGuardedWriteContract'
 import { parseUnits, zeroAddress } from 'viem'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import { useAgent } from '@/api/hooks'
@@ -44,7 +45,8 @@ export default function HireAgent() {
   const [budgetSet, setBudgetSet] = useState(false)
   const [onChainBudget, setOnChainBudget] = useState<string | null>(null)
 
-  const { writeContractAsync } = useWriteContract()
+  // Audit fix T7: refuses to broadcast on-chain tx while backend is offline
+  const { writeContractAsync } = useGuardedWriteContract()
 
   // Poll for provider setBudget when in waiting state
   const pollBudget = useCallback(async () => {

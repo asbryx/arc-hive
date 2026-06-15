@@ -4,6 +4,7 @@ import Nav from './components/layout/Nav'
 import { Breadcrumbs } from './components/layout/Breadcrumbs'
 import BottomBar from './components/layout/BottomBar'
 import BackgroundCanvas from './components/BackgroundCanvas'
+import BackendOfflineBanner from './components/BackendOfflineBanner'
 import Home from './pages/Home'
 import Agents from './pages/Agents'
 import AgentProfile from './pages/AgentProfile'
@@ -24,6 +25,8 @@ export default function App() {
     <ErrorBoundary>
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <BackgroundCanvas />
+      {/* Audit fix T7: surface backend outages so users don't sign tx during a 502 */}
+      <BackendOfflineBanner />
       <Nav />
       {/* T-AC01: ARIA label for main landmark + skip link target */}
       <main id="main-content" style={{ flex: 1, paddingTop: 48, paddingBottom: 60 }} aria-label="Main content">

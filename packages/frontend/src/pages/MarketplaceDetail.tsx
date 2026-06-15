@@ -1,7 +1,8 @@
 import { authFetch } from '@/api/client'
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
+import { useGuardedWriteContract } from '@/hooks/useGuardedWriteContract'
 import { readContract, waitForTransactionReceipt } from '@wagmi/core'
 import { parseUnits } from 'viem'
 import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI, USDC_ADDRESS, USDC_ABI } from '@/lib/contracts'
@@ -113,7 +114,8 @@ export default function MarketplaceDetail() {
   const { id } = useParams()
   const { address, isConnected } = useAccount()
   const { token, isAuthenticated } = useAuth()
-  const { writeContractAsync } = useWriteContract()
+  // Audit fix T7: refuses to broadcast on-chain tx while backend is offline
+  const { writeContractAsync } = useGuardedWriteContract()
 
   const [job, setJob] = useState<OpenJob | null>(null)
   const [applications, setApplications] = useState<Application[]>([])
