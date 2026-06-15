@@ -60,8 +60,17 @@ jobs:
           set -euo pipefail
           # Give the api a few seconds to come back up after pm2 reload
           sleep 5
-          # /api/health should return 200 with {syncing, liveSync, block}
+          # /api/health should return 200 with {api,db,indexer,evaluator,block,...}
+          # Use python (always installed) instead of jq (which isn't on the
+          # ThinkPad). Asserts the response parses as JSON AND that
+          # api+db+indexer all report 'ok'.
           curl -sf --max-time 10 http://localhost:3000/api/health | tee /tmp/health.json
-          # Tighter assertions belong in the e2e suite — at minimum the
-          # response must parse as JSON with a `block` field.
-          jq -e '.block' /tmp/health.json > /dev/null
+          python3 -c '
+          import json, sys
+          h = json.load(open("/tmp/health.json"))
+          for k in ("api", "db", "indexer"):
+              if h.get(k) != "ok":
+                  print(f"health check failed: {k}={h.get(k)}", file=sys.stderr)
+                  sys.exit(1)
+          print(f"healthy at block {h.get(\"block\")}")
+          '
