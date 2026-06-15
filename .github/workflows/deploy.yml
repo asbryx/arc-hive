@@ -1,22 +1,19 @@
 name: Deploy Backend
 
-# Pushes to main that touch backend code / migrations get auto-deployed to the
-# ThinkPad WSL host (asbryx@archive-wsl on Tailscale). Previously this
-# workflow only ran `echo "deploy manually"`, producing a green checkmark
-# regardless of whether anyone actually deployed — see audit T7 follow-up.
+# Self-hosted-runner deploy. Pushes to main that touch backend code or
+# migrations run scripts/deploy-host.sh directly ON the ThinkPad — no SSH,
+# no Tailscale, no remote-shell quoting.
 #
-# Required GitHub secrets:
-#   TS_OAUTH_CLIENT_ID, TS_OAUTH_SECRET   — ephemeral Tailscale auth (preferred)
-#       OR
-#   TS_AUTH_KEY                            — long-lived reusable auth key (fallback)
-#   DEPLOY_SSH_KEY                         — ed25519 private key authorized in
-#                                            asbryx@archive-wsl's ~/.ssh/
-#                                            authorized_keys
-#   DEPLOY_HOST                            — Tailscale machine name, e.g.
-#                                            `archive-wsl` (default)
-#   DEPLOY_USER                            — username on host (default: asbryx)
-#   DEPLOY_PATH                            — repo path on host
-#                                            (default: /home/asbryx/building-arc/agent-hub)
+# Runner setup (one-time, already done): `scripts/_install-gh-runner.sh`
+# registered a runner tagged [self-hosted, archive-wsl] under PM2 as
+# `gh-runner-archive-wsl`. It survives reboots via `pm2 save` and the
+# existing PM2 startup config.
+#
+# Why self-hosted: the prior attempt used `ssh -i <key>` over Tailscale
+# from a github-hosted runner. Tailscale SSH enforces device-approval auth
+# that GitHub Actions cannot satisfy (browser click), and the heredoc
+# transport hung. Self-hosted runners connect OUT to GitHub on 443 — no
+# inbound auth surface, jobs execute locally where they need to run anyway.
 
 on:
   push:
@@ -27,89 +24,44 @@ on:
       - 'packages/evaluator/**'
       - 'packages/shared/**'
       - 'migrations/**'
+      - 'migrations-archiveagents/**'
       - 'scripts/**'
       - 'ecosystem.thinkpad.config.cjs'
       - 'pnpm-lock.yaml'
   workflow_dispatch: # manual trigger from the Actions tab
 
 concurrency:
-  # Serialize deploys — never have two pulling+rebuilding the same checkout
-  # at the same time. Cancel an in-flight deploy if a newer commit lands.
+  # Serialize deploys — never two pulling+building the same checkout
+  # simultaneously. Cancel an in-flight deploy if a newer commit lands.
   group: deploy-backend
   cancel-in-progress: true
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, archive-wsl]
     timeout-minutes: 15
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
+    env:
+      DEPLOY_PATH: /home/asbryx/building-arc/agent-hub
+      DEPLOY_SHA: ${{ github.sha }}
+      DEPLOY_REF: ${{ github.ref_name }}
+
     steps:
-      - name: Checkout (for visibility; deploy uses host's checkout)
-        uses: actions/checkout@v4
+      # No checkout step: the runner DOESN'T need a copy of the repo. The
+      # deployment is a server-side `git pull` inside DEPLOY_PATH, performed
+      # by scripts/deploy-host.sh. The runner just provides the trigger.
 
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v2
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-          # Fallback if OAuth secrets are unset — the action accepts either.
-          authkey: ${{ secrets.TS_AUTH_KEY }}
-
-      - name: Install SSH key
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          # Trust the host on first connect — Tailscale gives us the
-          # name-based routing, but we still want StrictHostKeyChecking
-          # on after the first run.
-          ssh-keyscan -H "${{ secrets.DEPLOY_HOST || 'archive-wsl' }}" \
-            >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Deploy to ThinkPad
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST || 'archive-wsl' }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER || 'asbryx' }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/home/asbryx/building-arc/agent-hub' }}
-          DEPLOY_SHA: ${{ github.sha }}
-          DEPLOY_REF: ${{ github.ref_name }}
-        # Stream scripts/deploy-host.sh to the remote shell via stdin instead
-        # of using a heredoc inside YAML. The heredoc approach hung silently
-        # in the first attempt — the remote bash got the SSH connection but
-        # never received the script body, leaving the runner blocked on a
-        # dead stdin. Streaming an actual file with `bash -s` is the
-        # canonical fix and lets us version + lint the deploy script as
-        # ordinary shell.
-        run: |
-          set -euo pipefail
-          # Export the SHA/REF/PATH into the remote env so deploy-host.sh
-          # can read them. `ssh -o SendEnv` requires matching AcceptEnv on
-          # the server which we don't control; SetEnv writes them into the
-          # remote shell at exec time, no sshd config required.
-          ssh -o StrictHostKeyChecking=accept-new \
-              -o BatchMode=yes \
-              -o SetEnv="DEPLOY_PATH=$DEPLOY_PATH" \
-              -o SetEnv="DEPLOY_SHA=$DEPLOY_SHA" \
-              -o SetEnv="DEPLOY_REF=$DEPLOY_REF" \
-              "$DEPLOY_USER@$DEPLOY_HOST" \
-              'bash -s' < scripts/deploy-host.sh
+      - name: Deploy
+        run: bash "${DEPLOY_PATH}/scripts/deploy-host.sh"
 
       - name: Post-deploy health check
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST || 'archive-wsl' }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER || 'asbryx' }}
         run: |
           set -euo pipefail
           # Give the api a few seconds to come back up after pm2 reload
           sleep 5
           # /api/health should return 200 with {syncing, liveSync, block}
-          ssh -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            'curl -sf --max-time 10 http://localhost:3000/api/health' \
-            | tee /tmp/health.json
-          # Smoke check — at minimum the response must parse as JSON with a
-          # `block` field. Tighter assertions belong in the e2e suite.
+          curl -sf --max-time 10 http://localhost:3000/api/health | tee /tmp/health.json
+          # Tighter assertions belong in the e2e suite — at minimum the
+          # response must parse as JSON with a `block` field.
           jq -e '.block' /tmp/health.json > /dev/null
