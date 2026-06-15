@@ -1,3 +1,5 @@
+import { applyFetchResult } from './backendStatus'
+
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 export interface PaginatedResponse<T> {
@@ -132,7 +134,15 @@ export interface DailyStats {
 }
 
 async function fetchApi<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`)
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`)
+  } catch (err) {
+    // Network error / DNS / CORS / abort — backend is unreachable
+    applyFetchResult(null, err)
+    throw err
+  }
+  applyFetchResult(res)
   if (!res.ok) {
     throw new Error(`API error: ${res.status} ${res.statusText}`)
   }
@@ -210,4 +220,12 @@ export function authFetch(path: string, options: RequestInit = {}): Promise<Resp
   } catch {}
 
   return fetch(url, { ...options, headers })
+    .then((res) => {
+      applyFetchResult(res)
+      return res
+    })
+    .catch((err) => {
+      applyFetchResult(null, err)
+      throw err
+    })
 }

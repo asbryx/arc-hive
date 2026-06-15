@@ -1,7 +1,8 @@
 import { authFetch } from '@/api/client'
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useAccount, useWriteContract } from 'wagmi'
+import { useAccount } from 'wagmi'
+import { useGuardedWriteContract } from '@/hooks/useGuardedWriteContract'
 import { useJob } from '@/api/hooks'
 import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI } from '@/lib/contracts'
 import { arcTestnet } from '@/lib/wagmi'
@@ -17,7 +18,8 @@ export default function JobDetail() {
   const { id } = useParams<{ id: string }>()
   const { address } = useAccount()
   const { data: job, isLoading, refetch } = useJob(id!)
-  const { writeContractAsync } = useWriteContract()
+  // Audit fix T7: refuses to broadcast on-chain tx while backend is offline
+  const { writeContractAsync } = useGuardedWriteContract()
 
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
