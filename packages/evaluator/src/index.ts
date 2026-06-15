@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { CONFIG } from './config.js'
-import { initWatcher, pollForEvaluations, pollForRefunds } from './watcher.js'
+import { initWatcher, pollForEvaluations, pollForRefunds, pollForUnpaidCompletedJobs } from './watcher.js'
 
 async function main() {
   console.log('[evaluator] Starting ArcHive AI Evaluator')
@@ -29,6 +29,12 @@ async function main() {
   // Deadline + refund checker (every 1 hour)
   setInterval(pollForRefunds, 60 * 60 * 1000)
   await pollForRefunds()
+
+  // Payout reconcile sweep (every 5 minutes). Catches jobs where complete()
+  // landed but the relay→agent forward step crashed mid-poll. Cheap when
+  // there's nothing to do — single indexed SELECT.
+  setInterval(pollForUnpaidCompletedJobs, 5 * 60 * 1000)
+  await pollForUnpaidCompletedJobs()
 
   console.log('[evaluator] Running...')
 }

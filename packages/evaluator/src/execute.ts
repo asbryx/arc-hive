@@ -17,6 +17,15 @@ const ABI = [
   { inputs: [{ name: 'jobId', type: 'uint256' }], name: 'getJob', outputs: [{ components: [{ name: 'id', type: 'uint256' }, { name: 'client', type: 'address' }, { name: 'provider', type: 'address' }, { name: 'evaluator', type: 'address' }, { name: 'description', type: 'string' }, { name: 'budget', type: 'uint256' }, { name: 'expiredAt', type: 'uint256' }, { name: 'status', type: 'uint8' }, { name: 'hook', type: 'address' }], name: '', type: 'tuple' }], stateMutability: 'view', type: 'function' },
 ] as const
 
+// Minimal ERC-20 ABI for USDC payout transfers (relay → agent forward step)
+const ERC20_ABI = [
+  { inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'transfer', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'account', type: 'address' }], name: 'balanceOf', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+] as const
+
+// USDC on Arc Testnet — keep in sync with shared/src/constants.ts and config.
+export const USDC_ADDRESS = '0x3600000000000000000000000000000000000000' as `0x${string}`
+
 // FIX: Per-wallet nonce management to prevent cross-wallet nonce collision
 const nonceMap = new Map<string, number>()
 
@@ -237,6 +246,78 @@ export async function executeClaimRefund(jobId: bigint): Promise<string> {
     return hash
   } catch (err) {
     resetNonce()
+    throw err
+  }
+}
+
+/**
+ * Forward escrowed USDC from PLATFORM_RELAY (provider wallet) to the agent.
+ *
+ * Background: contract `complete()` releases USDC to the on-chain `provider`,
+ * which for the marketplace flow is always PLATFORM_RELAY. Without this
+ * forward step the agent never receives funds — see audit T9.
+ *
+ * Returns the ERC-20 transfer tx hash on success. Caller is responsible for
+ * idempotency persistence (open_jobs.payout_tx). This function will happily
+ * send a duplicate transfer if called twice — that's by design (it can also
+ * be used for retries when the prior tx genuinely failed to land).
+ */
+export async function executePayoutForward(
+  recipient: `0x${string}`,
+  amount: bigint,
+): Promise<string> {
+  if (!recipient || !/^0x[a-fA-F0-9]{40}$/.test(recipient)) {
+    throw new Error(`Invalid payout recipient: ${recipient}`)
+  }
+  if (amount <= 0n) {
+    throw new Error(`Invalid payout amount: ${amount}`)
+  }
+
+  // Provider wallet === PLATFORM_RELAY === source of funds for the forward.
+  const providerWallet = getProviderWallet()
+  const publicClient = getPublicClient()
+
+  // Sanity: relay must hold at least `amount` of USDC. Fails loudly rather
+  // than reverting on-chain with an opaque transfer revert.
+  const balance = (await publicClient.readContract({
+    address: USDC_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [providerWallet.account.address],
+  })) as bigint
+  if (balance < amount) {
+    throw new Error(
+      `Relay USDC balance ${balance} < payout amount ${amount} (recipient=${recipient})`,
+    )
+  }
+
+  const nonce = await getNextNonce(publicClient, providerWallet.account.address)
+
+  const gas = await publicClient.estimateContractGas({
+    address: USDC_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: 'transfer',
+    args: [recipient, amount],
+    account: providerWallet.account.address,
+  })
+
+  try {
+    const hash = await providerWallet.writeContract({
+      address: USDC_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: 'transfer',
+      args: [recipient, amount],
+      nonce,
+      gas: (gas * 120n) / 100n,
+    })
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 })
+    if (receipt.status !== 'success') {
+      throw new Error(`Payout transfer reverted: ${hash}`)
+    }
+    return hash
+  } catch (err) {
+    resetNonce(providerWallet.account.address)
     throw err
   }
 }

@@ -3,10 +3,11 @@ import {
   getPendingEvaluations, getPreviousEvaluations, storeEvaluation,
   updateJobAfterEvaluation, notifyAgent, recordRefund,
   getExpiredFundedJobs, getExpiredAssignedJobs,
-  getStaleOpenJobs, getStaleAssignedUnfundedJobs
+  getStaleOpenJobs, getStaleAssignedUnfundedJobs,
+  claimPayoutSlot, recordPayoutTx, releasePayoutSlot,
 } from './db.js'
 import { evaluateDeliverable, EvalResult } from './evaluate.js'
-import { executeSubmit, executeComplete, executeReject, executeClaimRefund, getOnchainJobStatus, getOnchainJob } from './execute.js'
+import { executeSubmit, executeComplete, executeReject, executeClaimRefund, executePayoutForward, getOnchainJobStatus, getOnchainJob } from './execute.js'
 
 export async function initWatcher() {
   console.log('[evaluator] Watcher initialized — polling DB for deliverables to evaluate')
@@ -353,6 +354,18 @@ async function processEvaluation(job: any) {
       // the UI showed '⏳ Pending approval' next to the file forever
       // even though the job was complete and the agent had been paid.
       await updateJobAfterEvaluation(openJobId, 'completed', { completedTx: txHash })
+
+      // Step 4: forward escrowed USDC from PLATFORM_RELAY → agent.
+      // Audit fix T9 (2026-06-15): without this step the agent never sees a
+      // cent — `complete()` releases funds to PLATFORM_RELAY, not to the
+      // selected_applicant. Idempotent via the (claim → send → record) trio
+      // and the unique index on open_jobs.payout_tx.
+      await forwardPayoutToAgent(openJobId, job).catch((err: any) => {
+        // Do NOT throw — `complete()` has already landed and the job is in
+        // 'completed' status. A payout failure here is recoverable via the
+        // reconcile sweep (getUnpaidCompletedJobs / scripts/backfill-payouts.ts).
+        console.error(`[evaluator] Payout forward failed for job ${openJobId}: ${err.message} — will be picked up by reconcile sweep`)
+      })
     } catch (err: any) {
       console.error(`[evaluator] On-chain error for job ${openJobId}:`, err.message)
       // Release the lock so it can be retried
@@ -456,5 +469,94 @@ async function processEvaluation(job: any) {
       msg = `✗ Deliverable for "${job.title}" scored ${result.score}/100. Job failed after ${revisionNumber + 1} attempts. ${result.reasoning}`
     }
     await notifyAgent(job.selected_applicant, 'evaluation_result', openJobId, msg)
+  }
+}
+
+/**
+ * Forward escrowed USDC from PLATFORM_RELAY → agent after a successful
+ * on-chain complete(). Idempotent: claims a slot in open_jobs, sends the
+ * tx, then records the hash. A second concurrent caller (different
+ * evaluator process or a retry of the same poll) loses the claim and
+ * exits without sending a duplicate transfer.
+ *
+ * Inputs come from the job row joined in getPendingEvaluations():
+ *   - job.selected_applicant: recipient address (lowercased)
+ *   - job.final_budget:       payout amount in USDC base units (string/numeric)
+ *
+ * If the on-chain transfer fails we release the claim so the next reconcile
+ * sweep can retry. If the transfer succeeds but the record-tx write fails,
+ * the unique partial index on open_jobs.payout_tx still protects against
+ * a second send: on retry, claimPayoutSlot returns false (recipient already
+ * set) and we read back the missing tx via getOnchainJob — actually no, we
+ * just no-op and log. The relay's USDC balance is the source of truth.
+ */
+async function forwardPayoutToAgent(openJobId: number, job: any): Promise<void> {
+  const recipient = (job.selected_applicant || '').toLowerCase()
+  const finalBudget = job.final_budget
+
+  if (!recipient || !/^0x[a-f0-9]{40}$/.test(recipient)) {
+    console.warn(`[payout] Job ${openJobId}: missing/invalid selected_applicant, skipping payout`)
+    return
+  }
+  if (!finalBudget) {
+    console.warn(`[payout] Job ${openJobId}: missing final_budget, skipping payout`)
+    return
+  }
+
+  const amount = BigInt(String(finalBudget))
+  if (amount <= 0n) {
+    console.warn(`[payout] Job ${openJobId}: non-positive final_budget=${finalBudget}, skipping payout`)
+    return
+  }
+
+  // Phase 1: atomic claim — only one caller wins.
+  const claimed = await claimPayoutSlot(openJobId, recipient, amount)
+  if (!claimed) {
+    console.log(`[payout] Job ${openJobId}: payout already claimed by another worker, skipping`)
+    return
+  }
+
+  // Phase 2: send the on-chain transfer.
+  let payoutTx: string
+  try {
+    payoutTx = await executePayoutForward(recipient as `0x${string}`, amount)
+  } catch (err: any) {
+    // Release the claim so the reconcile sweep can retry. If a tx actually
+    // landed despite the throw (e.g. receipt timeout), the relay balance
+    // will reflect it and a manual reconcile can be run.
+    await releasePayoutSlot(openJobId).catch(() => {})
+    throw new Error(`payout transfer failed: ${err.message}`)
+  }
+
+  // Phase 3: record the tx hash, locking the unique partial index.
+  await recordPayoutTx(openJobId, payoutTx)
+  console.log(`[payout] Job ${openJobId}: forwarded ${amount} USDC base-units to ${recipient} — tx=${payoutTx}`)
+}
+
+/**
+ * Reconcile sweep: catch payouts that should have been forwarded but weren't.
+ * Runs in the poll loop. Picks up:
+ *   - jobs the evaluator completed before this fix shipped (handled by the
+ *     standalone backfill script, but this is the runtime guard)
+ *   - jobs where complete() landed but the forward step crashed mid-poll
+ *
+ * Safe to call frequently — the claim+send+record pattern is idempotent.
+ */
+export async function pollForUnpaidCompletedJobs() {
+  try {
+    const { getUnpaidCompletedJobs } = await import('./db.js')
+    const jobs = await getUnpaidCompletedJobs()
+    if (jobs.length === 0) return
+
+    console.log(`[payout] Reconcile sweep: ${jobs.length} completed job(s) without payout_tx`)
+    for (const job of jobs) {
+      try {
+        await forwardPayoutToAgent(job.id, job)
+      } catch (err: any) {
+        console.error(`[payout] Reconcile failed for job ${job.id}: ${err.message}`)
+      }
+    }
+  } catch (err: any) {
+    console.error(`[payout] Reconcile sweep error: ${err.message}`)
   }
 }

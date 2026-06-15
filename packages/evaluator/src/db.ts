@@ -188,4 +188,86 @@ export async function getStaleAssignedUnfundedJobs() {
   return result.rows
 }
 
+/**
+ * Idempotent payout recording.
+ *
+ * Reserves the payout slot for a job — returns `true` only when this caller
+ * won the race. A second concurrent caller (different evaluator process or a
+ * retry) sees the row already has `payout_tx` set and returns `false` so it
+ * skips sending a duplicate on-chain transfer.
+ *
+ * Two-phase write:
+ *   1. claimPayoutSlot(): atomically mark recipient + amount + intent.
+ *   2. recordPayoutTx(): after the on-chain transfer lands, stamp the tx hash.
+ *
+ * Splitting these means we never reserve a slot without an attempted tx, and
+ * never send a tx without first reserving the slot.
+ */
+export async function claimPayoutSlot(
+  openJobId: number,
+  recipient: string,
+  amountBaseUnits: bigint,
+): Promise<boolean> {
+  // We use `payout_at` as the claim sentinel because the unique index is on
+  // (id) WHERE payout_tx IS NOT NULL — i.e. it only triggers post-confirmation.
+  // The claim row sets payout_recipient + payout_amount + payout_at IS NULL
+  // first; this UPDATE only succeeds if no prior claim exists.
+  const result = await query(
+    `UPDATE open_jobs
+        SET payout_recipient = $2,
+            payout_amount    = $3
+      WHERE id = $1
+        AND payout_tx IS NULL
+        AND payout_recipient IS NULL
+      RETURNING id`,
+    [openJobId, recipient.toLowerCase(), amountBaseUnits.toString()],
+  )
+  return result.rowCount === 1
+}
+
+export async function recordPayoutTx(openJobId: number, txHash: string): Promise<void> {
+  await query(
+    `UPDATE open_jobs
+        SET payout_tx = $2,
+            payout_at = NOW()
+      WHERE id = $1
+        AND payout_tx IS NULL`,
+    [openJobId, txHash],
+  )
+}
+
+/**
+ * Release a payout slot when the on-chain transfer fails. Lets the next poll
+ * retry without tripping the "already claimed" guard. Only clears if no tx
+ * has landed (defensive).
+ */
+export async function releasePayoutSlot(openJobId: number): Promise<void> {
+  await query(
+    `UPDATE open_jobs
+        SET payout_recipient = NULL,
+            payout_amount    = NULL
+      WHERE id = $1
+        AND payout_tx IS NULL`,
+    [openJobId],
+  )
+}
+
+/**
+ * Find completed jobs that were never paid out. Used by the backfill script
+ * and by a periodic reconcile sweep — covers cases where the evaluator
+ * crashed between complete() and the payout forward.
+ */
+export async function getUnpaidCompletedJobs() {
+  const result = await query(
+    `SELECT id, job_id, title, selected_applicant, final_budget, completed_tx
+       FROM open_jobs
+      WHERE status = 'completed'
+        AND payout_tx IS NULL
+        AND selected_applicant IS NOT NULL
+        AND final_budget IS NOT NULL
+      ORDER BY id ASC`,
+  )
+  return result.rows
+}
+
 export async function closePool() { await pool.end() }
