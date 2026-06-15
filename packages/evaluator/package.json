@@ -10,6 +10,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
     "dotenv": "^16.4.0",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.11.0",
     "viem": "^2.0.0"
   },
