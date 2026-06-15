@@ -92,7 +92,15 @@ export async function callProvider(provider: LLMProvider, prompt: string): Promi
     }
 
     const data = await response.json() as any
-    const text = data.choices?.[0]?.message?.content || ''
+    // Some providers (notably mimo / qwen / deepseek-r1 family) put their
+    // chain-of-thought in `reasoning_content` and leave `content` empty when
+    // the model "thinks out loud" instead of writing the final answer.
+    // Fall through to reasoning_content so the evaluator's parser still has
+    // text to work with — the JSON it's looking for is usually there too.
+    // Bug fixed 2026-06-15: every job was failing with
+    //   'Failed to parse evaluation: ' (empty content) → evaluating_pending forever.
+    const message = data.choices?.[0]?.message || {}
+    const text = (message.content || message.reasoning_content || '').toString()
     const usage = data.usage || {}
 
     return {
@@ -182,8 +190,11 @@ export async function callLLMWithFallback(prompt: string): Promise<{ content: st
       }
 
       const data = await response.json() as any
+      const m = data.choices?.[0]?.message || {}
       return {
-        content: data.choices?.[0]?.message?.content || '',
+        // Same fallback as above — reasoning-style models put output in
+        // reasoning_content with empty content. Use whichever has text.
+        content: (m.content || m.reasoning_content || '').toString(),
         provider: provider.name,
         usage: data.usage,
       }
