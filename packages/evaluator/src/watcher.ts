@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js'
 import {
+  query,
   getPendingEvaluations, getPreviousEvaluations, storeEvaluation,
   updateJobAfterEvaluation, notifyAgent, recordRefund,
   getExpiredFundedJobs, getExpiredAssignedJobs,
@@ -127,11 +128,22 @@ export async function pollForRefunds() {
         const onchainJob = await getOnchainJob(BigInt(jobId))
         const onchainExpired = onchainJob && Number(onchainJob.expiredAt) * 1000 < Date.now()
 
-        // claimRefund() works for status 1 (FUNDED, never delivered),
-        // 4 (REJECTED, after 3-strike fail), or 5 (EXPIRED, contract self-marked).
-        // Bug fixed 2026-06-15: status 4 was missing — 3-strike-failed jobs
-        // never got their refund triggered.
-        if (onchainExpired && (onchainStatus === 1 || onchainStatus === 4 || onchainStatus === 5)) {
+        // claimRefund() works for status 1 (FUNDED, never delivered) or
+        // 5 (EXPIRED, contract self-marked).
+        //
+        // Audit T12 (2026-06-15): status 4 (REJECTED) is now handled inline
+        // by failJobOnChain() — reject() instantly refunds in the same tx
+        // and the off-chain row records refund_tx immediately. Keep the
+        // status=4 branch here ONLY as a safety net for jobs that were
+        // reject()'d BEFORE this fix shipped and never had their refund
+        // recorded. Those rows will appear in `pollForRefunds` with
+        // status='failed', refund_tx IS NULL — see getExpiredFundedJobs
+        // for the actual selector.
+        const includeStatus4 = await needsLegacyClaimRefund(openJobId)
+        const eligibleStatuses = includeStatus4
+          ? [1, 4, 5]
+          : [1, 5]
+        if (onchainExpired && eligibleStatuses.includes(onchainStatus)) {
           console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) deadline passed (expiredAt=${new Date(Number(onchainJob.expiredAt) * 1000).toISOString()}), claiming refund...`)
           const txHash = await claimRefundWithRetry(BigInt(jobId))
           if (!txHash) {
@@ -231,35 +243,59 @@ async function processEvaluation(job: any) {
   const { preValidate } = await import('./validate.js')
   // We'll validate after fetching files (need content + files together)
 
-  // Fetch files from deliverable_files table + analyze them
+  // Fetch files from deliverable_files table + analyze them.
+  //
+  // Audit T10/T11 (2026-06-15): this loop used to silently no-op when
+  // Supabase was unreachable — every getFileAsText returned null, the
+  // `if (content)` guard skipped the push, fileContents stayed empty,
+  // and the LLM evaluated only the cover-note text. Now we count fetch
+  // outcomes and shout when files exist in the DB but none reach the
+  // evaluator (the only honest interpretation of that state).
+  //
+  // Scope note: this query intentionally returns ALL versions of all
+  // files for the job, not just the latest version's files. That matches
+  // the historic behaviour and is fine for prompts (the analyzer caps
+  // per-file content), but worth revisiting if jobs accumulate many
+  // revisions with bulky files.
   const { analyzeFile } = await import('./file-analyzer.js')
   let fileContents: { filename: string; fileType: string; content: string; analysis?: any }[] = []
+  let dbFileCount = 0
+  let fetchFailures = 0
   try {
     const filesResult = await query(
       `SELECT filename, file_type, storage_path FROM deliverable_files WHERE open_job_id = $1 ORDER BY id ASC`,
       [openJobId]
     )
+    dbFileCount = filesResult.rows.length
     for (const file of filesResult.rows) {
       try {
         const { getFileAsText } = await import('./supabase.js')
         const content = await getFileAsText(file.storage_path)
         if (content) {
-          // Analyze file
           const analysis = analyzeFile(file.filename, content)
           console.log(`[evaluator]   File: ${analysis.summary}`)
           fileContents.push({
             filename: file.filename,
             fileType: file.file_type,
-            content: content.slice(0, 5000), // cap per file
+            content: content.slice(0, 5000),
             analysis,
           })
+        } else {
+          fetchFailures++
+          console.warn(`[evaluator] File fetch returned empty for ${file.filename} (path=${file.storage_path}) — see [supabase] error above`)
         }
       } catch (err) {
+        fetchFailures++
         console.warn(`[evaluator] Could not read file ${file.filename}:`, (err as Error).message)
       }
     }
     if (fileContents.length > 0) {
-      console.log(`[evaluator] Loaded ${fileContents.length} files for job ${openJobId}`)
+      console.log(`[evaluator] Loaded ${fileContents.length}/${dbFileCount} files for job ${openJobId}`)
+    } else if (dbFileCount > 0) {
+      console.error(
+        `[evaluator] CRITICAL: deliverable_files has ${dbFileCount} rows for job ${openJobId} ` +
+          `but ZERO were loaded — Supabase misconfigured? LLM will only see the cover note text.`,
+      )
     }
   } catch (err) {
     console.warn(`[evaluator] Error fetching files:`, (err as Error).message)
@@ -277,24 +313,25 @@ async function processEvaluation(job: any) {
        VALUES ($1, $2, 0, $3, 'Improve your deliverable and resubmit.', 'failed', 'pre-validation', $4)`,
       [openJobId, revisionNumber + 1, validation.reason, CONFIG.EVALUATOR_ADDRESS.toLowerCase()]
     )
-    // Reject on-chain if needed
-    if (jobId) {
-      try {
-        const onchainStatus = await getOnchainJobStatus(BigInt(jobId))
-        if (onchainStatus === 2) {
-          // Submitted on-chain — reject
-          const txHash = await executeReject(BigInt(jobId), validation.reason!)
-          console.log(`[evaluator] Rejected job ${openJobId} on-chain — tx=${txHash}`)
-          await updateJobAfterEvaluation(openJobId, 'failed', { revisionCount: revisionNumber })
-        } else {
-          // Not submitted on-chain — just update DB
-          await updateJobAfterEvaluation(openJobId, 'revision_requested', { revisionCount: revisionNumber + 1 })
-        }
-      } catch (err) {
-        console.error(`[evaluator] On-chain reject error:`, (err as Error).message)
-        await updateJobAfterEvaluation(openJobId, 'revision_requested', { revisionCount: revisionNumber + 1 })
-      }
+
+    // Audit T9 (2026-06-15): pre-validation failures must count as strikes.
+    // Previously this path just bumped revisionCount → 'revision_requested'
+    // for every funded job (only the onchainStatus===2 branch terminated),
+    // letting an agent re-submit garbage forever and never trip the
+    // 3-strike refund. Now: treat preval the same as an LLM 'failed'
+    // verdict on the final strike, so the on-chain reject + refund actually
+    // fires and the client gets their money back.
+    const maxStrikes = (job.max_revisions ?? CONFIG.MAX_REVISIONS) + 1
+    const isFinalStrike = revisionNumber + 1 >= maxStrikes
+
+    if (isFinalStrike && jobId) {
+      console.log(`[evaluator] Pre-validation: final strike (${revisionNumber + 1}/${maxStrikes}) for job ${openJobId} — failing job`)
+      await failJobOnChain(openJobId, jobId, job, validation.reason!, revisionNumber)
+    } else if (jobId) {
+      console.log(`[evaluator] Pre-validation: strike ${revisionNumber + 1}/${maxStrikes} for job ${openJobId} — revision requested`)
+      await updateJobAfterEvaluation(openJobId, 'revision_requested', { revisionCount: revisionNumber + 1 })
     } else {
+      // No on-chain job — purely off-chain test path
       await updateJobAfterEvaluation(openJobId, 'revision_requested', { revisionCount: revisionNumber + 1 })
     }
     return
@@ -389,47 +426,11 @@ async function processEvaluation(job: any) {
     }
 
   } else if (result.decision === 'failed' && jobId) {
-    // FINAL FAILURE: submit on-chain → reject on-chain
-    // Note: contract's reject() automatically refunds USDC to client
+    // FINAL FAILURE: submit on-chain → reject on-chain (which refunds the client).
     try {
-      const onchainStatus = await getOnchainJobStatus(BigInt(jobId))
-      
-      if (onchainStatus === 1) {
-        console.log(`[evaluator] Submitting on-chain for final rejection of job ${jobId}...`)
-        await executeSubmit(BigInt(jobId), job.deliverable_content)
-      }
-
-      console.log(`[evaluator] Rejecting on-chain for job ${jobId}...`)
-      txHash = await executeReject(BigInt(jobId), result.reasoning)
-      console.log(`[evaluator] FAILED job ${openJobId} — reject tx=${txHash}`)
-
-      // IMPORTANT (bug fixed 2026-06-15): reject() does NOT auto-refund.
-      // The contract just transitions status to REJECTED (4); funds stay
-      // escrowed until expiredAt passes and someone calls claimRefund(),
-      // which is what the deadline cron at the top of pollForEvaluations
-      // does. We were marking the off-chain row as 'refunded' here and
-      // emailing the client "USDC refunded" while their balance hadn't
-      // actually moved — for up to 24 hours.
-      //
-      // Mark off-chain as 'failed' (terminal but still pre-refund). The
-      // deadline-watcher will flip it to 'refunded' + record the actual
-      // refund tx once claimRefund succeeds after expiredAt.
-      await updateJobAfterEvaluation(openJobId, 'failed', {
-        revisionCount: revisionNumber + 1,
-      })
-
-      // Notify client + agent (factual messages — refund pending, not done)
-      if (job.client_address) {
-        await notifyAgent(job.client_address, 'job_failed', openJobId,
-          `Job "${job.title}" failed evaluation (3 attempts under threshold). USDC will be refunded once the job's deadline passes. reject tx: ${txHash}`)
-      }
-      if (job.selected_applicant) {
-        await notifyAgent(job.selected_applicant, 'job_failed', openJobId,
-          `Job "${job.title}" was rejected after 3 attempts. No payment will be released.`)
-      }
+      txHash = await failJobOnChain(openJobId, jobId, job, result.reasoning, revisionNumber)
     } catch (err: any) {
       console.error(`[evaluator] On-chain reject error for job ${openJobId}:`, err.message)
-      // Release the lock so it can be retried
       try {
         await query(
           `UPDATE open_jobs SET status = 'funded', updated_at = NOW() WHERE id = $1 AND status = 'evaluating_locked'`,
@@ -478,6 +479,100 @@ async function processEvaluation(job: any) {
     }
     await notifyAgent(job.selected_applicant, 'evaluation_result', openJobId, msg)
   }
+}
+
+/**
+ * Fail a job on-chain: submit-if-needed, reject (which refunds the client),
+ * record the off-chain status + refund_tx + refunded_at, notify both sides.
+ *
+ * Audit fix T12 (2026-06-15): the contract's reject() INSTANTLY refunds the
+ * client via an internal USDC Transfer in the same tx — verified on-chain
+ * via job 65's reject tx 0xfa300b…72391. Previously this code claimed reject
+ * was non-refunding and waited for a separate post-expiry claimRefund() to
+ * trigger the refund. That was wrong; clients can wait up to 24h for nothing.
+ *
+ * The receipt parse in executeReject() returns the actual refund details so
+ * the off-chain row records `refund_tx` = the reject tx hash (since the
+ * Transfer log is inside it). The deadline-cron's claimRefund-for-rejected
+ * path is now backwards-compat only (for jobs reject()'d before this fix).
+ *
+ * Returns the reject tx hash. Throws on on-chain failure; caller is
+ * expected to release the lock and let the next poll retry.
+ */
+/**
+ * True when an on-chain-REJECTED job in our DB has no refund_tx recorded,
+ * meaning it was reject()'d before the T12 fix that records the refund
+ * inline. Used to keep the deadline-cron's claimRefund path available
+ * for those legacy rows only. New rejections are recorded synchronously.
+ */
+async function needsLegacyClaimRefund(openJobId: number): Promise<boolean> {
+  const r = await query(
+    `SELECT 1 FROM open_jobs WHERE id = $1 AND status IN ('failed', 'rejected') AND refund_tx IS NULL LIMIT 1`,
+    [openJobId],
+  )
+  return r.rows.length > 0
+}
+
+async function failJobOnChain(
+  openJobId: number,
+  jobId: number,
+  job: any,
+  reason: string,
+  revisionNumber: number,
+): Promise<string> {
+  const onchainStatus = await getOnchainJobStatus(BigInt(jobId))
+
+  if (onchainStatus === 1) {
+    console.log(`[evaluator] Submitting on-chain for final rejection of job ${jobId}...`)
+    await executeSubmit(BigInt(jobId), job.deliverable_content || reason)
+  }
+
+  console.log(`[evaluator] Rejecting on-chain for job ${jobId}...`)
+  const rejectResult = await executeReject(BigInt(jobId), reason)
+  console.log(`[evaluator] FAILED job ${openJobId} — reject tx=${rejectResult.txHash}`)
+
+  if (rejectResult.refund) {
+    const usdc = Number(rejectResult.refund.amount) / 1_000_000
+    console.log(`[evaluator] Refund: ${usdc} USDC -> ${rejectResult.refund.to} (inside reject tx)`)
+
+    // Record the refund immediately. The reject tx IS the refund tx — they're
+    // the same transaction; the USDC Transfer log lives inside it.
+    await query(
+      `UPDATE open_jobs
+          SET status        = 'refunded',
+              refund_tx     = $2,
+              refunded_at   = NOW(),
+              revision_count = $3,
+              updated_at    = NOW()
+        WHERE id = $1`,
+      [openJobId, rejectResult.txHash, revisionNumber + 1],
+    )
+  } else {
+    // Belt-and-braces fallback: if reject() ever stops auto-refunding (contract
+    // upgrade, etc.), don't lie to the client. Mark as 'failed' and let the
+    // deadline cron call claimRefund() after expiredAt.
+    console.warn(`[evaluator] reject() did NOT emit a USDC Transfer log — falling back to deferred-refund flow. Investigate contract behaviour.`)
+    await updateJobAfterEvaluation(openJobId, 'failed', { revisionCount: revisionNumber + 1 })
+  }
+
+  // Notify both sides factually based on what actually happened
+  const refunded = !!rejectResult.refund
+  if (job.client_address) {
+    const msg = refunded
+      ? `Job "${job.title}" failed evaluation (max attempts exceeded). USDC refunded. tx: ${rejectResult.txHash}`
+      : `Job "${job.title}" failed evaluation (max attempts exceeded). USDC will be refunded once the deadline passes. reject tx: ${rejectResult.txHash}`
+    await notifyAgent(job.client_address, refunded ? 'job_refunded' : 'job_failed', openJobId, msg)
+  }
+  if (job.selected_applicant) {
+    await notifyAgent(
+      job.selected_applicant,
+      'job_failed',
+      openJobId,
+      `Job "${job.title}" was rejected after max attempts. No payment will be released.`,
+    )
+  }
+
+  return rejectResult.txHash
 }
 
 /**
