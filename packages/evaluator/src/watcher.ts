@@ -14,13 +14,21 @@ export async function initWatcher() {
 
 export async function pollForEvaluations() {
   try {
-    // Step 1: Expire stale evaluating_locked locks (10 minute TTL)
+    // Step 1: Expire stale evaluating_locked locks.
+    //
+    // Audit fix T1 sub-P0 (2026-06-15): TTL was 10 minutes, but the LLM
+    // call's own timeout is CONFIG.LLM_TIMEOUT_MS (default 60_000 = 60s).
+    // If the LLM stalled between 60s and 10min, the lock sat idle for the
+    // remainder of the TTL and the row was effectively stuck. Tightening
+    // to 2 minutes — comfortably above the 60s LLM timeout, well below
+    // the 15s poll interval × any reasonable backlog. If a future change
+    // raises LLM_TIMEOUT_MS above 90s, raise this in proportion.
     try {
       const { query } = await import('./db.js')
       const expiredLocks = await query(
         `UPDATE open_jobs SET status = 'evaluating', updated_at = NOW()
          WHERE status = 'evaluating_locked'
-         AND updated_at < NOW() - INTERVAL '10 minutes'
+         AND updated_at < NOW() - INTERVAL '2 minutes'
          RETURNING id, title`
       )
       if (expiredLocks.rows.length > 0) {

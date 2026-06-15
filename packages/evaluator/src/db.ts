@@ -7,18 +7,32 @@ export async function query(text: string, params?: any[]) {
   return pool.query(text, params)
 }
 
-// Get jobs that need evaluation: status = 'evaluating'
+// Get jobs that need evaluation: status = 'evaluating'.
+//
+// Audit fix T1 (2026-06-15): added FOR UPDATE SKIP LOCKED on the
+// open_jobs row. Without this, two evaluator workers polling within the
+// same 15s window will both fetch the same row, both flip it to
+// 'evaluating_locked' (the existing soft lock catches that race), but
+// in the rare case where the second worker beats the lock-UPDATE race
+// it would still proceed to spend tokens, call complete() on-chain, and
+// double-pay. The audit's T6 recommendation explicitly calls for
+// running multiple evaluators for scale; this guard makes that safe.
+//
+// SKIP LOCKED on the JOIN target needs PG 9.5+; we're on 16. The
+// SELECT MAX subquery isn't covered by the row lock — that's fine,
+// version pinning is idempotent.
 export async function getPendingEvaluations() {
   const result = await query(
-    `SELECT oj.*, 
-            md.id as deliverable_id, md.content as deliverable_content, 
+    `SELECT oj.*,
+            md.id as deliverable_id, md.content as deliverable_content,
             md.link as deliverable_link, md.notes as deliverable_notes, md.version
      FROM open_jobs oj
      JOIN marketplace_deliverables md ON md.open_job_id = oj.id
      WHERE oj.status = 'evaluating'
      AND md.status = 'submitted'
      AND md.version = (SELECT MAX(version) FROM marketplace_deliverables WHERE open_job_id = oj.id)
-     ORDER BY md.created_at ASC`
+     ORDER BY md.created_at ASC
+     FOR UPDATE OF oj SKIP LOCKED`
   )
   return result.rows
 }
