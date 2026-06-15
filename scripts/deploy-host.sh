@@ -1,12 +1,27 @@
 #!/usr/bin/env bash
-# Deploy script run via SSH stdin from .github/workflows/deploy.yml.
+# Deploy script run by the self-hosted GitHub Actions runner on the ThinkPad.
+# Triggered by .github/workflows/deploy.yml on every push to main that touches
+# backend code.
 #
-# The workflow streams this file to the host via `ssh ... 'bash -s' < deploy-host.sh`
-# and exports DEPLOY_SHA / DEPLOY_REF before that. Doing it this way (a real
-# file streamed over stdin) avoids the heredoc/quoting traps that broke the
-# previous in-yaml inline script.
+# DELIBERATE NON-GOAL: this script does NOT apply database migrations. Two
+# attempts to auto-apply them (PR #29's first deploy + PR #33's tracking
+# rewrite) both broke prod because:
+#   - historical migrations are not all idempotent (CREATE INDEX without
+#     IF NOT EXISTS, hand-applied columns, etc.)
+#   - the two databases (archivehub, archiveagents) drifted independently
+#     and the .sql files don't reliably know which one they target
+#   - failed migrations leave a half-state that needs human triage
+#
+# Migrations are infrequent + irreversible. Apply them manually with the
+# operator's eyes on the diff:
+#   psql "$DATABASE_URL"        -v ON_ERROR_STOP=1 -f migrations/NNN.sql
+#   psql "$AGENTS_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations-archiveagents/NNN.sql
+#
+# Then push code that depends on the new schema. Order matters; auto-deploy
+# does not handle ordering.
 #
 # Idempotent — re-running on an already-deployed SHA is a no-op pull + rebuild.
+
 set -euo pipefail
 
 DEPLOY_PATH="${DEPLOY_PATH:-/home/asbryx/building-arc/agent-hub}"
@@ -15,7 +30,7 @@ DEPLOY_REF="${DEPLOY_REF:-main}"
 
 cd "$DEPLOY_PATH"
 
-# Load env so the migrations step can hit Postgres
+# Load env so PM2 reload picks up the same vars the operator sees
 set +u
 [ -f .env ] && source .env
 set -u
@@ -31,88 +46,17 @@ pnpm i --frozen-lockfile
 echo "[deploy] building packages"
 pnpm -r build
 
-apply_migrations() {
-  # Apply *.sql files from $1 against $2, skipping any already recorded
-  # in the per-db `_migrations` table. ON_ERROR_STOP=1 means any genuine
-  # SQL error aborts the deploy — see CI's same pattern.
-  local dir="$1" url="$2"
-  [ -d "$dir" ] || { echo "[deploy] skip $dir (missing)"; return 0; }
-  [ -n "$url" ] || { echo "[deploy] skip $dir (no db url)"; return 0; }
-
-  # Ensure tracking table exists (idempotent — same shape as
-  # packages/indexer/src/db/migrate.ts).
-  psql "$url" -v ON_ERROR_STOP=1 -c "
-    CREATE TABLE IF NOT EXISTS _migrations (
-      id SERIAL PRIMARY KEY,
-      name VARCHAR(255) NOT NULL UNIQUE,
-      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )" > /dev/null
-
-  for f in "$dir"/*.sql; do
-    local base
-    base="$(basename "$f")"
-    # Already applied? Skip silently.
-    local already
-    already=$(psql "$url" -tA -c "SELECT 1 FROM _migrations WHERE name = '$base'")
-    if [ "$already" = "1" ]; then
-      continue
-    fi
-    echo "[deploy]   applying $f"
-    # Run the migration + record in a single transaction so a half-applied
-    # migration never gets marked done.
-    psql "$url" -v ON_ERROR_STOP=1 --single-transaction \
-      -c "BEGIN" \
-      -f "$f" \
-      -c "INSERT INTO _migrations (name) VALUES ('$base')" \
-      -c "COMMIT"
-  done
-}
-
-backfill_migrations_if_empty() {
-  # First-run handshake: if a DB has existing schema but no `_migrations`
-  # tracking table populated, mark every CURRENT migration file as already
-  # applied. Without this the first post-this-PR deploy would re-run 001+
-  # and fail on indexes that exist (idx_jobs_client, etc.) because the
-  # historical files don't all use IF NOT EXISTS.
-  #
-  # Detection: _migrations table just got created (count=0) AND a
-  # well-known historical table is present.
-  local dir="$1" url="$2" sentinel_table="$3"
-  [ -d "$dir" ] || return 0
-  [ -n "$url" ] || return 0
-
-  # Ensure _migrations exists first
-  psql "$url" -v ON_ERROR_STOP=1 -c "
-    CREATE TABLE IF NOT EXISTS _migrations (
-      id SERIAL PRIMARY KEY,
-      name VARCHAR(255) NOT NULL UNIQUE,
-      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )" > /dev/null
-
-  local count
-  count=$(psql "$url" -tA -c "SELECT count(*) FROM _migrations")
-  local has_schema
-  has_schema=$(psql "$url" -tA -c "SELECT to_regclass('$sentinel_table') IS NOT NULL")
-  if [ "$count" = "0" ] && [ "$has_schema" = "t" ]; then
-    echo "[deploy] $url: _migrations empty but $sentinel_table exists — marking historical migrations as already applied"
-    for f in "$dir"/*.sql; do
-      base="$(basename "$f")"
-      psql "$url" -v ON_ERROR_STOP=1 -c \
-        "INSERT INTO _migrations (name) VALUES ('$base') ON CONFLICT (name) DO NOTHING" > /dev/null
-    done
-  fi
-}
-
-# Run backfill BEFORE apply, so a fresh _migrations table on a long-running
-# host doesn't cause apply to re-execute non-idempotent historical files.
-backfill_migrations_if_empty migrations                "$DATABASE_URL"        open_jobs
-backfill_migrations_if_empty migrations-archiveagents  "${AGENTS_DATABASE_URL:-}" agents
-
-echo "[deploy] applying archivehub migrations"
-apply_migrations migrations "$DATABASE_URL"
-
-echo "[deploy] applying archiveagents migrations"
-apply_migrations migrations-archiveagents "${AGENTS_DATABASE_URL:-}"
+# If the pushed commit touches a migrations directory, fail LOUD with a
+# reminder rather than silently pretending the deploy is complete. Operator
+# is expected to apply the migration manually then re-trigger the workflow.
+CHANGED_SINCE_PARENT=$(git diff --name-only "${DEPLOY_SHA}~1" "${DEPLOY_SHA}" 2>/dev/null || true)
+if echo "$CHANGED_SINCE_PARENT" | grep -qE '^migrations(-archiveagents)?/'; then
+  echo ""
+  echo "[deploy] ⚠️  This commit touches a migrations/ directory."
+  echo "[deploy] ⚠️  Auto-deploy does NOT apply migrations — apply manually before relying on the new schema:"
+  echo "$CHANGED_SINCE_PARENT" | grep -E '^migrations(-archiveagents)?/' | sed 's/^/[deploy]    /'
+  echo ""
+fi
 
 echo "[deploy] reloading PM2 apps"
 pm2 reload ecosystem.thinkpad.config.cjs --update-env
