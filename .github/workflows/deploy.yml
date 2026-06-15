@@ -77,42 +77,26 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/home/asbryx/building-arc/agent-hub' }}
           DEPLOY_SHA: ${{ github.sha }}
           DEPLOY_REF: ${{ github.ref_name }}
+        # Stream scripts/deploy-host.sh to the remote shell via stdin instead
+        # of using a heredoc inside YAML. The heredoc approach hung silently
+        # in the first attempt — the remote bash got the SSH connection but
+        # never received the script body, leaving the runner blocked on a
+        # dead stdin. Streaming an actual file with `bash -s` is the
+        # canonical fix and lets us version + lint the deploy script as
+        # ordinary shell.
         run: |
           set -euo pipefail
-
-          # Heredoc runs on the remote host. `set -e` inside ensures any
-          # step (git fetch, pnpm build, migrations) failing aborts the
-          # deploy and surfaces a red CI check.
+          # Export the SHA/REF/PATH into the remote env so deploy-host.sh
+          # can read them. `ssh -o SendEnv` requires matching AcceptEnv on
+          # the server which we don't control; SetEnv writes them into the
+          # remote shell at exec time, no sshd config required.
           ssh -o StrictHostKeyChecking=accept-new \
               -o BatchMode=yes \
-              "$DEPLOY_USER@$DEPLOY_HOST" bash <<EOF
-          set -euo pipefail
-          cd "$DEPLOY_PATH"
-
-          echo "[deploy] pulling $DEPLOY_REF @ $DEPLOY_SHA"
-          git fetch --quiet origin "$DEPLOY_REF"
-          git reset --hard "$DEPLOY_SHA"
-
-          echo "[deploy] installing deps"
-          pnpm i --frozen-lockfile
-
-          echo "[deploy] building packages"
-          pnpm -r build
-
-          echo "[deploy] applying migrations"
-          # ON_ERROR_STOP=1 + the outer set -e means a broken migration
-          # aborts the deploy. Same lesson as ci.yml — never swallow this.
-          for f in migrations/*.sql; do
-            echo "  applying \$f"
-            psql "\$DATABASE_URL" -v ON_ERROR_STOP=1 -f "\$f"
-          done
-
-          echo "[deploy] reloading PM2 apps"
-          pm2 reload ecosystem.thinkpad.config.cjs --update-env
-          pm2 save
-
-          echo "[deploy] done @ \$(date -u +%FT%TZ)"
-          EOF
+              -o SetEnv="DEPLOY_PATH=$DEPLOY_PATH" \
+              -o SetEnv="DEPLOY_SHA=$DEPLOY_SHA" \
+              -o SetEnv="DEPLOY_REF=$DEPLOY_REF" \
+              "$DEPLOY_USER@$DEPLOY_HOST" \
+              'bash -s' < scripts/deploy-host.sh
 
       - name: Post-deploy health check
         env:
