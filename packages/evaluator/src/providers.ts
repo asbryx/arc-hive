@@ -77,7 +77,12 @@ export async function callProvider(provider: LLMProvider, prompt: string): Promi
       },
       body: JSON.stringify({
         model: provider.model,
-        max_tokens: 2000,
+        // Reasoning-style models (mimo, qwen3-coder, deepseek-r1) eat
+        // their max_tokens budget on chain-of-thought before they ever
+        // emit the final JSON. 2000 was too tight for our 1.2k-token
+        // prompt and resulted in finish_reason=length with empty
+        // content. 8000 gives enough room. Bug fixed 2026-06-15.
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }],
       }),
       signal: controller.signal,
@@ -176,7 +181,12 @@ export async function callLLMWithFallback(prompt: string): Promise<{ content: st
         body: JSON.stringify({
           model: provider.model,
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 2000,
+          // Reasoning-style models (mimo, qwen3-coder, deepseek-r1) eat
+        // their max_tokens budget on chain-of-thought before they ever
+        // emit the final JSON. 2000 was too tight for our 1.2k-token
+        // prompt and resulted in finish_reason=length with empty
+        // content. 8000 gives enough room. Bug fixed 2026-06-15.
+        max_tokens: 8000,
           temperature: 0.1,
         }),
         signal: AbortSignal.timeout(provider.timeoutMs),
