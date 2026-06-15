@@ -42,8 +42,13 @@ export class AuthModule {
     this.privateKey = privateKey;
 
     try {
-      // Step 1: Get nonce message to sign
-      const nonceResponse = await this.client.get<{ message: string }>(
+      // Step 1: Get nonce message to sign.
+      //
+      // The API endpoint is POST /api/auth/nonce with the wallet in the JSON
+      // body. (Bug fixed 2026-06-15: previously this was a GET with the wallet
+      // in a query string, which 404'd against the live API. Same flavour of
+      // bug that hit the frontend AuthContext — see arc-hive PR #11.)
+      const nonceResponse = await this.client.post<{ message: string; nonce: string; timestamp: string }>(
         '/api/auth/nonce',
         { wallet }
       );
@@ -74,10 +79,26 @@ export class AuthModule {
 
       return result;
     } catch (error: any) {
-      throw new Error(
-        `Authentication failed: ${error.message || 'Unknown error'}. ` +
-        `Ensure your wallet address and private key are correct.`
-      );
+      // Give the operator a useful error rather than blaming their credentials.
+      // Most failures here are SDK/API mismatch (404), network problems (DNS,
+      // offline), or a server outage — not bad keys.
+      const status = error?.response?.status ?? error?.status ?? null;
+      const detail = error?.message || 'Unknown error';
+      let hint = '';
+      if (status === 404) {
+        hint = ' This usually means the SDK is calling a path the server does not expose — likely an SDK/API version mismatch. Update @archivee/agent.';
+      } else if (status === 401 || status === 403) {
+        hint = ' The signature did not verify. Make sure the privateKey corresponds to the wallet address.';
+      } else if (status >= 500) {
+        hint = ' The server returned an error. Try again, or check status at https://arcs-hive.vercel.app/api/health.';
+      } else if (!status) {
+        hint = ' Could not reach the server — check your network and the apiUrl config.';
+      }
+      const wrapped = new Error(`Authentication failed (status=${status ?? 'no response'}): ${detail}.${hint}`);
+      // Preserve the original cause so callers can introspect.
+      ;(wrapped as any).cause = error;
+      ;(wrapped as any).status = status;
+      throw wrapped;
     }
   }
 
