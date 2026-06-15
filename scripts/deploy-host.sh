@@ -31,23 +31,88 @@ pnpm i --frozen-lockfile
 echo "[deploy] building packages"
 pnpm -r build
 
-echo "[deploy] applying archivehub migrations"
-# ON_ERROR_STOP=1 + outer set -e means a broken migration aborts the deploy.
-# Same lesson as ci.yml — never swallow this.
-for f in migrations/*.sql; do
-  echo "  applying $f"
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
-done
+apply_migrations() {
+  # Apply *.sql files from $1 against $2, skipping any already recorded
+  # in the per-db `_migrations` table. ON_ERROR_STOP=1 means any genuine
+  # SQL error aborts the deploy — see CI's same pattern.
+  local dir="$1" url="$2"
+  [ -d "$dir" ] || { echo "[deploy] skip $dir (missing)"; return 0; }
+  [ -n "$url" ] || { echo "[deploy] skip $dir (no db url)"; return 0; }
 
-# archiveagents migrations live in their own dir (see migrations-archiveagents/README.md).
-# The runner that should own them is a follow-up; for now apply manually here.
-if [ -d migrations-archiveagents ] && [ -n "${AGENTS_DATABASE_URL:-}" ]; then
-  echo "[deploy] applying archiveagents migrations"
-  for f in migrations-archiveagents/*.sql; do
-    echo "  applying $f"
-    psql "$AGENTS_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+  # Ensure tracking table exists (idempotent — same shape as
+  # packages/indexer/src/db/migrate.ts).
+  psql "$url" -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE IF NOT EXISTS _migrations (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL UNIQUE,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )" > /dev/null
+
+  for f in "$dir"/*.sql; do
+    local base
+    base="$(basename "$f")"
+    # Already applied? Skip silently.
+    local already
+    already=$(psql "$url" -tA -c "SELECT 1 FROM _migrations WHERE name = '$base'")
+    if [ "$already" = "1" ]; then
+      continue
+    fi
+    echo "[deploy]   applying $f"
+    # Run the migration + record in a single transaction so a half-applied
+    # migration never gets marked done.
+    psql "$url" -v ON_ERROR_STOP=1 --single-transaction \
+      -c "BEGIN" \
+      -f "$f" \
+      -c "INSERT INTO _migrations (name) VALUES ('$base')" \
+      -c "COMMIT"
   done
-fi
+}
+
+backfill_migrations_if_empty() {
+  # First-run handshake: if a DB has existing schema but no `_migrations`
+  # tracking table populated, mark every CURRENT migration file as already
+  # applied. Without this the first post-this-PR deploy would re-run 001+
+  # and fail on indexes that exist (idx_jobs_client, etc.) because the
+  # historical files don't all use IF NOT EXISTS.
+  #
+  # Detection: _migrations table just got created (count=0) AND a
+  # well-known historical table is present.
+  local dir="$1" url="$2" sentinel_table="$3"
+  [ -d "$dir" ] || return 0
+  [ -n "$url" ] || return 0
+
+  # Ensure _migrations exists first
+  psql "$url" -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE IF NOT EXISTS _migrations (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL UNIQUE,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )" > /dev/null
+
+  local count
+  count=$(psql "$url" -tA -c "SELECT count(*) FROM _migrations")
+  local has_schema
+  has_schema=$(psql "$url" -tA -c "SELECT to_regclass('$sentinel_table') IS NOT NULL")
+  if [ "$count" = "0" ] && [ "$has_schema" = "t" ]; then
+    echo "[deploy] $url: _migrations empty but $sentinel_table exists — marking historical migrations as already applied"
+    for f in "$dir"/*.sql; do
+      base="$(basename "$f")"
+      psql "$url" -v ON_ERROR_STOP=1 -c \
+        "INSERT INTO _migrations (name) VALUES ('$base') ON CONFLICT (name) DO NOTHING" > /dev/null
+    done
+  fi
+}
+
+# Run backfill BEFORE apply, so a fresh _migrations table on a long-running
+# host doesn't cause apply to re-execute non-idempotent historical files.
+backfill_migrations_if_empty migrations                "$DATABASE_URL"        open_jobs
+backfill_migrations_if_empty migrations-archiveagents  "${AGENTS_DATABASE_URL:-}" agents
+
+echo "[deploy] applying archivehub migrations"
+apply_migrations migrations "$DATABASE_URL"
+
+echo "[deploy] applying archiveagents migrations"
+apply_migrations migrations-archiveagents "${AGENTS_DATABASE_URL:-}"
 
 echo "[deploy] reloading PM2 apps"
 pm2 reload ecosystem.thinkpad.config.cjs --update-env
