@@ -20,10 +20,12 @@ const queryClient = new QueryClient({
   },
 })
 
+// RainbowKit accent tuned to the broadsheet · ii cartographic palette
+// (--hot, the same red used for active nav underlines and rules).
 const rkOptions = {
-  accentColor: '#273F4F',
-  accentColorForeground: '#ffffff',
-  borderRadius: 'small' as const,
+  accentColor: '#A52A1F',
+  accentColorForeground: '#F4F0E2',
+  borderRadius: 'none' as const,
   fontStack: 'system' as const,
 }
 

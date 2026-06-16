@@ -1,0 +1,132 @@
+/* ─────────────────────────────────────────────────────────────────
+   TOKENS — broadsheet · ii
+   The cartographic registry, in two editions:
+     light  → cream paper, ink type, offset-litho dot texture
+     dark   → ink ground, cream type, same six cartographic colors
+   Every named token is a *role*, not a literal — the same word
+   ("--surface", "--ink", "--rule") means the same thing in both.
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── families ── */
+  --serif: 'Fraunces', 'Times New Roman', Georgia, serif;
+  --mono:  'Geist Mono', ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  --font:  var(--mono); /* legacy alias for existing global.css callsites */
+
+  /* ── canonical cartographic six (same hue in both editions) ── */
+  --hot:    #A52A1F;   /* executing / high activity / red rule */
+  --ochre:  #C8851F;   /* bidding / mid activity */
+  --slate:  #4A6068;   /* idle */
+  --marsh:  #5C7A3F;   /* delivered / stable */
+  --dust:   #A89880;   /* inactive */
+  --paper:  #FAF6E8;   /* blank-state cream (light only — overridden in dark) */
+
+  /* ── motion ── */
+  --ease-broadsheet: cubic-bezier(0.2, 0.7, 0.1, 1);
+  --dur-fast:    120ms;
+  --dur-normal:  220ms;
+  --dur-slow:    1600ms; /* flight-line draw */
+}
+
+/* ── LIGHT EDITION (default) ─────────────────────────────── */
+:root,
+[data-theme="light"] {
+  --surface:    #F4F0E2;   /* cream — primary paper */
+  --surface-2:  #ECE6D2;   /* cream — recessed */
+  --surface-3:  #DDD3B6;   /* cream — strong inset */
+  --paper:      #FAF6E8;   /* blank state */
+
+  --ink:        #1A1817;
+  --ink-2:      #4A4642;
+  --ink-3:      #837C70;
+
+  --rule:       rgba(26, 24, 23, 0.12);
+  --rule-2:     rgba(26, 24, 23, 0.22);
+  --rule-strong:#1A1817;
+
+  /* dot-texture offset-litho */
+  --dot-color:  rgba(26, 24, 23, 0.045);
+  --dot-size:   2px;
+  --dot-step:   6px;
+
+  /* nav chrome (translucent over paper) */
+  --nav-bg:     rgba(244, 240, 226, 0.92);
+  --nav-rule:   var(--rule-2);
+
+  /* code blocks within the broadsheet */
+  --code-bg:    var(--surface-2);
+  --code-text:  var(--ink);
+  --code-comment: var(--ink-3);
+  --code-string:  #6E4A1F;
+  --code-keyword: #A52A1F;
+  --code-func:    #4A6068;
+  --code-green:   #5C7A3F;
+
+  /* legacy aliases — keep existing global.css selectors working
+     until the rest of the app gets restyled in PR-B / PR-C        */
+  --bg:           var(--surface);
+  --text:         var(--ink);
+  --dim:          var(--ink-2);
+  --dimmer:       var(--rule-2);
+  --accent:       var(--hot);
+  --accent-light: var(--ochre);
+  --accent-dark:  #6E1C14;
+  --glow:         rgba(165, 42, 31, 0.18);
+  --glow-soft:    rgba(165, 42, 31, 0.08);
+}
+
+/* ── DARK EDITION ────────────────────────────────────────── */
+[data-theme="dark"] {
+  --surface:    #14110F;   /* deep ink ground */
+  --surface-2:  #1E1A17;
+  --surface-3:  #2A2521;
+  --paper:      #1A1714;
+
+  --ink:        #F4F0E2;   /* cream type */
+  --ink-2:      #BFB7A4;
+  --ink-3:      #837C70;
+
+  --rule:       rgba(244, 240, 226, 0.14);
+  --rule-2:     rgba(244, 240, 226, 0.26);
+  --rule-strong:#F4F0E2;
+
+  /* six cartographic colors — same hue, slightly brightened for
+     contrast on the ink ground (WCAG AA ≥ 4.5:1 vs #14110F)      */
+  --hot:    #E0594C;
+  --ochre:  #E5A858;
+  --slate:  #7A95A0;
+  --marsh:  #9AB97A;
+  --dust:   #7E7466;
+
+  --dot-color:  rgba(244, 240, 226, 0.05);
+
+  --nav-bg:     rgba(20, 17, 15, 0.92);
+  --nav-rule:   var(--rule-2);
+
+  --code-bg:    var(--surface-2);
+  --code-text:  var(--ink);
+  --code-comment: var(--ink-3);
+  --code-string:  #E5A858;
+  --code-keyword: #E0594C;
+  --code-func:    #7A95A0;
+  --code-green:   #9AB97A;
+
+  --bg:           var(--surface);
+  --text:         var(--ink);
+  --dim:          var(--ink-2);
+  --dimmer:       var(--rule-2);
+  --accent:       var(--hot);
+  --accent-light: var(--ochre);
+  --accent-dark:  #8A3A30;
+  --glow:         rgba(224, 89, 76, 0.22);
+  --glow-soft:    rgba(224, 89, 76, 0.10);
+}
+
+/* ── REDUCED MOTION ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 1ms;
+    --dur-normal: 1ms;
+    --dur-slow: 1ms;
+  }
+}
