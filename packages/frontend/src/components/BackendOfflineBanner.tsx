@@ -1,15 +1,17 @@
 import { useBackendStatus } from '@/hooks/useBackendStatus'
 
 /**
- * Sticky banner that appears whenever the backend API is unreachable.
+ * Hairline strip pinned to the very top of the page whenever the
+ * backend API is unreachable.
  *
- * Audit fix T7 (2026-06-15). Mount once at the App root. Hidden when
- * status is 'online' or the still-unknown initial state — only shows
- * after a fetch has actually failed.
+ * Audit fix T7 (2026-06-15) — preserved. Style updated for the
+ * broadsheet · ii redesign: a 1px-bordered cream/ink strip with the
+ * cartographic `--hot` red as the rule color. Hidden when status is
+ * 'online' or the still-unknown initial state — only shows after a
+ * fetch has actually failed.
  *
- * Style intentionally plain inline so it can't be hidden by an
- * uncooperative parent stylesheet during an outage. CSS class is also
- * exposed for projects that want to restyle.
+ * Mounted once at the App root. CSS class `backend-offline-banner`
+ * is preserved as the public hook for any external restyling.
  */
 export default function BackendOfflineBanner() {
   const status = useBackendStatus()
@@ -26,18 +28,20 @@ export default function BackendOfflineBanner() {
         left: 0,
         right: 0,
         zIndex: 9999,
-        background: '#ff5722',
-        color: '#fff',
-        padding: '10px 16px',
-        fontSize: 13,
+        background: 'var(--surface)',
+        color: 'var(--ink)',
+        padding: '6px 16px',
+        fontFamily: 'var(--mono)',
+        fontSize: 11,
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
         textAlign: 'center',
-        fontFamily: 'system-ui, sans-serif',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        borderTop: '2px solid var(--hot)',
+        borderBottom: '1px solid var(--hot)',
       }}
     >
-      <strong>Backend offline</strong> — the API is not reachable right now.
-      Wallet transactions are disabled to prevent state drift. We'll re-check
-      automatically on your next request.
+      <span style={{ color: 'var(--hot)', fontWeight: 600 }}>● backend offline</span>
+      <span style={{ color: 'var(--ink-2)' }}> · wallet writes disabled · retrying automatically</span>
     </div>
   )
 }

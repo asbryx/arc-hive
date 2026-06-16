@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { useAccount, useDisconnect } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { useTheme } from '@/hooks/useTheme'
 import { useState, useEffect } from 'react'
@@ -12,11 +12,15 @@ function truncateAddr(addr: string) {
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
-    // Detect touch device via maxTouchPoints — works even in desktop mode
-    const touch = navigator.maxTouchPoints > 0
-    // Also check screen width (physical pixels)
-    const narrow = window.screen.width <= 1400
-    setIsMobile(touch && narrow)
+    const compute = () => {
+      const touch = navigator.maxTouchPoints > 0
+      const narrow = window.matchMedia('(max-width: 1024px)').matches
+      setIsMobile(touch && narrow)
+    }
+    compute()
+    const mq = window.matchMedia('(max-width: 1024px)')
+    mq.addEventListener('change', compute)
+    return () => mq.removeEventListener('change', compute)
   }, [])
   return isMobile
 }
@@ -30,11 +34,13 @@ export default function Nav() {
 
   const navLinks = (
     <>
-      <li><NavLink to="/dashboard" className={({ isActive }) => isActive ? styles.active : ''}>Dashboard</NavLink></li>
-      <li><NavLink to="/marketplace" className={({ isActive }) => isActive ? styles.active : ''}>Marketplace</NavLink></li>
-      <li><NavLink to="/explore" className={({ isActive }) => isActive ? styles.active : ''}>Explore</NavLink></li>
+      <li><NavLink to="/" end className={({ isActive }) => isActive ? styles.active : ''}>Map</NavLink></li>
+      <li><NavLink to="/marketplace" className={({ isActive }) => isActive ? styles.active : ''}>Briefs</NavLink></li>
       <li><NavLink to="/agents" className={({ isActive }) => isActive ? styles.active : ''}>Agents</NavLink></li>
-      <li><NavLink to="/leaderboard" className={({ isActive }) => isActive ? styles.active : ''}>Leaderboard</NavLink></li>
+      <li><NavLink to="/leaderboard" className={({ isActive }) => isActive ? styles.active : ''}>Ranks</NavLink></li>
+      <li><NavLink to="/post-job" className={({ isActive }) => isActive ? styles.active : ''}>Post</NavLink></li>
+      <li><NavLink to="/dashboard" className={({ isActive }) => isActive ? styles.active : ''}>Dashboard</NavLink></li>
+      <li><NavLink to="/docs" className={({ isActive }) => isActive ? styles.active : ''}>Docs</NavLink></li>
     </>
   )
 
@@ -42,8 +48,8 @@ export default function Nav() {
     <div className={styles.actions}>
       <button
         onClick={toggle}
-        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        title={theme === 'dark' ? 'Switch to light edition' : 'Switch to dark edition'}
+        aria-label={theme === 'dark' ? 'Switch to light edition' : 'Switch to dark edition'}
         className={styles.themeBtn}
       >
         {theme === 'dark' ? '☀' : '☾'}
@@ -62,21 +68,18 @@ export default function Nav() {
           aria-label="Connect wallet"
           className={styles.connectBtn}
         >
-          [Connect ↗]
+          Connect wallet ↗
         </button>
       )}
     </div>
   )
 
   if (isMobile) {
-    // Mobile: top bar = logo + actions only. Links at bottom.
     return (
       <>
-        {/* T-AC01: ARIA labels for navigation landmarks */}
-        <nav className={styles.nav} aria-label="Mobile navigation">
+        <nav className={styles.nav} aria-label="Top navigation">
           <NavLink to="/" className={styles.logo}>
-            <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto' }} />
-            ArcHive
+            arc<em>·</em>hive
           </NavLink>
           {actions}
         </nav>
@@ -87,12 +90,11 @@ export default function Nav() {
     )
   }
 
-  // Desktop: everything in one bar
   return (
     <nav className={styles.nav} aria-label="Main navigation">
       <NavLink to="/" className={styles.logo}>
-        <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto' }} className="nav-logo-img" />
-        ArcHive
+        arc<em>·</em>hive
+        <span className={styles.edition}>· cartographic registry</span>
       </NavLink>
       <ul className={styles.links}>
         {navLinks}

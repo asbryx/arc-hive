@@ -1,32 +1,50 @@
+/* ─────────────────────────────────────────────────────────────────
+   BottomBar — the colophon.
+   Hairline-ruled footer in mono, three columns: imprint · links ·
+   edition stamp. Hidden on touch/mobile (the fixed bottom nav from
+   Nav.tsx occupies that slot — see styles.bottomLinks).
+   ───────────────────────────────────────────────────────────────── */
+
 .bar {
-  padding: 4px 24px;
-  background: var(--accent);
-  border-top: 1px solid var(--dimmer);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  background: transparent;
+  border-top: 1px solid var(--rule-strong);
+  padding: 18px clamp(16px, 3vw, 36px);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 18px;
+  position: relative;
+  z-index: 1;
 }
+
+.imprint  { justify-self: start; color: var(--ink-2); }
+.imprint em { font-style: italic; color: var(--ink-2); text-transform: none; letter-spacing: 0; }
+.edition  { justify-self: end; color: var(--ink-2); }
 
 .bar nav {
   display: flex;
   justify-content: center;
-  gap: 24px;
+  gap: 18px;
+  flex-wrap: wrap;
 }
-
-[data-theme="light"] .bar {
-  background: #e5e2dd;
-}
-
-.bar a {
-  color: var(--dim);
+.bar nav a {
+  color: var(--ink-2);
   text-decoration: none;
-  font-size: 11px;
-  letter-spacing: 1px;
-  transition: color 0.2s;
-  min-height: unset !important;
-  min-width: unset !important;
-  height: auto !important;
-  padding: 0 !important;
-  display: inline !important;
+  border-bottom: 1px solid transparent;
+  transition: color var(--dur-fast) var(--ease-broadsheet),
+              border-color var(--dur-fast) var(--ease-broadsheet);
+}
+.bar nav a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--hot);
 }
 
-.bar a:hover {
-  color: var(--text);
+/* hide on mobile — mobile uses Nav's fixed bottom links */
+@media (max-width: 1024px) {
+  .bar { display: none; }
 }
