@@ -146,13 +146,13 @@ export default function Plate({ agents }: PlateProps) {
             </text>
             <text
               x={x}
-              y={732}
+              y={695}
               fontFamily="Geist Mono"
               fontSize="9"
               fill="currentColor"
               textAnchor="middle"
               letterSpacing="0.10em"
-              opacity="0.6"
+              opacity="0.55"
             >
               {`0x${Math.floor((x / 1600) * 256).toString(16).padStart(2, '0').toUpperCase()}`}
             </text>
@@ -173,7 +173,10 @@ export default function Plate({ agents }: PlateProps) {
           let captionY = topY - 18
           let captionX = r.centroid.x
           if (i === 2) {
-            captionY = botY + 28
+            // SOUTH STRIP — caption ABOVE the strip, sitting in the gap between
+            // NW lower edge and SOUTH STRIP upper edge. Clamped so it never
+            // sits over an agent.
+            captionY = Math.max(485, topY - 16)
           } else if (i === 1) {
             // NE caption: keep clear of top frame AND of edition stamp top-right
             captionY = Math.max(captionY, 145)
@@ -338,8 +341,10 @@ export default function Plate({ agents }: PlateProps) {
           const seed = sigilFor(a.addr)
           const accent = STATE_COLOR[a.phase]
           const isFlip = slot.anchor === 'end'
-          const labelX = isFlip ? -22 : 22
           const isFocal = slot.rank === 1
+          // labels need to clear the sigil; focal sigil is bigger so push further
+          const labelOffset = isFocal ? 38 : 22
+          const labelX = isFlip ? -labelOffset : labelOffset
           const haloR = slot.sigilRadius + 6
           return (
             <g key={a.addr} transform={`translate(${slot.x}, ${slot.y})`} style={{ color: accent }}>

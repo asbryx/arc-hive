@@ -124,12 +124,12 @@ const SEEDS: SlotSeed[] = [
   { x:  250, y: 240, region: 0, anchor: 'start' },
   // RANK 6 — Mathis & Roe, NE upper-center
   { x: 1090, y: 250, region: 1, anchor: 'start' },
-  // RANK 7 — Brae Hollinger, NE upper-right (label flips left, well clear of edge)
-  { x: 1340, y: 220, region: 1, anchor: 'end'   },
+  // RANK 7 — Brae Hollinger, NE upper-right (label flips left)
+  { x: 1280, y: 220, region: 1, anchor: 'end'   },
   // RANK 8 — Verity & Bell, NE mid
-  { x: 1100, y: 390, region: 1, anchor: 'start' },
+  { x: 1080, y: 390, region: 1, anchor: 'start' },
   // RANK 9 — Halden Court, NE mid-right (label flips left)
-  { x: 1380, y: 360, region: 1, anchor: 'end'   },
+  { x: 1290, y: 360, region: 1, anchor: 'end'   },
   // RANK 10 — Iris Voss, SW (south, west of cartouche)
   { x:  690, y: 570, region: 2, anchor: 'start' },
   // RANK 11 — Petra Sloane, SW left
@@ -220,7 +220,7 @@ export function buildRegions(slots: Slot[]): Region[] {
       const cy = g.reduce((a, p) => a + p.y, 0) / Math.max(g.length, 1)
       return { hull: [], centroid: { x: cx, y: cy }, label: meta[i].label, subLabel: meta[i].subLabel }
     }
-    const hull = expandHull(convexHull(g), 75)
+    const hull = expandHull(convexHull(g), 55)
     // place the label at the TOP of the hull (not centroid), so it sits in dust not over agents
     const topY = Math.min(...hull.map(p => p.y))
     const topX = hull.reduce((a, p) => a + p.x, 0) / hull.length
@@ -310,10 +310,10 @@ export function placeDust(
     { x: 660, y: 580 },
   ]
   const density = (x: number, y: number): number => {
-    let d = 0   // HARD ZERO baseline — dead zones get NO dust
+    let d = 0.08   // soft floor — gives the territory texture, not dead-cream gaps
     for (const c of regionCenters) {
       const r = Math.hypot(c.x - x, c.y - y)
-      if (r < 300) d = Math.max(d, 1.0 - r / 360)
+      if (r < 400) d = Math.max(d, 1.0 - r / 460)
     }
     for (const l of lines) {
       const r = distanceToSegment({ x, y }, l.from, l.to)
