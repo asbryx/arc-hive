@@ -7,9 +7,8 @@ import { useBackendStatus } from '@/hooks/useBackendStatus'
  * status is 'online' or the still-unknown initial state — only shows
  * after a fetch has actually failed.
  *
- * Style intentionally plain inline so it can't be hidden by an
- * uncooperative parent stylesheet during an outage. CSS class is also
- * exposed for projects that want to restyle.
+ * Behaviour preserved verbatim. Only visual treatment changed for
+ * the broadsheet redesign.
  */
 export default function BackendOfflineBanner() {
   const status = useBackendStatus()
@@ -26,18 +25,22 @@ export default function BackendOfflineBanner() {
         left: 0,
         right: 0,
         zIndex: 9999,
-        background: '#ff5722',
-        color: '#fff',
+        background: 'var(--hot)',
+        color: 'var(--cream)',
         padding: '10px 16px',
-        fontSize: 13,
+        fontFamily: 'var(--mono)',
+        fontSize: 'var(--t-mono-sm)',
+        letterSpacing: '0.10em',
+        textTransform: 'uppercase',
         textAlign: 'center',
-        fontFamily: 'system-ui, sans-serif',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        borderBottom: '1px solid var(--ink)',
       }}
     >
-      <strong>Backend offline</strong> — the API is not reachable right now.
-      Wallet transactions are disabled to prevent state drift. We'll re-check
-      automatically on your next request.
+      <strong style={{ fontWeight: 500 }}>backend offline</strong>
+      <span style={{ margin: '0 12px', opacity: 0.65 }}>·</span>
+      <span style={{ textTransform: 'none', letterSpacing: 0, fontFamily: 'var(--serif)', fontStyle: 'italic' }}>
+        the API is not reachable. Wallet transactions are disabled to prevent state drift; we'll re-check on your next request.
+      </span>
     </div>
   )
 }

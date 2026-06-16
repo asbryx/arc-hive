@@ -350,3 +350,31 @@ export const SECTOR_LIST = Object.values(SECTORS)
 export function getSector(id: string): SectorConfig | undefined {
   return SECTORS[id]
 }
+
+/**
+ * Six category duotones from `_design-archive/references/palettes.md`. The
+ * existing sector enum (10 values + free text) is mapped onto the six
+ * duotones so the marketplace looks varied without inventing a 7th palette.
+ *
+ * `code | research | audit | brand | copy | trans` are the CSS class
+ * suffixes used by `LotTile` (cat-code, cat-research, …).
+ */
+export type LotCategoryKey = 'code' | 'research' | 'audit' | 'brand' | 'copy' | 'trans'
+
+const SECTOR_TO_CATEGORY: Record<string, LotCategoryKey> = {
+  Code:               'code',
+  Development:        'code',
+  'Data Analysis':    'research',
+  Research:           'research',
+  Monitoring:         'audit',
+  DeFi:               'trans',
+  Trading:            'trans',
+  'Content Creation': 'copy',
+  'Social Media':     'brand',
+  Other:              'trans',
+}
+
+export function sectorToCategory(sectorId: string | null | undefined): LotCategoryKey {
+  if (!sectorId) return 'trans'
+  return SECTOR_TO_CATEGORY[sectorId] ?? 'trans'
+}

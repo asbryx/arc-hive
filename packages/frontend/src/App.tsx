@@ -3,8 +3,8 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import Nav from './components/layout/Nav'
 import { Breadcrumbs } from './components/layout/Breadcrumbs'
 import BottomBar from './components/layout/BottomBar'
-import BackgroundCanvas from './components/BackgroundCanvas'
 import BackendOfflineBanner from './components/BackendOfflineBanner'
+import AppShell from './components/broadsheet/AppShell'
 import Home from './pages/Home'
 import Agents from './pages/Agents'
 import AgentProfile from './pages/AgentProfile'
@@ -16,23 +16,17 @@ import Dashboard from './pages/Dashboard'
 import Marketplace from './pages/Marketplace'
 import MarketplaceDetail from './pages/MarketplaceDetail'
 import PostJob from './pages/PostJob'
-import MyJobs from './pages/MyJobs'
 import NotFound from './pages/NotFound'
 import Docs from './pages/Docs'
 
 export default function App() {
   return (
     <ErrorBoundary>
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <BackgroundCanvas />
       {/* Audit fix T7: surface backend outages so users don't sign tx during a 502 */}
       <BackendOfflineBanner />
       <Nav />
-      {/* T-AC01: ARIA label for main landmark + skip link target */}
-      <main id="main-content" style={{ flex: 1, paddingTop: 48, paddingBottom: 60 }} aria-label="Main content">
-        <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 24px' }}>
-          <Breadcrumbs />
-        </div>
+      <AppShell>
+        <Breadcrumbs />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/agents" element={<Agents />} />
@@ -52,9 +46,8 @@ export default function App() {
           <Route path="/jobs/:id" element={<JobDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </main>
+      </AppShell>
       <BottomBar />
-    </div>
     </ErrorBoundary>
   )
 }
