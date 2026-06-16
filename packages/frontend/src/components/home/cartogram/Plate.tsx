@@ -179,13 +179,13 @@ export default function Plate({ agents }: PlateProps) {
           if (i === 2) {
             captionY = Math.max(485, topY - 18)
           } else if (i === 1) {
-            // NE caption — centered above the region, but clamped left of edition stamp (~1340)
+            // NE caption — sit ABOVE the focal of the NE region (Mathis & Roe area)
             captionY = 130
-            captionX = Math.min(captionX, 1180)
+            captionX = 1170
           } else {
-            // NW caption — centered above the region, but clamped right of legend (~360)
+            // NW caption — sit ABOVE the focal (Lyra area), clear of legend
             captionY = 130
-            captionX = Math.max(captionX, 540)
+            captionX = 620
           }
           return (
             <g key={i}>

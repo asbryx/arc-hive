@@ -220,7 +220,9 @@ export function buildRegions(slots: Slot[]): Region[] {
       const cy = g.reduce((a, p) => a + p.y, 0) / Math.max(g.length, 1)
       return { hull: [], centroid: { x: cx, y: cy }, label: meta[i].label, subLabel: meta[i].subLabel }
     }
-    const hull = expandHull(convexHull(g), 55)
+    // expand more for NW (rank-1 region) since labels are bigger
+    const expansion = i === 0 ? 75 : 55
+    const hull = expandHull(convexHull(g), expansion)
     // place the label at the TOP of the hull (not centroid), so it sits in dust not over agents
     const topY = Math.min(...hull.map(p => p.y))
     const topX = hull.reduce((a, p) => a + p.x, 0) / hull.length
