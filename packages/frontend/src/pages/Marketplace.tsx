@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useMarketplaceStats } from '@/api/hooks'
-import { getSector } from '@/lib/sectors'
+import { sectorToCategory, getSector } from '@/lib/sectors'
 import { EmptyState } from '@/components/EmptyState'
+import BroadsheetHeader from '@/components/broadsheet/BroadsheetHeader'
+import LotsGrid from '@/components/broadsheet/LotsGrid'
+import LotTile, { type LotSize } from '@/components/broadsheet/LotTile'
+import { ChipBar } from '@/components/ui/ChipBar'
+import { Field, Input, Select } from '@/components/ui/Field'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { Button } from '@/components/ui/Button'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -24,247 +31,292 @@ interface OpenJob {
   createdAt: string
 }
 
+const CATEGORIES: Array<{ key: string; label: string }> = [
+  { key: '',                 label: 'All' },
+  { key: 'Code',             label: 'Code' },
+  { key: 'Development',      label: 'Development' },
+  { key: 'Research',         label: 'Research' },
+  { key: 'Data Analysis',    label: 'Data' },
+  { key: 'Content Creation', label: 'Copy' },
+  { key: 'Trading',          label: 'Trading' },
+  { key: 'DeFi',             label: 'DeFi' },
+  { key: 'Social Media',     label: 'Social' },
+  { key: 'Monitoring',       label: 'Monitoring' },
+  { key: 'Other',            label: 'Other' },
+]
+
+type SortKey = 'newest' | 'budget_desc' | 'budget_asc' | 'deadline'
+
+function formatAgo(iso?: string) {
+  if (!iso) return ''
+  const ts = new Date(iso).getTime()
+  if (Number.isNaN(ts)) return ''
+  const diff = (Date.now() - ts) / 1000
+  if (diff < 60)    return `${Math.round(diff)}s ago`
+  if (diff < 3600)  return `${Math.round(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`
+  return `${Math.round(diff / 86400)}d ago`
+}
+
+/** Choose a tile size pattern for n tiles, biased to feature/standard at top. */
+function chooseSizes(n: number): LotSize[] {
+  const out: LotSize[] = []
+  let i = 0
+  while (out.length < n) {
+    const remaining = n - out.length
+    if (i === 0 && remaining >= 4) { out.push('feature'); i++; continue }
+    if (i % 7 === 0 && remaining >= 4) { out.push('feature'); i++; continue }
+    if (i % 3 === 1 && remaining >= 2) { out.push('standard'); i++; continue }
+    out.push('compact'); i++
+  }
+  return out.slice(0, n)
+}
+
+/** Re-balance tile order so adjacent tiles never share the same category palette. */
+function rebalance(jobs: OpenJob[]): OpenJob[] {
+  const out = jobs.slice()
+  for (let i = 1; i < out.length; i++) {
+    if ((out[i].category ?? '') === (out[i - 1].category ?? '')) {
+      const swap = out.findIndex((j, k) => k > i && (j.category ?? '') !== (out[i - 1].category ?? ''))
+      if (swap > -1) { const t = out[i]; out[i] = out[swap]; out[swap] = t }
+    }
+  }
+  return out
+}
+
 export default function Marketplace() {
   const { address } = useAccount()
   const { data: mStats } = useMarketplaceStats()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const category = searchParams.get('category') ?? ''
+  const sortBy   = (searchParams.get('sort') ?? 'newest') as SortKey
+  const page     = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)
+  const searchQuery = searchParams.get('q') ?? ''
+
   const [jobs, setJobs] = useState<OpenJob[]>([])
   const [loading, setLoading] = useState(true)
-  const [category, setCategory] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState<'newest' | 'budget_desc' | 'budget_asc' | 'deadline'>('newest')
-  const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [pages, setPages] = useState(1)
 
   useEffect(() => {
+    let cancelled = false
+    async function fetchJobs() {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams({ page: page.toString(), limit: '15' })
+        if (category) params.set('category', category)
+        const res = await fetch(`${API_BASE}/open-jobs?${params}`)
+        const data = await res.json()
+        if (cancelled) return
+        setJobs(data.data || [])
+        setTotal(data.total || 0)
+        setPages(data.pages || 1)
+      } catch {
+        if (!cancelled) setJobs([])
+      }
+      if (!cancelled) setLoading(false)
+    }
     fetchJobs()
+    return () => { cancelled = true }
   }, [page, category])
 
-  async function fetchJobs() {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({ page: page.toString(), limit: '15' })
-      if (category) params.set('category', category)
-      const res = await fetch(`${API_BASE}/open-jobs?${params}`)
-      const data = await res.json()
-      setJobs(data.data || [])
-      setTotal(data.total || 0)
-      setPages(data.pages || 1)
-    } catch {
-      setJobs([])
-    }
-    setLoading(false)
+  function setParam(key: string, value: string) {
+    const next = new URLSearchParams(searchParams)
+    if (value) next.set(key, value); else next.delete(key)
+    if (key !== 'page') next.delete('page')
+    setSearchParams(next, { replace: false })
   }
 
-  const CATEGORIES = ['', 'Data Analysis', 'Content Creation', 'Code', 'Development', 'Research', 'Trading', 'DeFi', 'Social Media', 'Monitoring', 'Other']
-
-  const filteredJobs = jobs
+  const filtered = jobs
     .filter(job => {
       if (!searchQuery) return true
       const q = searchQuery.toLowerCase()
       return job.title?.toLowerCase().includes(q) ||
              job.description?.toLowerCase().includes(q) ||
-             job.category?.toLowerCase().includes(q)
+             (job.category ?? '').toLowerCase().includes(q)
     })
     .sort((a, b) => {
       switch (sortBy) {
         case 'budget_desc': return (parseFloat(b.budgetMax || '0') || 0) - (parseFloat(a.budgetMax || '0') || 0)
-        case 'budget_asc': return (parseFloat(a.budgetMin || '0') || 0) - (parseFloat(b.budgetMin || '0') || 0)
-        case 'deadline': return (a.deadlineHours || 0) - (b.deadlineHours || 0)
+        case 'budget_asc':  return (parseFloat(a.budgetMin || '0') || 0) - (parseFloat(b.budgetMin || '0') || 0)
+        case 'deadline':    return (a.deadlineHours || 0) - (b.deadlineHours || 0)
         default: return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
       }
     })
 
+  const balanced = rebalance(filtered)
+  const sizes = chooseSizes(balanced.length)
+
   return (
-    <div className="page-enter" style={{ padding: '80px 24px 80px', maxWidth: 900, margin: '0 auto' }}>
+    <div className="page-enter">
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2 }}>
-              // open marketplace
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 4 }}>
-              {total} Open jobs · Any agent can apply
-            </div>
+      <section style={{ padding: 'var(--s-6) var(--gutter) 0' }}>
+        <BroadsheetHeader
+          eyebrow="open marketplace"
+          title={<>The <em>floor</em>, by category and reserve.</>}
+          strap={
+            <>
+              <span style={{ fontFamily: 'var(--mono)', color: 'var(--ink)' }}>{total}</span> open briefs
+              {mStats && (
+                <>
+                  {' · '}<span style={{ color: 'var(--marsh)' }}>{mStats.activeJobs.toLocaleString()}</span> active
+                  {' · '}<span style={{ color: 'var(--ink-3)' }}>{mStats.completedJobs.toLocaleString()}</span> settled to date
+                  {mStats.volume && <> · volume <span style={{ fontFamily: 'var(--mono)' }}>{Number(mStats.volume).toLocaleString()} USDC</span></>}
+                </>
+              )}
+            </>
+          }
+        />
+      </section>
+
+      {/* Search + sort + chips */}
+      <section
+        style={{
+          position: 'sticky',
+          top: 'var(--nav-height)',
+          zIndex: 5,
+          background: 'var(--cream)',
+          borderTop: '1px solid var(--rule)',
+          borderBottom: '1px solid var(--rule)',
+          padding: 'var(--s-4) var(--gutter)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--s-3)',
+        }}
+      >
+        <div style={{ display: 'flex', gap: 'var(--s-3)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <Field label="Search briefs">
+              {(id) => (
+                <Input
+                  id={id}
+                  type="search"
+                  placeholder="Title, description, or category…"
+                  value={searchQuery}
+                  onChange={e => setParam('q', e.target.value)}
+                />
+              )}
+            </Field>
           </div>
-          <Link
-            to="/post-job"
-            style={{
-              padding: '8px 16px', fontSize: 11, fontWeight: 700,
-              background: 'var(--accent)', color: '#ffffff', textDecoration: 'none',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            + Post Job
-          </Link>
+          <div style={{ width: 220 }}>
+            <Field label="Sort">
+              {(id) => (
+                <Select id={id} value={sortBy} onChange={e => setParam('sort', e.target.value)}>
+                  <option value="newest">Newest first</option>
+                  <option value="budget_desc">Reserve · high → low</option>
+                  <option value="budget_asc">Reserve · low → high</option>
+                  <option value="deadline">Deadline · soonest</option>
+                </Select>
+              )}
+            </Field>
+          </div>
+          <Button as="a" href="/post-job" variant="primary" size="md">+ post brief</Button>
         </div>
-      </div>
-
-      {/* Global marketplace stats */}
-      {mStats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
-          {[
-            { label: 'Total Jobs', value: mStats.totalJobs.toLocaleString() },
-            { label: 'Open', value: mStats.activeJobs.toLocaleString() },
-            { label: 'Completed', value: mStats.completedJobs.toLocaleString() },
-            { label: 'Volume', value: mStats.volume ? `$${parseFloat(mStats.volume).toLocaleString()}` : '$0' },
-          ].map(s => (
-            <div key={s.label} style={{
-              padding: '10px 12px',
-              border: '1px solid var(--dimmer)',
-              background: 'transparent',
-            }}>
-              <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{s.label}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{s.value}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Search + Sort */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          placeholder="Search jobs..."
-          aria-label="Search marketplace jobs"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            flex: 1,
-            minWidth: '200px',
-            padding: '0.5rem',
-            background: '#0a0a0a',
-            border: '1px solid #333',
-            color: 'white',
-            fontFamily: 'JetBrains Mono, monospace',
-            fontSize: '0.85rem',
-          }}
+        <ChipBar
+          chips={CATEGORIES}
+          value={category}
+          onChange={v => setParam('category', v)}
+          ariaLabel="Filter by category"
         />
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as any)}
-          style={{
-            padding: '0.5rem',
-            background: '#0a0a0a',
-            border: '1px solid #333',
-            color: 'white',
-            fontFamily: 'JetBrains Mono, monospace',
-            fontSize: '0.85rem',
-          }}
-        >
-          <option value="newest">Newest</option>
-          <option value="budget_desc">Budget: High → Low</option>
-          <option value="budget_asc">Budget: Low → High</option>
-          <option value="deadline">Deadline: Soonest</option>
-        </select>
-      </div>
+      </section>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat || 'all'}
-            onClick={() => { setCategory(cat); setPage(1) }}
-            style={{
-              padding: '6px 12px', fontSize: 11,
-              background: category === cat ? 'var(--accent)' : 'var(--bg)',
-              color: category === cat ? '#ffffff' : 'var(--dim)',
-              border: `1px solid ${category === cat ? 'var(--accent)' : 'var(--dimmer)'}`,
-              cursor: 'pointer',
-            }}
-          >
-            {cat || 'All'}
-          </button>
-        ))}
-      </div>
-
-      {/* Job List */}
-      {loading ? (
-        <div style={{ color: 'var(--dim)', fontSize: 12, padding: '40px 0', textAlign: 'center' }}>Loading...</div>
-      ) : filteredJobs.length === 0 ? (
-        <EmptyState
-          title="No open jobs"
-          description="Check back later or post a job yourself"
-          action={{ label: "Post Job", to: "/post-job" }}
-        />
-      ) : (
-        <div>
-          {filteredJobs.map(job => (
-            <Link
-              key={job.id}
-              to={`/marketplace/${job.id}`}
-              style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
-            >
-              <div style={{
-                padding: '16px 20px',
-                borderBottom: '1px solid var(--dimmer)',
-                transition: 'background 0.15s',
-              }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(39,63,79,0.08)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{job.title}</div>
-                    <div style={{ fontSize: 12, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {job.description.slice(0, 120)}{job.description.length > 120 ? '...' : ''}
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: 'var(--dim)', alignItems: 'center' }}>
-                      {job.category && (() => {
-                        const sector = getSector(job.category)
-                        const displayName = job.category === 'Other' && job.sectorConfig?.details?.sectorLabel
-                          ? job.sectorConfig.details.sectorLabel
-                          : job.category
-                        return (
-                          <span style={{ padding: '1px 6px', background: 'var(--dimmer)', color: 'var(--text)' }}>
-                            {sector?.icon ? `${sector.icon} ` : ''}{displayName}
-                          </span>
-                        )
-                      })()}
-                      <span style={{ color: '#4a9ead' }}>Open</span>
-                      <span>·</span>
-                      <span>{job.applicationCount} Applicant{job.applicationCount !== 1 ? 's' : ''}</span>
-                      <span>·</span>
-                      <span>{job.deadlineHours}h Deadline</span>
-                      {job.clientAddress === address?.toLowerCase() && (
-                        <><span>·</span><span style={{ color: 'var(--accent)' }}>Your Job</span></>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>
-                      {job.budgetMin && job.budgetMax
-                        ? `${job.budgetMin} – ${job.budgetMax}`
-                        : job.budgetMax || job.budgetMin || '—'}
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--dim)' }}>USDC</div>
-                  </div>
-                </div>
+      {/* Body */}
+      <section style={{ padding: 'var(--s-6) var(--gutter) var(--s-14)' }}>
+        {loading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 1, background: 'var(--ink)' }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} style={{ gridColumn: i === 0 ? 'span 7' : 'span 5', minHeight: i === 0 ? 360 : 220, background: 'var(--cream-2)', padding: 'var(--s-7)' }}>
+                <Skeleton lines={4} />
               </div>
-            </Link>
-          ))}
-
-          {/* Pagination */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 24 }}>
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              style={{ padding: '6px 16px', fontSize: 11, background: 'transparent', color: page <= 1 ? 'var(--dimmer)' : 'var(--dim)', border: '1px solid var(--dimmer)', cursor: page <= 1 ? 'default' : 'pointer' }}
-            >
-              Prev
-            </button>
-            <span style={{ fontSize: 11, color: 'var(--dim)', padding: '6px 0' }}>{page} / {pages}</span>
-            <button
-              onClick={() => setPage(p => Math.min(pages, p + 1))}
-              disabled={page >= pages}
-              style={{ padding: '6px 16px', fontSize: 11, background: 'transparent', color: page >= pages ? 'var(--dimmer)' : 'var(--dim)', border: '1px solid var(--dimmer)', cursor: page >= pages ? 'default' : 'pointer' }}
-            >
-              Next
-            </button>
+            ))}
           </div>
-        </div>
-      )}
+        ) : balanced.length === 0 ? (
+          <EmptyState
+            title="No open briefs match this filter"
+            description={category ? `Nothing in "${category}" right now. Try All, or post the first one.` : "The floor is empty. Be the first to post."}
+            action={{ label: 'Post Brief', to: '/post-job' }}
+          />
+        ) : (
+          <>
+            <LotsGrid>
+              {balanced.map((job, i) => {
+                const isMine = address && job.clientAddress === address.toLowerCase()
+                const sector = getSector(job.category ?? '')
+                const displayCategory = job.category === 'Other' && job.sectorConfig?.details?.sectorLabel
+                  ? job.sectorConfig.details.sectorLabel
+                  : (sector?.label ?? job.category ?? 'Brief')
+                const reserve = job.budgetMax || job.budgetMin
+                return (
+                  <LotTile
+                    key={job.id}
+                    size={sizes[i] ?? 'compact'}
+                    category={sectorToCategory(job.category)}
+                    ownPerspective={Boolean(isMine)}
+                    reference={`LOT ${String(job.id).padStart(4, '0')}`}
+                    meta={<>{(displayCategory ?? '').toString().toUpperCase()}{formatAgo(job.createdAt) ? ` · ${formatAgo(job.createdAt)}` : ''}</>}
+                    activity={
+                      job.applicationCount > 0
+                        ? `live · ${job.applicationCount} bid${job.applicationCount === 1 ? '' : 's'}`
+                        : undefined
+                    }
+                    title={job.title}
+                    summary={job.description}
+                    bidLabel={
+                      <>
+                        {isMine && <span style={{ marginRight: 8, color: 'var(--hot)', fontStyle: 'italic' }}>your job · </span>}
+                        {job.applicationCount > 0 ? `${job.applicationCount} bids` : 'no bids yet'}
+                        {job.deadlineHours ? ` · ${job.deadlineHours}h to deadline` : ''}
+                      </>
+                    }
+                    price={
+                      reserve
+                        ? <>{Number(reserve).toFixed(2)}<small style={{ marginLeft: 4, fontSize: '0.55em', letterSpacing: '0.16em' }}>USDC</small></>
+                        : null
+                    }
+                    href={`/marketplace/${job.id}`}
+                  />
+                )
+              })}
+            </LotsGrid>
+
+            {/* Pagination */}
+            <nav
+              aria-label="Pagination"
+              style={{
+                display: 'flex',
+                gap: 'var(--s-5)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 'var(--s-7) 0 0',
+                fontFamily: 'var(--mono)',
+                fontSize: 'var(--t-mono-sm)',
+                color: 'var(--ink-2)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setParam('page', String(Math.max(1, page - 1)))}
+                disabled={page <= 1}
+                style={{ padding: '6px 14px', border: '1px solid var(--ink)', background: 'transparent', color: page <= 1 ? 'var(--ink-3)' : 'var(--ink)', cursor: page <= 1 ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '0.12em' }}
+              >
+                ← prev
+              </button>
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                page {page} of {pages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setParam('page', String(Math.min(pages, page + 1)))}
+                disabled={page >= pages}
+                style={{ padding: '6px 14px', border: '1px solid var(--ink)', background: 'transparent', color: page >= pages ? 'var(--ink-3)' : 'var(--ink)', cursor: page >= pages ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '0.12em' }}
+              >
+                next →
+              </button>
+            </nav>
+          </>
+        )}
+      </section>
     </div>
   )
 }

@@ -7,9 +7,11 @@ import { readContract, waitForTransactionReceipt } from '@wagmi/core'
 import { parseUnits } from 'viem'
 import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI, USDC_ADDRESS, USDC_ABI } from '@/lib/contracts'
 import { arcTestnet, config } from '@/lib/wagmi'
-import { getSector } from '@/lib/sectors'
+import { getSector, sectorToCategory } from '@/lib/sectors'
 import { useAuth } from '@/contexts/AuthContext'
 import { safeHref } from '@/utils/safeUrl'
+import { StatusPill } from '@/components/ui/StatusPill'
+import { CopyableAddress } from '@/components/ui/CopyableAddress'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -660,32 +662,47 @@ export default function MarketplaceDetail() {
   const timeAgo = getTimeAgo(job.createdAt)
   const selectedApp = applications.find(a => a.status === 'selected')
 
+  const dbStatus = job.status
+  const pillPhase: 'bidding' | 'executing' | 'delivering' | 'settled' | 'cancelled' | 'idle' =
+    dbStatus === 'open' || dbStatus === 'assigned' ? 'bidding'
+    : dbStatus === 'funded' || dbStatus === 'in_progress' ? 'executing'
+    : dbStatus === 'submitted' || dbStatus === 'evaluating' ? 'delivering'
+    : dbStatus === 'completed' || dbStatus === 'paid' ? 'settled'
+    : dbStatus === 'rejected' || dbStatus === 'expired' || dbStatus === 'refunded' ? 'cancelled'
+    : 'idle'
+
   return (
-    <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 700, margin: '0 auto' }}>
-      <Link to="/marketplace" style={{ fontSize: 11, color: 'var(--dim)', textDecoration: 'none' }}>
-        ← Back to Marketplace
+    <div className="page-enter" style={{ padding: 'var(--s-4) var(--gutter) var(--s-14)', maxWidth: 'var(--max-column)', margin: '0 auto' }}>
+      <Link to="/marketplace" className="caps" style={{ color: 'var(--ink-2)', display: 'inline-block', padding: 'var(--s-3) 0' }}>
+        ← back to marketplace
       </Link>
 
-      
-
-      {/* Job Header */}
-      <div style={{ marginTop: 20, marginBottom: 24 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
-          {job.category && (() => {
-            const sector = getSector(job.category)
-            const displayName = job.category === 'Other' && job.sectorConfig?.details?.sectorLabel
-              ? job.sectorConfig.details.sectorLabel
-              : job.category
-            return (
-              <span style={{ padding: '2px 8px', fontSize: 10, background: 'var(--dimmer)', color: 'var(--text)' }}>
-                {sector?.icon ? `${sector.icon} ` : ''}{displayName}
-              </span>
-            )
-          })()}
-          <span style={{ fontSize: 10, color: statusColor(job.status) }}>● {job.status.charAt(0).toUpperCase() + job.status.slice(1).replace(/_/g, ' ')}</span>
-          <span style={{ fontSize: 10, color: 'var(--dim)' }}>· {timeAgo}</span>
+      {/* Job Header — broadsheet style */}
+      <header style={{ marginTop: 'var(--s-3)', marginBottom: 'var(--s-7)', borderBottom: '1px solid var(--ink)', paddingBottom: 'var(--s-5)' }}>
+        <div className="caps" style={{ marginBottom: 'var(--s-3)' }}>
+          — lot {String(job.id).padStart(4, '0')} · {job.category ? (job.category === 'Other' && job.sectorConfig?.details?.sectorLabel ? job.sectorConfig.details.sectorLabel : job.category) : 'brief'} —
         </div>
-        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>{job.title}</div>
+        <h1
+          style={{
+            fontFamily: 'var(--serif)',
+            fontWeight: 200,
+            fontSize: 'var(--t-h1)',
+            lineHeight: 0.98,
+            letterSpacing: '-0.025em',
+            fontVariationSettings: "'wght' 200, 'opsz' 96",
+            marginBottom: 'var(--s-5)',
+          }}
+        >
+          {job.title}
+        </h1>
+        <div style={{ display: 'flex', gap: 'var(--s-4)', alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--s-5)' }}>
+          <StatusPill phase={pillPhase}>{dbStatus.replace(/_/g, ' ')}</StatusPill>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 'var(--t-mono-sm)', color: 'var(--ink-3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{timeAgo}</span>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 'var(--t-mono-sm)', color: 'var(--ink-3)', letterSpacing: '0.08em' }}>
+            posted by <CopyableAddress addr={job.clientAddress} />
+            {job.onChainTx && <> · <a href={`https://testnet.arcscan.app/tx/${job.onChainTx}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ink-2)', borderBottom: '1px dotted var(--ink-3)' }}>on-chain ↗</a></>}
+          </span>
+        </div>
 
         {/* Sector deliverable hint */}
         {job.category && (() => {
@@ -696,29 +713,25 @@ export default function MarketplaceDetail() {
           const hint = customHint || sector?.deliverableHint
           if (!hint) return null
           return (
-            <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 12, padding: '6px 10px', border: '1px solid var(--dimmer)', display: 'inline-block' }}>
-              {hint}
+            <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 'var(--t-meta)', color: 'var(--ink-2)', marginBottom: 'var(--s-4)' }}>
+              <em>fig.</em> {hint}
             </div>
           )
         })()}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, padding: '12px 0', borderTop: '1px solid var(--dimmer)', borderBottom: '1px solid var(--dimmer)', marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--s-5)', paddingTop: 'var(--s-4)', borderTop: '1px solid var(--rule)' }}>
+          <Stat label="reserve" value={
+            job.finalBudget ? `${job.finalBudget} USDC` :
+            job.budgetMin && job.budgetMax ? `${job.budgetMin} – ${job.budgetMax} USDC` :
+            `${job.budgetMax || job.budgetMin || 'open'} USDC`
+          } />
           <div>
-            <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase' }}>Budget</div>
-            <div style={{ fontSize: 13, fontWeight: 700 }}>
-              {job.finalBudget ? `${job.finalBudget} USDC` : job.budgetMin && job.budgetMax ? `${job.budgetMin} – ${job.budgetMax} USDC` : `${job.budgetMax || job.budgetMin || 'Open'} USDC`}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase' }}>Deadline</div>
+            <div className="caps">deadline</div>
             <DeadlineCountdown fundedAt={job.fundedAt} createdAt={job.createdAt} deadlineHours={job.deadlineHours} status={job.status} />
           </div>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase' }}>Applicants</div>
-            <div style={{ fontSize: 13 }}>{job.applicationCount}</div>
-          </div>
+          <Stat label="bids" value={String(job.applicationCount)} />
         </div>
-      </div>
+      </header>
 
       {/* Status Timeline */}
       <StatusTimeline job={job} selectedApp={selectedApp} />
@@ -761,11 +774,7 @@ export default function MarketplaceDetail() {
         </div>
       )}
 
-      {/* Client info */}
-      <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 32 }}>
-        Posted by {job.clientAddress.slice(0, 6)}...{job.clientAddress.slice(-4)}
-        {job.onChainTx && <> · <a href={`https://testnet.arcscan.app/tx/${job.onChainTx}`} target="_blank" style={{ color: 'var(--accent)' }}>On-chain ↗</a></>}
-      </div>
+      {/* (header already includes posted-by + on-chain link) */}
 
       {/* ═══ CLIENT: Fund Button (after selection, before funding) ═══ */}
       {isClient && job.status === 'assigned' && (
@@ -1444,6 +1453,17 @@ function DeadlineCountdown({ fundedAt, createdAt, deadlineHours, status }: { fun
   return (
     <div style={{ fontSize: 13, color }}>
       {hours > 0 && `${hours}h `}{mins}m Remaining
+    </div>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <div className="caps">{label}</div>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 'var(--t-h4)', fontWeight: 500, fontVariantNumeric: 'tabular-nums', color: 'var(--ink)', marginTop: 4 }}>
+        {value}
+      </div>
     </div>
   )
 }
