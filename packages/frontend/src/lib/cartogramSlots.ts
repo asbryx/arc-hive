@@ -1,31 +1,31 @@
 /**
  * cartogramSlots — deterministic geometry for the cartogram plate.
  *
- * Composition principles (the ones the prior version violated):
+ * The plate is a MAP OF ADDRESS SPACE. Six layers, each earning its
+ * place in the territorial reading:
  *
- *   ONE FOCAL AGENT. The top-ranked agent is the visual anchor: bigger
- *   sigil, bigger label, placed at the optical center-right of the
- *   active region. Every other element subordinates to it.
+ *   GRATICULE   — faint orthogonal grid at major hex boundaries. The
+ *                 graticule of a meridian/parallel chart. Reads as
+ *                 "this is a coordinate space," not floating cream.
  *
- *   ONE CLIENT HUB. Briefs in the real protocol originate from the
- *   contract — one source, many destinations. Flight lines fan OUT from
- *   a single hub at the bottom-left to the seven busiest agents. This
- *   gives the lines a spatial story: clients on the left, agents in the
- *   field, work radiating outward. No random origin → random target.
+ *   REGIONS     — convex hulls around the three agent clusters. Reads
+ *                 as territories (the way state lines do on a USGS
+ *                 plate), with faint fill so dust shows through.
  *
- *   RANK-DRIVEN PLACEMENT. Agents are placed by their rank in the
- *   leaderboard, not by an arbitrary band grid. Top rank → focal slot.
- *   Ranks 2-4 → satellite ring around focal. Ranks 5-8 → mid arc.
- *   Ranks 9-12 → outer stragglers near the edges. The plate has a
- *   center of gravity.
+ *   DENSITY     — dust biased to the regions + flight-line corridors,
+ *                 sparse in the gutters. The "population" of the
+ *                 territory.
  *
- *   DENSITY GRADIENT, NOT NOISE. Dust is dense around the focal agent
- *   and the active flight-line corridors, thin in dead zones. Reads as
- *   "population gathered where activity is", not as JPEG speckle.
+ *   CLIENT HUB  — single bigger marker at the southwest corner where
+ *                 briefs originate.
  *
- *   NO ROTATED TEXT. Payload labels sit horizontally at the agent end
- *   of each flight line, small and quiet. The chart never asks the eye
- *   to read at an angle.
+ *   FLIGHT FLOW — curved Bezier paths from hub to the 7 busiest agents,
+ *                 not radial spokes. Reads as flow, the way Minard's
+ *                 lines flow with the army's actual march.
+ *
+ *   NAMED CAST  — 12 agents placed inside three regions (5 in NW,
+ *                 4 in NE, 3 in SE-stragglers), sized by rank: focal
+ *                 #1 = 18u sigil / 22px name, etc.
  *
  * Everything pure + deterministic — same input, same layout.
  */
@@ -37,37 +37,38 @@ export interface Slot {
   x: number
   y: number
   anchor: 'start' | 'end'
-  /** rank in the cast — 1 = focal, 12 = outermost. */
   rank: number
-  /** glyph radius hint (focal is larger). */
+  region: number              // 0..2
   sigilRadius: number
-  /** name font-size in viewBox units. */
   nameSize: number
 }
 export interface FlightLine {
   from: Point
   to: Point
+  /** Bezier control point for the curve */
+  ctrl: Point
   phase: 'settled' | 'executing' | 'delivering'
   payload: string
-  /** index of the agent in the named cast that this line terminates at */
   targetAgent: number
 }
 export interface DustDot { x: number; y: number; r: number; opacity: number }
 
+/** A region = convex polygon enclosing a cluster of agents. */
+export interface Region {
+  /** points of the convex hull, in order. */
+  hull: Point[]
+  /** centroid for label placement. */
+  centroid: Point
+  /** label drawn at the top of the region. */
+  label: string
+  /** hex address-range caption drawn under the label. */
+  subLabel: string
+}
+
 export const VIEWBOX = { w: 1600, h: 800 }
 export const ACTIVE  = { x1: 80, y1: 160, x2: 1520, y2: 660 }
 
-/** the single client hub — bottom-left corner of the active region. */
-export const CLIENT_HUB: Point = { x: 130, y: 640 }
-
-/** label rect bounds for collision checking. */
-function labelW(slot: Slot): number {
-  // wider for the focal so its big label is fully reserved
-  return slot.rank === 1 ? 200 : 140
-}
-function labelH(slot: Slot): number {
-  return slot.rank === 1 ? 48 : 32
-}
+export const CLIENT_HUB: Point = { x: 145, y: 615 }
 
 /* ─── the named cast ─── */
 
@@ -94,164 +95,144 @@ export const DEMO_AGENTS: DemoAgent[] = [
   { name: 'Quill Marlowe',     addr: '0x9C70', score: 7.32, phase: 'idle'       },
 ]
 
-/* ─── rank-driven placement ─── */
-
-/**
- * Compute slots:
- *   rank 1   → focal slot at (1020, 380), the optical center-right.
- *   rank 2-4 → inner satellite ring, ~280u from focal, evenly spaced
- *              around 270°-30° arc (avoiding the cartouche zone).
- *   rank 5-8 → mid arc, ~480u from focal, spread wider, biased toward
- *              the cartogram's reading center (upper + middle field).
- *   rank 9-12 → outer ring, ~620u from focal, near the cartogram edges,
- *               quiet labels.
+/* ─── hand-tuned slot positions, organized by region ───
  *
- * Within each ring the angle is jittered with a seeded RNG so the
- * layout reads organic, not as concentric circles.
+ * Three regions in the territory: a NW band (top-left of the plate, the
+ * busy quarter where the focal lives), a NE band (top-right, mid-rank),
+ * and a SE strip (bottom-center, quieter stragglers). The cartouche
+ * occupies the SE-right corner and is excluded from agent placement.
+ *
+ * Coordinates are hand-tuned so the plate has a real composition. No
+ * concentric rings, no math-derived "satellite arcs."
  */
-const FOCAL: Point = { x: 1020, y: 380 }
-const CARTOUCHE_ZONE = { x1: 1180, y1: 480, x2: ACTIVE.x2, y2: ACTIVE.y2 }
-
-interface RingSpec {
-  ranks: [number, number]    // inclusive range
-  radius: number
-  angleStart: number         // degrees (0 = right, 90 = down, -90 = up)
-  angleEnd: number
-  sigilRadius: number
-  nameSize: number
+interface SlotSeed {
+  x: number; y: number; region: number; anchor: 'start' | 'end'
 }
 
-const RINGS: RingSpec[] = [
-  // focal handled separately
-  { ranks: [2, 4],  radius: 280, angleStart: 200, angleEnd: 340, sigilRadius: 12, nameSize: 17 },
-  { ranks: [5, 8],  radius: 470, angleStart: 170, angleEnd: 350, sigilRadius: 10, nameSize: 14 },
-  { ranks: [9, 12], radius: 620, angleStart: 150, angleEnd: 380, sigilRadius:  9, nameSize: 13 },
+// rank-1-indexed → seed. Index 0 is the focal.
+const SEEDS: SlotSeed[] = [
+  // RANK 1 — Lyra, focal, NW region, center-top of NW cluster
+  { x:  520, y: 270, region: 0, anchor: 'start' },
+  // RANK 2 — Thorne, NW, upper-right of NW cluster
+  { x:  780, y: 230, region: 0, anchor: 'start' },
+  // RANK 3 — Carter & Vale, NW, lower-left of NW cluster
+  { x:  360, y: 380, region: 0, anchor: 'start' },
+  // RANK 4 — Selden Park, NW, lower-right of NW cluster
+  { x:  680, y: 410, region: 0, anchor: 'start' },
+  // RANK 5 — Osric Wynn, NW, top-left of NW
+  { x:  280, y: 230, region: 0, anchor: 'start' },
+  // RANK 6 — Mathis & Roe, NE region, upper-right
+  { x: 1120, y: 240, region: 1, anchor: 'start' },
+  // RANK 7 — Brae Hollinger, NE, far-right top, label flips
+  { x: 1390, y: 290, region: 1, anchor: 'end'   },
+  // RANK 8 — Verity & Bell, NE, mid-right
+  { x: 1180, y: 390, region: 1, anchor: 'start' },
+  // RANK 9 — Halden Court, NE, far-right mid, label flips
+  { x: 1410, y: 430, region: 1, anchor: 'end'   },
+  // RANK 10 — Iris Voss, SE strip, center-bottom
+  { x:  640, y: 555, region: 2, anchor: 'start' },
+  // RANK 11 — Petra Sloane, SE strip, left-bottom
+  { x:  400, y: 590, region: 2, anchor: 'start' },
+  // RANK 12 — Quill Marlowe, SE strip, mid-bottom
+  { x:  900, y: 535, region: 2, anchor: 'start' },
 ]
 
-function inCartouche(p: Point): boolean {
-  return p.x >= CARTOUCHE_ZONE.x1 - 30 && p.y >= CARTOUCHE_ZONE.y1 - 30
+const SIGIL_RADIUS_BY_RANK = (rank: number): number => {
+  if (rank === 1)  return 18
+  if (rank <= 4)   return 12
+  if (rank <= 8)   return 10
+  return 9
 }
-
-function clampToActive(p: Point): Point {
-  return {
-    x: Math.max(ACTIVE.x1 + 90,  Math.min(ACTIVE.x2 - 90,  p.x)),
-    y: Math.max(ACTIVE.y1 + 40,  Math.min(ACTIVE.y2 - 60,  p.y)),
-  }
-}
-
-function placeOnRing(spec: RingSpec, idxInRing: number, total: number, rng: () => number): Point {
-  // even angular distribution within [angleStart, angleEnd], jittered ±8°
-  const span = spec.angleEnd - spec.angleStart
-  const frac = total === 1 ? 0.5 : idxInRing / (total - 1)
-  const angleDeg = spec.angleStart + frac * span + (rng() - 0.5) * 16
-  const angleRad = (angleDeg * Math.PI) / 180
-  // radius jitter ±30
-  const r = spec.radius + (rng() - 0.5) * 60
-  return {
-    x: FOCAL.x + r * Math.cos(angleRad),
-    y: FOCAL.y + r * Math.sin(angleRad),
-  }
+const NAME_SIZE_BY_RANK = (rank: number): number => {
+  if (rank === 1)  return 22
+  if (rank <= 4)   return 17
+  if (rank <= 8)   return 14
+  return 13
 }
 
 export function placeAgents(count: number): Slot[] {
-  const rng = mulberry32(seedFrom('cartogram-rank-v4'))
   const out: Slot[] = []
-
-  // rank 1 → focal
-  if (count >= 1) {
+  for (let i = 0; i < Math.min(count, SEEDS.length); i++) {
+    const s = SEEDS[i]
     out.push({
-      x: FOCAL.x,
-      y: FOCAL.y,
-      anchor: 'end',            // label flips LEFT so it sits in the open field
-      rank: 1,
-      sigilRadius: 18,
-      nameSize: 22,
+      x: s.x,
+      y: s.y,
+      anchor: s.anchor,
+      rank: i + 1,
+      region: s.region,
+      sigilRadius: SIGIL_RADIUS_BY_RANK(i + 1),
+      nameSize: NAME_SIZE_BY_RANK(i + 1),
     })
   }
-
-  // rings 2-4, 5-8, 9-12
-  for (const ring of RINGS) {
-    const [lo, hi] = ring.ranks
-    if (lo > count) break
-    const ringLast = Math.min(hi, count)
-    const total = ringLast - lo + 1
-    for (let i = 0; i < total; i++) {
-      let p = placeOnRing(ring, i, total, rng)
-      // retry up to 4 times if landing inside the cartouche zone or off-canvas
-      let tries = 0
-      while ((inCartouche(p) || p.x < ACTIVE.x1 + 90 || p.x > ACTIVE.x2 - 90 ||
-              p.y < ACTIVE.y1 + 30 || p.y > ACTIVE.y2 - 30) && tries < 4) {
-        p = placeOnRing(ring, i, total, rng)
-        tries++
-      }
-      p = clampToActive(p)
-      // anchor: flip to 'end' if the slot is on the right half of the plate
-      const anchor: 'start' | 'end' = p.x > VIEWBOX.w * 0.62 ? 'end' : 'start'
-      out.push({
-        x: p.x,
-        y: p.y,
-        anchor,
-        rank: lo + i,
-        sigilRadius: ring.sigilRadius,
-        nameSize: ring.nameSize,
-      })
-    }
-  }
-
-  // resolve any label-rect overlaps by nudging the lower-rank slot
-  for (let i = 0; i < out.length; i++) {
-    for (let j = i + 1; j < out.length; j++) {
-      let attempts = 0
-      while (slotsCollide(out[i], out[j]) && attempts < 6) {
-        // push j away from i radially from FOCAL
-        const dx = out[j].x - FOCAL.x
-        const dy = out[j].y - FOCAL.y
-        const len = Math.hypot(dx, dy) || 1
-        out[j].x += (dx / len) * 22
-        out[j].y += (dy / len) * 18
-        const c = clampToActive(out[j])
-        out[j].x = c.x
-        out[j].y = c.y
-        attempts++
-      }
-    }
-  }
-
   return out
 }
 
-function slotsCollide(a: Slot, b: Slot): boolean {
-  // approximate label rects
-  const aLeft = a.anchor === 'end' ? a.x - 24 - labelW(a) : a.x + 24
-  const aRect = { x1: aLeft, y1: a.y - labelH(a) / 2, x2: aLeft + labelW(a), y2: a.y + labelH(a) / 2 }
-  const bLeft = b.anchor === 'end' ? b.x - 24 - labelW(b) : b.x + 24
-  const bRect = { x1: bLeft, y1: b.y - labelH(b) / 2, x2: bLeft + labelW(b), y2: b.y + labelH(b) / 2 }
-  const pad = 14
-  return !(
-    aRect.x2 + pad < bRect.x1 ||
-    bRect.x2 + pad < aRect.x1 ||
-    aRect.y2 + pad < bRect.y1 ||
-    bRect.y2 + pad < aRect.y1
-  )
+/* ─── regions (convex hulls over the cluster of agents per region) ─── */
+
+function convexHull(points: Point[]): Point[] {
+  // Andrew's monotone chain
+  const pts = [...points].sort((a, b) => a.x - b.x || a.y - b.y)
+  const cross = (o: Point, a: Point, b: Point) =>
+    (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+  const lower: Point[] = []
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0)
+      lower.pop()
+    lower.push(p)
+  }
+  const upper: Point[] = []
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i]
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0)
+      upper.pop()
+    upper.push(p)
+  }
+  lower.pop()
+  upper.pop()
+  return lower.concat(upper)
 }
 
-/* ─── flight lines ─── */
+function expandHull(hull: Point[], pad: number): Point[] {
+  // centroid-relative expansion
+  const cx = hull.reduce((a, p) => a + p.x, 0) / hull.length
+  const cy = hull.reduce((a, p) => a + p.y, 0) / hull.length
+  return hull.map(p => {
+    const dx = p.x - cx, dy = p.y - cy
+    const d = Math.hypot(dx, dy) || 1
+    return { x: p.x + (dx / d) * pad, y: p.y + (dy / d) * pad }
+  })
+}
 
-/**
- * 7 flight lines from the single CLIENT_HUB to ranks 1, 2, 3, 5, 6, 9, 10.
- * Mix of phases: focal gets EXECUTING (the loudest agent has the hottest
- * brief in flight); ranks 2-3 get the two SETTLED with arrows; the rest
- * are EXECUTING and DELIVERING mix.
- *
- * Payload label sits NEAR THE AGENT (not at midpoint), horizontal,
- * small. The eye reads: client hub → line → agent → quiet payload.
- */
+export function buildRegions(slots: Slot[]): Region[] {
+  const groups: Point[][] = [[], [], []]
+  for (const s of slots) {
+    if (s.region < 3) groups[s.region].push({ x: s.x, y: s.y })
+  }
+  const meta = [
+    { label: 'BLOCK NW',  subLabel: '0x00__ → 0x9F__' },
+    { label: 'BLOCK NE',  subLabel: '0xA0__ → 0xFF__' },
+    { label: 'BLOCK SE',  subLabel: '0x60__ → 0xD0__' },
+  ]
+  return groups.map((g, i) => {
+    if (g.length < 3) {
+      // not enough for a hull — return a tiny dummy region centered on the points
+      const cx = g.reduce((a, p) => a + p.x, 0) / Math.max(g.length, 1)
+      const cy = g.reduce((a, p) => a + p.y, 0) / Math.max(g.length, 1)
+      return { hull: [], centroid: { x: cx, y: cy }, label: meta[i].label, subLabel: meta[i].subLabel }
+    }
+    const hull = expandHull(convexHull(g), 60)
+    const centroid = { x: hull.reduce((a, p) => a + p.x, 0) / hull.length, y: hull.reduce((a, p) => a + p.y, 0) / hull.length }
+    return { hull, centroid, label: meta[i].label, subLabel: meta[i].subLabel }
+  })
+}
+
+/* ─── flight lines (curved Bezier paths from hub) ─── */
+
 interface LineSpec {
-  targetRank: number     // 1-based
+  targetRank: number
   phase: FlightLine['phase']
   payload: string
 }
-
 const LINE_SPECS: LineSpec[] = [
   { targetRank: 1,  phase: 'executing',  payload: 'JOB-2841 · 9/12' },
   { targetRank: 3,  phase: 'settled',    payload: 'JOB-2840 · +2.40 USDC' },
@@ -259,17 +240,37 @@ const LINE_SPECS: LineSpec[] = [
   { targetRank: 2,  phase: 'executing',  payload: 'JOB-2839 · 4/8' },
   { targetRank: 6,  phase: 'executing',  payload: 'JOB-2836 · 11/14' },
   { targetRank: 10, phase: 'delivering', payload: 'JOB-2838 · deliv.' },
-  { targetRank: 5,  phase: 'delivering', payload: 'JOB-2835 · deliv.' },
+  { targetRank: 7,  phase: 'delivering', payload: 'JOB-2835 · deliv.' },
 ]
 
+/**
+ * Curve each line out of the hub so they don't all radiate as a star.
+ * Control point: midpoint pushed perpendicular to the line by a seeded
+ * amount, alternating sign to spread the bundle.
+ */
 export function buildFlightLines(slots: Slot[]): FlightLine[] {
+  const rng = mulberry32(seedFrom('flight-curve-v5'))
   const out: FlightLine[] = []
-  for (const spec of LINE_SPECS) {
+  for (let i = 0; i < LINE_SPECS.length; i++) {
+    const spec = LINE_SPECS[i]
     const target = slots[spec.targetRank - 1]
     if (!target) continue
+    const dx = target.x - CLIENT_HUB.x
+    const dy = target.y - CLIENT_HUB.y
+    const mx = CLIENT_HUB.x + dx * 0.5
+    const my = CLIENT_HUB.y + dy * 0.5
+    const len = Math.hypot(dx, dy) || 1
+    // perpendicular direction
+    const px = -dy / len
+    const py =  dx / len
+    // alternate sign so lines bow up vs down
+    const sign = i % 2 === 0 ? -1 : 1
+    // magnitude is a fraction of line length + jitter
+    const mag = len * 0.18 + rng() * 30
     out.push({
       from: CLIENT_HUB,
       to: { x: target.x, y: target.y },
+      ctrl: { x: mx + px * mag * sign, y: my + py * mag * sign },
       phase: spec.phase,
       payload: spec.payload,
       targetAgent: spec.targetRank - 1,
@@ -280,66 +281,56 @@ export function buildFlightLines(slots: Slot[]): FlightLine[] {
 
 /* ─── ambient dust ─── */
 
-/**
- * Dust as a DENSITY GRADIENT, not uniform noise.
- *
- * Place ~200 dots biased toward the focal agent and the flight-line
- * corridors using rejection sampling against a density field. The
- * field is 1.0 at the focal, falls to 0.3 at 600u radius, plus an
- * additive 0.7 along any flight line within 80u perpendicular.
- *
- * Dots respect a hard keep-out from named-agent label rects so the
- * type stays clean.
- */
 export function placeDust(
   count: number,
   agentSlots: Slot[],
   lines: FlightLine[],
 ): DustDot[] {
-  const rng = mulberry32(seedFrom('cartogram-dust-v4'))
+  const rng = mulberry32(seedFrom('cartogram-dust-v5'))
   const out: DustDot[] = []
 
   const labelRects = agentSlots.map(s => {
-    const left = s.anchor === 'end' ? s.x - 24 - labelW(s) : s.x + 24
-    return { x1: left - 6, y1: s.y - labelH(s) / 2 - 6, x2: left + labelW(s) + 6, y2: s.y + labelH(s) / 2 + 6 }
+    const w = s.rank === 1 ? 200 : 140
+    const h = s.rank === 1 ? 48 : 32
+    const left = s.anchor === 'end' ? s.x - 24 - w : s.x + 24
+    return { x1: left - 6, y1: s.y - h / 2 - 6, x2: left + w + 6, y2: s.y + h / 2 + 6 }
   })
 
+  // density field: dense in each region's vicinity, denser along curved flight paths
+  const regionCenters = [
+    { x: 540, y: 320 },
+    { x: 1240, y: 340 },
+    { x: 640, y: 555 },
+  ]
   const density = (x: number, y: number): number => {
-    // base: 1.0 at focal, falls with distance, never below 0.15
-    const dFocal = Math.hypot(x - FOCAL.x, y - FOCAL.y)
-    const focalContribution = Math.max(0.15, 1.0 - dFocal / 800)
-    // bonus near any flight line
-    let lineBonus = 0
-    for (const l of lines) {
-      const d = distanceToSegment({ x, y }, l.from, l.to)
-      if (d < 90) lineBonus += (1 - d / 90) * 0.6
+    let d = 0.12
+    for (const c of regionCenters) {
+      const r = Math.hypot(c.x - x, c.y - y)
+      if (r < 360) d = Math.max(d, 0.85 - r / 480)
     }
-    return Math.min(1.6, focalContribution + lineBonus)
+    for (const l of lines) {
+      const r = distanceToSegment({ x, y }, l.from, l.to)
+      if (r < 80) d = Math.max(d, 1.0 - r / 100)
+    }
+    return Math.min(1.2, d)
   }
 
   let attempts = 0
-  while (out.length < count && attempts < count * 12) {
+  while (out.length < count && attempts < count * 16) {
     attempts++
     const x = ACTIVE.x1 + 24 + rng() * (ACTIVE.x2 - ACTIVE.x1 - 48)
     const y = ACTIVE.y1 + 24 + rng() * (ACTIVE.y2 - ACTIVE.y1 - 48)
-
-    // density-driven rejection
     const d = density(x, y)
     if (rng() > d) continue
-
-    // hard reject inside label rect
     if (labelRects.some(r => x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2)) continue
-    // hard reject near sigil point
     if (agentSlots.some(s => Math.hypot(s.x - x, s.y - y) < s.sigilRadius + 12)) continue
-    // hard reject directly on flight line (8u corridor — narrower than density bonus so dots ALONG the line still appear)
-    if (lines.some(l => distanceToSegment({ x, y }, l.from, l.to) < 6)) continue
-    // hard reject inside cartouche zone
-    if (inCartouche({ x, y })) continue
+    if (lines.some(l => distanceToSegment({ x, y }, l.from, l.to) < 5)) continue
+    // cartouche zone (bottom-right)
+    if (x > 1200 && y > 480) continue
 
-    const r = rng() < 0.15 ? 1.6 : rng() < 0.65 ? 1.1 : 0.8
-    // dots near focal are slightly more opaque (reads as denser population)
-    const op = 0.35 + (d - 0.15) * 0.32
-    out.push({ x, y, r, opacity: Math.min(0.72, op) })
+    const r = rng() < 0.18 ? 1.6 : rng() < 0.65 ? 1.1 : 0.8
+    const op = 0.30 + (d - 0.12) * 0.40
+    out.push({ x, y, r, opacity: Math.min(0.78, op) })
   }
   return out
 }
@@ -360,12 +351,14 @@ function distanceToSegment(p: Point, a: Point, b: Point): number {
 export interface PlateGeometry {
   slots: Slot[]
   lines: FlightLine[]
+  regions: Region[]
   dust:  DustDot[]
 }
 
 export function buildPlateGeometry(agentCount = DEMO_AGENTS.length): PlateGeometry {
   const slots = placeAgents(agentCount)
   const lines = buildFlightLines(slots)
-  const dust  = placeDust(200, slots, lines)
-  return { slots, lines, dust }
+  const regions = buildRegions(slots)
+  const dust  = placeDust(240, slots, lines)
+  return { slots, lines, regions, dust }
 }
