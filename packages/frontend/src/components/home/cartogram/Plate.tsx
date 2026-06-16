@@ -66,18 +66,16 @@ function bezierAt(from: { x: number; y: number }, ctrl: { x: number; y: number }
   }
 }
 
-/** Build the graticule path: vertical + horizontal hairlines every 200u
- *  (visual grid), but labels only at every 400u (less crowded). */
+/** Graticule: hairlines every 400u (matching the labels), so the grid
+ *  reads as quiet substrate, not as banded stripes. */
 function graticulePath(): { v: string; h: string; vLabels: number[]; hLabels: number[] } {
   const xs: number[] = []
   const ys: number[] = []
-  for (let x = 200; x <= 1500; x += 200) xs.push(x)
-  for (let y = 200; y <= 660; y += 200) ys.push(y)
-  const vLabels: number[] = []
-  for (let x = 400; x <= 1400; x += 400) vLabels.push(x)
+  for (let x = 400; x <= 1400; x += 400) xs.push(x)
+  for (let y = 300; y <= 580; y += 200) ys.push(y)
   const v = xs.map(x => `M ${x} 80 L ${x} 720`).join(' ')
   const h = ys.map(y => `M 80 ${y} L 1520 ${y}`).join(' ')
-  return { v, h, vLabels, hLabels: ys }
+  return { v, h, vLabels: xs, hLabels: ys }
 }
 
 /** Build SVG path d="…" string for a region's convex hull. */
@@ -181,13 +179,13 @@ export default function Plate({ agents }: PlateProps) {
           if (i === 2) {
             captionY = Math.max(485, topY - 18)
           } else if (i === 1) {
-            // NE caption — clamped LEFT to avoid the edition stamp overlay at top-right
+            // NE caption — centered above the region, but clamped left of edition stamp (~1340)
             captionY = 130
-            captionX = Math.min(captionX, 1080)
+            captionX = Math.min(captionX, 1180)
           } else {
-            // NW caption — clamped RIGHT to avoid the legend overlay at top-left
+            // NW caption — centered above the region, but clamped right of legend (~360)
             captionY = 130
-            captionX = Math.max(captionX, 520)
+            captionX = Math.max(captionX, 540)
           }
           return (
             <g key={i}>
@@ -205,12 +203,12 @@ export default function Plate({ agents }: PlateProps) {
                 opacity="0.55"
               />
               <rect
-                x={captionX - 140}
+                x={captionX - 120}
                 y={captionY - 12}
-                width={280}
-                height={18}
+                width={240}
+                height={20}
                 fill="var(--cream)"
-                opacity="0.92"
+                opacity="0.93"
               />
               <text
                 x={captionX}
