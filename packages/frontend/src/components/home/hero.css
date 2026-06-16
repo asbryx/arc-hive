@@ -1,36 +1,39 @@
 /**
- * hero.css — section i (cartogram plate, marginalia) + cartouche.
+ * hero.css — section i · the cartogram plate.
  *
- * Imported by Hero.tsx. Kept separate from home.css so each file
- * stays under the 400-line target.
+ * Transcribed 1:1 from _design-archive/CARTOGRAM.md (PART II). The plate
+ * is a printed cartographic plate: double-rule frame, faint vignette,
+ * four HTML marginalia overlays, the SVG chart, and the cartouche.
+ *
+ * Selectors are scoped under .broadsheet-hero to match the spec exactly.
  */
 
-/* ─── 1. HERO ─── */
-.bh-hero {
+/* ─── hero shell + head ─── */
+.broadsheet-hero {
   border-bottom: 1px solid var(--ink);
   background: var(--cream);
-  min-height: 820px;
 }
-.bh-map {
+.broadsheet-hero .bh-map {
   position: relative;
+  background: var(--cream);
   display: flex;
   flex-direction: column;
-  min-height: 820px;
-  overflow: hidden;
+  min-height: 760px;
 }
-.bh-map-head {
+
+.broadsheet-hero .bh-map-head {
   padding: 16px 22px 12px;
   border-bottom: 1px solid var(--ink);
 }
-.bh-map-head .num {
+.broadsheet-hero .bh-map-head .num {
   font-family: var(--mono);
   font-size: 10px;
+  color: var(--hot);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--hot);
   margin-bottom: 6px;
 }
-.bh-h2 {
+.broadsheet-hero .bh-map-head h2 {
   font-family: var(--serif);
   font-weight: 200;
   font-size: clamp(32px, 3.4vw, 48px);
@@ -38,114 +41,87 @@
   letter-spacing: -0.025em;
   font-variation-settings: 'wght' 200, 'opsz' 64;
   color: var(--ink);
+  margin: 0;
 }
-.bh-h2 em {
+.broadsheet-hero .bh-map-head h2 em {
   font-style: italic;
   color: var(--hot);
   font-variation-settings: 'wght' 250, 'opsz' 64, 'slnt' -10;
 }
-.bh-map-head .strap {
+.broadsheet-hero .bh-map-head .strap {
   margin-top: 8px;
   font-family: var(--mono);
   font-size: 10px;
+  color: var(--ink-2);
   line-height: 1.7;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--ink-2);
 }
-.bh-map-head .strap strong { color: var(--ink); font-weight: 500; }
-.bh-map-head .strap em {
-  color: var(--hot);
-  font-style: normal;
-  font-weight: 500;
-}
+.broadsheet-hero .bh-map-head .strap strong { color: var(--ink); font-weight: 500; }
+.broadsheet-hero .bh-map-head .strap em { color: var(--hot); font-style: normal; font-weight: 500; }
 
-/* SVG shell — the plate.
- *
- * Full-bleed inside the .bh-map column. The printed double-rule frame is
- * drawn via two pseudo-elements (12px and 16px insets), matching the
- * canonical mockup. No outer margin, no padding gutter, no aspect-ratio
- * lock — the wrap stretches with flex:1 to whatever space the .bh-map
- * has after the head, and the SVG is absolutely positioned inset:0.
- */
-.bh-svg-wrap {
+/* ─── plate canvas ─── */
+.broadsheet-hero .bh-map-svg-wrap {
   position: relative;
   flex: 1;
   overflow: hidden;
-  background: var(--cream);
+  min-height: 620px;
 }
-.bh-svg-wrap::before {
-  content: '';
-  position: absolute;
-  inset: 20px;
-  border: 1px solid var(--ink-3);
-  pointer-events: none;
-  z-index: 3;
-}
-.bh-svg-wrap::after {
-  content: '';
-  position: absolute;
-  inset: 28px;
-  border: 1px solid var(--ink);
-  pointer-events: none;
-  z-index: 3;
-}
-.bh-svg-wrap > svg {
+.broadsheet-hero .bh-map-svg-wrap .map-svg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
 }
 
-/* empty-plate slot — cartogram wiped, awaiting rebuild. The double-rule
- * frame on .bh-svg-wrap (::before + ::after) still draws around this,
- * so the page reads as "plate is here, content pending". */
-.bh-empty-plate {
+/* double-rule plate frame + atmospheric vignette */
+.broadsheet-hero .bh-map-svg-wrap::before {
+  content: '';
   position: absolute;
-  inset: 0;
-  background: var(--cream);
-  z-index: 1;
+  inset: 12px;
+  border: 1px solid var(--ink-3);
+  pointer-events: none;
+  z-index: 3;
 }
-.bh-vignette {
+.broadsheet-hero .bh-map-svg-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 16px;
+  border: 1px solid var(--ink);
+  pointer-events: none;
+  z-index: 3;
+}
+.broadsheet-hero .bh-map-svg-wrap > .vignette {
   position: absolute;
   inset: 16px;
   pointer-events: none;
   z-index: 2;
-  background:
-    radial-gradient(ellipse at center, transparent 55%, rgba(26, 24, 23, 0.07) 100%);
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(26, 24, 23, 0.07) 100%);
 }
 
-/* legend top-left */
-.bh-legend {
+/* ─── marginalia ─── */
+
+/* generic corner annotation (top-left legend) */
+.broadsheet-hero .bh-corner {
   position: absolute;
-  top: 32px;
-  left: 32px;
   z-index: 4;
   font-family: var(--mono);
   font-size: 10px;
-  line-height: 1.7;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-2);
-  display: flex;
-  flex-direction: column;
+  line-height: 1.7;
 }
-.bh-legend strong { color: var(--ink); font-weight: 500; }
-.bh-legend em {
-  font-style: italic;
-  color: var(--hot);
-  font-variation-settings: 'wght' 400, 'opsz' 12, 'slnt' -10;
-  letter-spacing: 0;
-  text-transform: lowercase;
-}
+.broadsheet-hero .bh-corner strong { color: var(--ink); font-weight: 500; }
+.broadsheet-hero .bh-corner em { color: var(--hot); font-style: normal; font-weight: 500; }
+.broadsheet-hero .bh-corner.tl { top: 28px; left: 28px; max-width: 240px; }
 
-/* edition stamp top-right */
-.bh-edition {
+/* edition stamp · top-right */
+.broadsheet-hero .edition-stamp {
   position: absolute;
   top: 32px;
   right: 32px;
   z-index: 4;
-  background: var(--cream);
   border: 1px solid var(--ink);
   padding: 8px 14px;
   font-family: var(--mono);
@@ -155,35 +131,29 @@
   color: var(--ink);
   line-height: 1.5;
   text-align: center;
+  background: var(--cream);
 }
-.bh-edition strong {
-  display: block;
+.broadsheet-hero .edition-stamp strong {
   font-family: var(--serif);
   font-style: italic;
-  font-size: 16px;
-  font-weight: 300;
-  color: var(--ink);
-  letter-spacing: 0;
-  font-variation-settings: 'wght' 300, 'opsz' 24, 'slnt' -8;
-}
-.bh-edition small {
+  font-size: 18px;
   display: block;
-  margin-top: 4px;
-  font-size: 8px;
-  letter-spacing: 0.18em;
-  color: var(--ink-3);
-}
-.bh-edition small em {
-  font-style: italic;
   color: var(--hot);
   letter-spacing: 0;
-  text-transform: lowercase;
+  text-transform: none;
+  font-variation-settings: 'wght' 400, 'opsz' 24, 'slnt' -10;
+}
+.broadsheet-hero .edition-stamp small {
+  display: block;
+  color: var(--ink-3);
+  font-weight: 400;
+  margin-top: 2px;
 }
 
-/* fig caption bottom-center */
-.bh-figcap {
+/* figure caption · bottom-center */
+.broadsheet-hero .fig-caption {
   position: absolute;
-  bottom: 36px;
+  bottom: 38px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 4;
@@ -191,21 +161,57 @@
   font-style: italic;
   font-size: 13px;
   color: var(--ink-3);
-  font-variation-settings: 'wght' 400, 'opsz' 14, 'slnt' -10;
   letter-spacing: 0.02em;
-  text-align: center;
-}
-.bh-figcap em {
-  font-style: italic;
-  color: var(--hot);
   font-variation-settings: 'wght' 400, 'opsz' 14, 'slnt' -10;
+  text-align: center;
+  max-width: 420px;
+}
+.broadsheet-hero .fig-caption strong { color: var(--ink); font-weight: 500; font-style: normal; }
+
+/* scale bar · bottom-left */
+.broadsheet-hero .scale-bar {
+  position: absolute;
+  bottom: 30px;
+  left: 32px;
+  z-index: 4;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.broadsheet-hero .scale-bar .label-top {
+  margin-bottom: 4px;
+  color: var(--ink);
+  letter-spacing: 0.24em;
+  font-weight: 500;
+}
+.broadsheet-hero .scale-bar .bar {
+  width: 200px;
+  height: 14px;
+  display: flex;
+  margin: 4px 0 2px;
+  border: 1px solid var(--ink-3);
+}
+/* alternating black/cream cells, USGS-style */
+.broadsheet-hero .scale-bar .bar span {
+  flex: 1;
+  border-right: 1px solid var(--ink-3);
+}
+.broadsheet-hero .scale-bar .bar span:last-child { border-right: 0; }
+.broadsheet-hero .scale-bar .bar span:nth-child(odd) { background: var(--ink-3); }
+.broadsheet-hero .scale-bar .ticks {
+  display: flex;
+  justify-content: space-between;
+  width: 200px;
+  color: var(--ink-3);
+  font-size: 8px;
+  letter-spacing: 0;
+  font-family: var(--mono);
 }
 
-/* ─── CARTOUCHE — bottom-right of plate.
- * Ported byte-for-byte from the canonical mockup so dimensions and
- * rhythm match (300 × 319 at 1280 viewport). Centered text. Dotted
- * rules between vital rows. */
-.cartouche {
+/* ─── cartouche · bottom-right ─── */
+.broadsheet-hero .cartouche {
   position: absolute;
   bottom: 32px;
   right: 32px;
@@ -213,23 +219,21 @@
   z-index: 5;
   background: var(--cream);
   border: 1px solid var(--ink);
-  box-shadow:
-    inset 0 0 0 1px var(--cream),
-    inset 0 0 0 2px var(--ink-3);
+  box-shadow: inset 0 0 0 1px var(--cream), inset 0 0 0 2px var(--ink-3);
   padding: 0;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--ink-2);
   line-height: 1.55;
 }
-.cartouche::before {
+.broadsheet-hero .cartouche::before {
   content: '';
   position: absolute;
   inset: 4px;
   border: 1px solid var(--ink-3);
   pointer-events: none;
 }
-.cartouche .car-head {
+.broadsheet-hero .cartouche .car-head {
   padding: 7px 14px 6px;
   border-bottom: 1px solid var(--ink);
   text-align: center;
@@ -240,8 +244,11 @@
   color: var(--ink-3);
   background: var(--cream-2);
   margin: 4px 4px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
 }
-.cartouche .car-head em {
+.broadsheet-hero .cartouche .car-head em {
   font-family: var(--serif);
   font-style: italic;
   color: var(--hot);
@@ -250,14 +257,18 @@
   font-size: 11px;
   font-variation-settings: 'wght' 400, 'opsz' 12, 'slnt' -10;
 }
-.cartouche .car-portrait {
+.broadsheet-hero .cartouche .car-body {
+  padding: 8px 4px 4px;
+  position: relative;
+}
+.broadsheet-hero .cartouche .car-portrait {
   margin: 8px auto 4px;
   width: 60px;
   height: 60px;
   color: var(--marsh);
   display: block;
 }
-.cartouche .car-name {
+.broadsheet-hero .cartouche .car-name {
   text-align: center;
   font-family: var(--serif);
   font-size: 22px;
@@ -268,42 +279,34 @@
   font-variation-settings: 'wght' 300, 'opsz' 24;
   margin-top: 2px;
 }
-.cartouche .car-name em {
+.broadsheet-hero .cartouche .car-name em {
   font-style: italic;
   color: var(--hot);
   font-variation-settings: 'wght' 350, 'opsz' 24, 'slnt' -10;
 }
-.cartouche .car-addr {
+.broadsheet-hero .cartouche .car-addr {
   text-align: center;
   color: var(--ink-3);
   font-size: 9px;
   letter-spacing: 0.06em;
-  margin-top: 2px;
-  margin-bottom: 10px;
+  margin: 2px 0 10px;
 }
-.cartouche .car-divider {
+.broadsheet-hero .cartouche .car-divider {
   text-align: center;
-  color: var(--hot);
-  font-family: var(--serif);
-  font-size: 14px;
-  letter-spacing: 1em;
+  color: var(--ink-3);
+  font-size: 11px;
+  letter-spacing: 0.1em;
   margin: 0 0 8px;
-  line-height: 0.5;
-  font-variation-settings: 'wght' 400, 'opsz' 14, 'slnt' -10;
-  font-style: italic;
+  user-select: none;
 }
-.cartouche .car-body {
-  padding: 8px 4px 4px;
-  position: relative;
-}
-.cartouche .car-rows {
+.broadsheet-hero .cartouche .car-rows {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 4px 14px;
   padding: 4px 16px 6px;
   font-size: 10px;
 }
-.cartouche .car-rows .l {
+.broadsheet-hero .cartouche .car-rows .l {
   color: var(--ink-3);
   letter-spacing: 0.10em;
   text-transform: uppercase;
@@ -311,57 +314,51 @@
   padding-top: 2px;
   border-top: 1px dotted var(--rule-2);
 }
-.cartouche .car-rows .l:first-child { border-top: 0; }
-.cartouche .car-rows .v {
+.broadsheet-hero .cartouche .car-rows .l:first-child { border-top: 0; }
+.broadsheet-hero .cartouche .car-rows .v {
   color: var(--ink);
   font-variant-numeric: tabular-nums;
   text-align: right;
   padding-top: 2px;
   border-top: 1px dotted var(--rule-2);
 }
-.cartouche .car-rows > .v:nth-child(2) { border-top: 0; }
-.cartouche .car-rows .v em {
+.broadsheet-hero .cartouche .car-rows > .v:nth-child(2) { border-top: 0; }
+.broadsheet-hero .cartouche .car-rows .v em {
   color: var(--hot);
   font-style: normal;
   font-weight: 500;
 }
-.cartouche .car-rows .v small {
+.broadsheet-hero .cartouche .car-rows .v small {
   color: var(--ink-3);
   font-size: 9px;
 }
-.cartouche .car-state {
-  margin: 8px 8px 8px;
-  padding: 6px 10px;
-  background: var(--marsh);
-  color: var(--cream);
-  text-align: center;
+.broadsheet-hero .cartouche .car-state {
+  margin: 8px 4px 4px;
+  padding: 7px 14px;
   font-family: var(--mono);
   font-size: 9px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 500;
-}
-.cartouche .car-state em {
-  font-family: var(--serif);
-  font-style: italic;
+  text-align: center;
   color: var(--cream);
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 11px;
-  margin-left: 4px;
-  font-variation-settings: 'wght' 500, 'opsz' 12, 'slnt' -10;
 }
-.cartouche .car-state.delivering { background: var(--marsh); }
-.cartouche .car-state.executing  { background: var(--hot); }
-.cartouche .car-state.bidding    { background: var(--ochre); }
-
+.broadsheet-hero .cartouche .car-state.executing  { background: var(--hot); }
+.broadsheet-hero .cartouche .car-state.bidding    { background: var(--ochre); }
+.broadsheet-hero .cartouche .car-state.delivering { background: var(--marsh); }
+.broadsheet-hero .cartouche .car-state.idle       { background: var(--ink-2); }
 
 /* ─── responsive ─── */
-@media (max-width: 768px) {
-  .bh-svg-wrap { margin: 12px; padding: 12px; min-height: 480px; }
-  .bh-edition,
-  .bh-legend,
-  .bh-scale,
-  .bh-figcap { display: none; }
-  .cartouche { width: calc(100% - 24px); right: 12px; bottom: 12px; }
+@media (max-width: 900px) {
+  .broadsheet-hero .bh-map { min-height: 560px; }
+  .broadsheet-hero .bh-map-svg-wrap { min-height: 440px; }
+  .broadsheet-hero .edition-stamp,
+  .broadsheet-hero .scale-bar,
+  .broadsheet-hero .fig-caption { display: none; }
+  .broadsheet-hero .cartouche {
+    width: auto;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
 }
