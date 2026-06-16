@@ -177,7 +177,9 @@ export default function Plate({ agents }: PlateProps) {
           let captionY: number
           let captionX = r.centroid.x
           if (i === 2) {
-            captionY = Math.max(485, topY - 18)
+            // SOUTH STRIP — clear band at y=478 between NW and the strip itself.
+            // Pin it; do NOT compute from topY since payload labels live in that range.
+            captionY = 478
           } else if (i === 1) {
             // NE caption — sit ABOVE the focal of the NE region (Mathis & Roe area)
             captionY = 130
@@ -311,18 +313,19 @@ export default function Plate({ agents }: PlateProps) {
       </g>
 
       {/* payload labels — horizontal, staggered along each curve so they
-          don't cluster at the same t-value. Alternating t ∈ {0.5, 0.65, 0.78}
-          spreads them across the diagonal. */}
+          don't cluster. Targeted t-values keep each label in its line's
+          mid-zone away from BOTH the hub AND the agent end. */}
       <g>
         {lines.map((l, i) => {
-          // vary t per line so midpoints don't pile up
-          const ts = [0.55, 0.68, 0.78, 0.50, 0.72, 0.62, 0.80]
+          // hand-tuned t per line, indexed by spec order, so labels never
+          // sit on top of the agent sigils or on top of each other.
+          const ts = [0.40, 0.45, 0.55, 0.50, 0.65, 0.45, 0.55]
           const t = ts[i % ts.length]
           const p = bezierAt(l.from, l.ctrl, l.to, t)
           const stroke = PHASE_STROKE[l.phase]
           const w = l.payload.length * 6.4
-          // lift higher above the line for short curves
-          const lift = 12
+          // lift above the line, more for upward curves so labels don't sit on the stroke
+          const lift = 14
           return (
             <g key={i} transform={`translate(${p.x}, ${p.y - lift})`}>
               <rect x={-w/2 - 4} y={-7} width={w + 8} height={14} fill="var(--cream)" opacity="0.96" />
