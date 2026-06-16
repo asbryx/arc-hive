@@ -129,11 +129,14 @@ function rectIntersectsCorridor(r: Rect, line: FlightLine): boolean {
 
 /* ─── named-agent placement ─── */
 
-/** 3 reading bands × 4 agents each. */
-const BANDS: Array<{ y: number; count: number }> = [
+/** 3 reading bands × 4 agents each. The bottom band stops short of the
+ *  cartouche zone (right ~390u of the plate) so labels never sit under it. */
+interface Band { y: number; count: number; xMaxOverride?: number }
+const BANDS: Band[] = [
   { y: 215, count: 4 },
   { y: 380, count: 4 },
-  { y: 555, count: 4 },
+  // bottom band: stay out of the cartouche zone (ACTIVE.x2 - 410)
+  { y: 545, count: 4, xMaxOverride: ACTIVE.x2 - 410 },
 ]
 
 /**
@@ -143,16 +146,18 @@ const BANDS: Array<{ y: number; count: number }> = [
  * its label flips left.
  */
 function seedSlots(): Slot[] {
-  const rng = mulberry32(seedFrom('cartogram-slots-v2'))
+  const rng = mulberry32(seedFrom('cartogram-slots-v3'))
   const slots: Slot[] = []
-  const xMin = ACTIVE.x1 + 220
-  const xMax = ACTIVE.x2 - 200
+  const xMinDefault = ACTIVE.x1 + 220
+  const xMaxDefault = ACTIVE.x2 - 200
   for (const band of BANDS) {
+    const xMin = xMinDefault
+    const xMax = band.xMaxOverride ?? xMaxDefault
     const stride = (xMax - xMin) / (band.count - 1)
     for (let i = 0; i < band.count; i++) {
       const baseX = xMin + i * stride
       const jx = (rng() - 0.5) * 90
-      const jy = (rng() - 0.5) * 40
+      const jy = (rng() - 0.5) * 36
       const anchor: 'start' | 'end' = i === band.count - 1 ? 'end' : 'start'
       slots.push({ x: baseX + jx, y: band.y + jy, anchor })
     }
@@ -220,7 +225,7 @@ export function buildFlightLines(slots: Slot[]): FlightLine[] {
       targetAgent: 3,
     },
     {
-      from: CLIENT_MARKERS[3],
+      from: CLIENT_MARKERS[4],
       to: target(5),
       phase: 'settled',
       payload: 'JOB-2837 · +1.85 USDC',
