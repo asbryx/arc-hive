@@ -96,6 +96,16 @@
   width: 100%;
   height: 100%;
 }
+
+/* empty-plate slot — cartogram wiped, awaiting rebuild. The double-rule
+ * frame on .bh-svg-wrap (::before + ::after) still draws around this,
+ * so the page reads as "plate is here, content pending". */
+.bh-empty-plate {
+  position: absolute;
+  inset: 0;
+  background: var(--cream);
+  z-index: 1;
+}
 .bh-vignette {
   position: absolute;
   inset: 16px;

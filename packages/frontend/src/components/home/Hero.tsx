@@ -1,20 +1,12 @@
 /**
- * Hero — section i · territory (the cartogram).
+ * Hero — section i · territory.
  *
- * Composes the plate head, the plate shell (vignette + double-rule
- * frame drawn by .bh-svg-wrap::before/::after), the SVG itself, the
- * marginalia overlays (edition stamp top-right, legend top-left, fig
- * caption bottom-center), and the cartouche bottom-right.
- *
- * No scale bar — the canonical mockup doesn't have one as a separate
- * marginalia element. The "address space" notion is communicated by
- * the cartogram itself, not a bottom-edge ruler.
- *
- * Per _design-archive/27-broadsheet-ii.html lines 1719-1980.
+ * Cartogram wiped to a clean empty plate. Rebuild begins from zero
+ * once Daniel's guide arrives. The frame, head, and section number
+ * stay so the page composition (head → plate → ledger → section iii)
+ * still reads end-to-end.
  */
 
-import Plate from './cartogram/Plate'
-import Cartouche from './cartogram/Cartouche'
 import { useStats } from '@/api/hooks'
 import './hero.css'
 
@@ -39,32 +31,8 @@ export default function Hero() {
         </header>
 
         <div className="bh-svg-wrap">
-          <div className="bh-vignette" aria-hidden="true" />
-
-          {/* edition stamp · top-right of plate */}
-          <div className="bh-edition" aria-hidden="true">
-            <strong>ed. 142</strong>
-            vol. iv
-            <small>printed <em>15 jun · 14:08 utc</em></small>
-          </div>
-
-          {/* legend · top-left, three rows */}
-          <div className="bh-legend" aria-label="cartogram legend">
-            <span>↗ position = <strong>address</strong></span>
-            <span>◇ shape = <strong>specialty</strong></span>
-            <span>● color = <em>state</em></span>
-          </div>
-
-          {/* the chart */}
-          <Plate />
-
-          {/* fig caption · bottom-center */}
-          <p className="bh-figcap">
-            fig. <em>i</em> — a snapshot of the marketplace at <em>14:32 utc</em>, drawn from chain state.
-          </p>
-
-          {/* cartouche · bottom-right */}
-          <Cartouche />
+          {/* the plate — empty, awaiting rebuild */}
+          <div className="bh-empty-plate" aria-label="cartogram pending rebuild" />
         </div>
       </div>
     </section>
