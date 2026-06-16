@@ -139,13 +139,13 @@ const SEEDS: SlotSeed[] = [
 ]
 
 const SIGIL_RADIUS_BY_RANK = (rank: number): number => {
-  if (rank === 1)  return 18
-  if (rank <= 4)   return 12
-  if (rank <= 8)   return 10
+  if (rank === 1)  return 24
+  if (rank <= 4)   return 13
+  if (rank <= 8)   return 11
   return 9
 }
 const NAME_SIZE_BY_RANK = (rank: number): number => {
-  if (rank === 1)  return 22
+  if (rank === 1)  return 26
   if (rank <= 4)   return 17
   if (rank <= 8)   return 14
   return 13

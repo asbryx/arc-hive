@@ -126,37 +126,37 @@ export default function Plate({ agents }: PlateProps) {
         <path d={grid.h} stroke="currentColor" strokeWidth="0.6" fill="none" strokeDasharray="2 4" />
       </g>
 
-      {/* graticule ticks + hex labels along the top + left edges */}
+      {/* graticule ticks + hex labels — TOP and BOTTOM edges only so they
+          don't collide with the focal NW cluster. Left/right edges show
+          short tick marks but no text. */}
       <g style={{ color: 'var(--ink-3)' }}>
         {grid.vLabels.map(x => (
-          <text
-            key={`vx-${x}`}
-            x={x}
-            y={114}
-            fontFamily="Geist Mono"
-            fontSize="9"
-            fill="currentColor"
-            textAnchor="middle"
-            letterSpacing="0.10em"
-            opacity="0.65"
-          >
-            {`0x${Math.floor((x / 1600) * 256).toString(16).padStart(2, '0').toUpperCase()}__`}
-          </text>
-        ))}
-        {grid.hLabels.map(y => (
-          <text
-            key={`hy-${y}`}
-            x={92}
-            y={y + 3}
-            fontFamily="Geist Mono"
-            fontSize="9"
-            fill="currentColor"
-            textAnchor="start"
-            letterSpacing="0.10em"
-            opacity="0.65"
-          >
-            {`y${Math.floor((y / 800) * 256).toString(16).padStart(2, '0').toUpperCase()}`}
-          </text>
+          <g key={`vx-${x}`}>
+            <text
+              x={x}
+              y={108}
+              fontFamily="Geist Mono"
+              fontSize="9"
+              fill="currentColor"
+              textAnchor="middle"
+              letterSpacing="0.10em"
+              opacity="0.6"
+            >
+              {`0x${Math.floor((x / 1600) * 256).toString(16).padStart(2, '0').toUpperCase()}`}
+            </text>
+            <text
+              x={x}
+              y={732}
+              fontFamily="Geist Mono"
+              fontSize="9"
+              fill="currentColor"
+              textAnchor="middle"
+              letterSpacing="0.10em"
+              opacity="0.6"
+            >
+              {`0x${Math.floor((x / 1600) * 256).toString(16).padStart(2, '0').toUpperCase()}`}
+            </text>
+          </g>
         ))}
       </g>
 
@@ -165,8 +165,22 @@ export default function Plate({ agents }: PlateProps) {
         {regions.map((r, i) => {
           const d = regionPath(r)
           if (!d) return null
-          // caption sits ABOVE the region (above the topmost vertex)
-          const captionY = Math.max(150, r.centroid.y - 22)
+          // caption position:
+          //   NW (0) and NE (1) — above the region top vertex, clamped > 138
+          //   SOUTH STRIP (2)   — BELOW the region (between strip and bottom dust)
+          const topY = Math.min(...r.hull.map(p => p.y))
+          const botY = Math.max(...r.hull.map(p => p.y))
+          let captionY = topY - 18
+          let captionX = r.centroid.x
+          if (i === 2) {
+            captionY = botY + 28
+          } else if (i === 1) {
+            // NE caption: keep clear of top frame AND of edition stamp top-right
+            captionY = Math.max(captionY, 145)
+            captionX = Math.min(captionX, 1280)
+          } else {
+            captionY = Math.max(captionY, 145)
+          }
           return (
             <g key={i}>
               <path
@@ -182,17 +196,16 @@ export default function Plate({ agents }: PlateProps) {
                 strokeDasharray="6 6"
                 opacity="0.55"
               />
-              {/* caption */}
               <rect
-                x={r.centroid.x - 130}
+                x={captionX - 140}
                 y={captionY - 12}
-                width={260}
+                width={280}
                 height={18}
                 fill="var(--cream)"
-                opacity="0.9"
+                opacity="0.92"
               />
               <text
-                x={r.centroid.x}
+                x={captionX}
                 y={captionY + 2}
                 fontFamily="Geist Mono"
                 fontSize="10"
@@ -204,7 +217,7 @@ export default function Plate({ agents }: PlateProps) {
                 {r.label}
               </text>
               <text
-                x={r.centroid.x}
+                x={captionX}
                 y={captionY + 16}
                 fontFamily="Geist Mono"
                 fontSize="9"
