@@ -9,13 +9,13 @@
 .bh-hero {
   border-bottom: 1px solid var(--ink);
   background: var(--cream);
-  min-height: 760px;
+  min-height: 820px;
 }
 .bh-map {
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 760px;
+  min-height: 820px;
   overflow: hidden;
 }
 .bh-map-head {
@@ -77,7 +77,7 @@
 .bh-svg-wrap::before {
   content: '';
   position: absolute;
-  inset: 12px;
+  inset: 20px;
   border: 1px solid var(--ink-3);
   pointer-events: none;
   z-index: 3;
@@ -85,7 +85,7 @@
 .bh-svg-wrap::after {
   content: '';
   position: absolute;
-  inset: 16px;
+  inset: 28px;
   border: 1px solid var(--ink);
   pointer-events: none;
   z-index: 3;

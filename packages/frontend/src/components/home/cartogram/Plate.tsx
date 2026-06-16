@@ -1,93 +1,74 @@
 /**
- * Plate — the cartogram SVG itself.
+ * Plate — the cartogram SVG.
  *
- * 1600×800 viewBox. Cream paper, faint dust bands top + bottom,
- * three client markers far-left, three flight lines, six agent points
- * with labels placed by the corridor algorithm, inline payload labels
- * riding each line, the SETTLED line draws on once then freezes,
- * EXECUTING + DELIVERING lines march continuously.
+ * Five layers, drawn in z-order:
+ *   1. AMBIENT DUST — ~120 small ink-3 dots scattered across the active
+ *      region. The "1,000 idle agents" of the design intent.
+ *   2. CLIENT MARKERS — small open ink squares on the left + bottom edge
+ *      where flight lines originate. Per cartogram-spec.
+ *   3. FLIGHT LINES — 7 lines (2 settled, 3 executing, 2 delivering).
+ *      SETTLED draws on once and freezes; EXECUTING + DELIVERING march
+ *      continuously. Each line carries an inline payload label rotated
+ *      to its angle, with a cream halo.
+ *   4. SCALE BAR — a hash-marked address-space ruler in the bottom-left.
+ *   5. NAMED CAST — 12 sigils + italic-Fraunces names + mono-caps
+ *      addresses, placed by the deterministic constraint solver in
+ *      lib/cartogramSlots.ts.
  *
- * The plate frame, vignette, marginalia, and cartouche live OUTSIDE
- * this SVG (in Hero.tsx) so the SVG stays a pure data surface.
+ * Geometry, agent set, line endpoints, and dust positions are all pure
+ * outputs of buildPlateGeometry() so re-renders never reflow.
  *
- * Per _design-archive/components/cartogram-spec.md + 06 §A.
+ * Per _design-archive/01-style-A-cartogram.md (intent) and
+ *     _design-archive/components/cartogram-spec.md (marginalia).
  */
 
+import { useMemo } from 'react'
 import {
-  placeAgents,
-  DEMO_LINES,
+  buildPlateGeometry,
+  CLIENT_MARKERS,
+  DEMO_AGENTS,
   VIEWBOX,
-  type Slot,
+  type DemoAgent,
   type FlightLine,
 } from '../../../lib/cartogramSlots'
-import { sigilFor, colorFor } from '../../../lib/sigil'
-import { useMemo } from 'react'
+import { sigilFor } from '../../../lib/sigil'
 
-interface PlateAgent {
-  name: string
-  addr: string
-  score: number
-  /** which flight-line phase, or null if idle */
-  phase: 'executing' | 'delivering' | 'settled' | 'idle'
-}
-
-interface PayloadLabel {
-  /** midpoint x, y of the line */
-  x: number
-  y: number
-  /** rotation in degrees so text rides the line */
-  angle: number
-  text: string
-  color: string
-  italic?: boolean
-  fontSize?: number
-}
-
-const STATE_COLOR: Record<PlateAgent['phase'], string> = {
+const STATE_COLOR: Record<DemoAgent['phase'], string> = {
   executing:  'var(--hot)',
   delivering: 'var(--marsh)',
   settled:    'var(--marsh)',
   idle:       'var(--slate)',
 }
 
-const AGENTS: PlateAgent[] = [
-  { name: 'Iris Voss',         addr: '0x88BD', score: 7.68, phase: 'delivering' },
-  { name: 'Lyra Synthwright',  addr: '0xA8C3', score: 9.42, phase: 'executing' },
-  { name: 'Thorne Ledger',     addr: '0x3B17', score: 8.91, phase: 'executing' },
-  { name: 'Carter & Vale',     addr: '0x4C91', score: 8.71, phase: 'settled' },
-  { name: 'Verity & Bell',     addr: '0x7E02', score: 7.94, phase: 'idle' },
-  { name: 'Halden Court',      addr: '0x55AB', score: 7.81, phase: 'idle' },
-]
+const PHASE_STROKE: Record<FlightLine['phase'], { color: string; dash?: string }> = {
+  settled:    { color: 'var(--marsh)' },
+  executing:  { color: 'var(--hot)',   dash: '6 4' },
+  delivering: { color: 'var(--marsh)', dash: '14 6' },
+}
 
 function midpoint(line: FlightLine) {
   return { x: (line.from.x + line.to.x) / 2, y: (line.from.y + line.to.y) / 2 }
 }
 function angleDeg(line: FlightLine) {
-  return (Math.atan2(line.to.y - line.from.y, line.to.x - line.from.x) * 180) / Math.PI
+  // clamp angle to readable range so payload labels never read upside-down
+  const raw = (Math.atan2(line.to.y - line.from.y, line.to.x - line.from.x) * 180) / Math.PI
+  if (raw > 90)  return raw - 180
+  if (raw < -90) return raw + 180
+  return raw
+}
+function lineLength(line: FlightLine) {
+  return Math.hypot(line.to.x - line.from.x, line.to.y - line.from.y)
 }
 
 export interface PlateProps {
-  /** when present, overrides the demo agents with live data */
-  agents?: PlateAgent[]
+  /** when present, overrides DEMO_AGENTS with live data */
+  agents?: DemoAgent[]
 }
 
 export default function Plate({ agents }: PlateProps) {
-  const all = agents ?? AGENTS
-
-  // pair agents to slots via the corridor algorithm
-  const slots = useMemo<Slot[]>(
-    () => placeAgents(all.length, DEMO_LINES),
-    [all.length],
-  )
-
-  // payload labels riding each flight line
-  const payloads: PayloadLabel[] = DEMO_LINES.map((line, i) => {
-    const m = midpoint(line)
-    const a = angleDeg(line)
-    if (i === 0) return { x: m.x, y: m.y, angle: a, text: 'JOB-2841 · +2.40 USDC', color: 'var(--marsh)', fontSize: 11 }
-    if (i === 1) return { x: m.x, y: m.y, angle: a, text: 'JOB-2840 · 9/12 STEPS', color: 'var(--hot)',   fontSize: 11 }
-    return { x: m.x, y: m.y, angle: a, text: 'JOB-2838 · DELIV.', color: 'var(--marsh)', italic: true, fontSize: 10 }
-  })
+  const cast = agents ?? DEMO_AGENTS
+  const geom = useMemo(() => buildPlateGeometry(cast.length), [cast.length])
+  const { slots, lines, dust } = geom
 
   return (
     <svg
@@ -98,10 +79,9 @@ export default function Plate({ agents }: PlateProps) {
       aria-label="Live cartogram of the marketplace"
       style={{ display: 'block', width: '100%', height: '100%' }}
     >
-      <title>Live cartogram — six named agents, three briefs in flight</title>
+      <title>Live cartogram — twelve named agents, seven briefs in flight</title>
 
       <defs>
-        {/* arrowheads */}
         <marker
           id="arr-marsh"
           viewBox="0 0 10 10"
@@ -113,120 +93,184 @@ export default function Plate({ agents }: PlateProps) {
         >
           <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--marsh)" />
         </marker>
-        {/* tiny dust mark — a single ink-light dot */}
-        <symbol id="cg-dust" viewBox="-3 -3 6 6">
-          <circle cx="0" cy="0" r="1.2" fill="currentColor" />
+        <symbol id="cg-dust" viewBox="-2 -2 4 4">
+          <circle cx="0" cy="0" r="1" fill="currentColor" />
         </symbol>
-        {/* client tick — small open square */}
         <symbol id="cg-client" viewBox="-6 -6 12 12">
-          <rect x="-4" y="-4" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1" />
+          <rect x="-4" y="-4" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1.2" />
         </symbol>
       </defs>
 
-      {/* dust bands — top */}
-      <g style={{ color: 'var(--dust)' }} opacity="0.55">
-        {[80, 160, 240, 320, 400, 490, 580, 680, 780, 880, 980, 1080, 1180, 1280, 1380, 1480, 1560].map((x, i) => (
-          <use key={`dt-${x}`} href="#cg-dust" x={x} y={i % 2 === 0 ? 100 : 130} />
-        ))}
-      </g>
-      {/* dust bands — bottom */}
-      <g style={{ color: 'var(--dust)' }} opacity="0.55">
-        {[80, 160, 240, 320, 400, 490, 580, 680, 780, 880, 980, 1080, 1180, 1280, 1380, 1480, 1560].map((x, i) => (
-          <use key={`db-${x}`} href="#cg-dust" x={x} y={i % 2 === 0 ? 720 : 690} />
+      {/* ─── 1. AMBIENT DUST ─── */}
+      <g style={{ color: 'var(--ink-3)' }} opacity="0.5">
+        {dust.map((d, i) => (
+          <circle key={i} cx={d.x} cy={d.y} r={d.r} fill="currentColor" />
         ))}
       </g>
 
-      {/* client markers */}
-      <g style={{ color: 'var(--ink-3)' }} opacity="0.7">
-        {DEMO_LINES.map((l, i) => (
-          <use key={`client-${i}`} href="#cg-client" x={l.from.x} y={l.from.y} />
-        ))}
-      </g>
-
-      {/* flight lines.
-       * Stroke widths bumped up from 1.5 → 2 for visibility on
-       * scaled-down viewports (the plate can sit at as little as
-       * 700-1200 px wide; thin strokes faded into the cream).
-       * Marching ants on the EXECUTING + DELIVERING lines run a touch
-       * faster so the "live" reading is unambiguous. */}
-      <g fill="none" strokeLinecap="square">
-        {/* SETTLED · draws-on once, then freezes */}
-        <line
-          x1={DEMO_LINES[0].from.x}
-          y1={DEMO_LINES[0].from.y}
-          x2={DEMO_LINES[0].to.x}
-          y2={DEMO_LINES[0].to.y}
-          stroke="var(--marsh)"
-          strokeWidth="2"
-          markerEnd="url(#arr-marsh)"
-          strokeDasharray="950"
-          strokeDashoffset="950"
-        >
-          <animate attributeName="stroke-dashoffset" from="950" to="0" dur="1.8s" fill="freeze" />
-        </line>
-        {/* EXECUTING · marching ants */}
-        <line
-          x1={DEMO_LINES[1].from.x}
-          y1={DEMO_LINES[1].from.y}
-          x2={DEMO_LINES[1].to.x}
-          y2={DEMO_LINES[1].to.y}
-          stroke="var(--hot)"
-          strokeWidth="2"
-          strokeDasharray="6 6"
-        >
-          <animate attributeName="stroke-dashoffset" from="0" to="-24" dur="0.9s" repeatCount="indefinite" />
-        </line>
-        {/* DELIVERING · longer dashes, slower march */}
-        <line
-          x1={DEMO_LINES[2].from.x}
-          y1={DEMO_LINES[2].from.y}
-          x2={DEMO_LINES[2].to.x}
-          y2={DEMO_LINES[2].to.y}
-          stroke="var(--marsh)"
-          strokeWidth="2"
-          strokeDasharray="10 6"
-          opacity="0.9"
-        >
-          <animate attributeName="stroke-dashoffset" from="0" to="-32" dur="1.4s" repeatCount="indefinite" />
-        </line>
-      </g>
-
-      {/* inline payload labels, riding each line */}
-      <g>
-        {payloads.map((p, i) => (
-          <g key={`pl-${i}`} transform={`translate(${p.x},${p.y}) rotate(${p.angle.toFixed(1)})`}>
-            <rect x="-72" y="-9" width="144" height="14" fill="var(--cream)" opacity="0.92" />
+      {/* ─── 2. CLIENT MARKERS ─── */}
+      <g style={{ color: 'var(--ink-2)' }}>
+        {CLIENT_MARKERS.map((m, i) => (
+          <g key={i} transform={`translate(${m.x}, ${m.y})`}>
+            <use href="#cg-client" />
             <text
               x="0"
-              y="2"
+              y="22"
               fontFamily="Geist Mono"
-              fontSize={p.fontSize ?? 11}
-              fill={p.color}
+              fontSize="9"
+              fill="currentColor"
               textAnchor="middle"
               letterSpacing="0.10em"
-              fontWeight="500"
-              fontStyle={p.italic ? 'italic' : 'normal'}
+              opacity="0.65"
             >
-              {p.text}
+              CLIENT-{String(i + 1).padStart(2, '0')}
             </text>
           </g>
         ))}
       </g>
 
-      {/* agent points */}
+      {/* ─── 3. FLIGHT LINES ─── */}
       <g>
-        {all.map((a, i) => {
+        {lines.map((l, i) => {
+          const stroke = PHASE_STROKE[l.phase]
+          const len = lineLength(l)
+          const isSettled = l.phase === 'settled'
+          const isExecuting = l.phase === 'executing'
+          const isDelivering = l.phase === 'delivering'
+          return (
+            <g key={i}>
+              <line
+                x1={l.from.x}
+                y1={l.from.y}
+                x2={l.to.x}
+                y2={l.to.y}
+                stroke={stroke.color}
+                strokeWidth={isSettled ? 2 : 1.6}
+                strokeLinecap="round"
+                strokeDasharray={
+                  isSettled ? `${len}` : stroke.dash
+                }
+                strokeDashoffset={isSettled ? len : 0}
+                markerEnd={isSettled ? 'url(#arr-marsh)' : undefined}
+              >
+                {isSettled && (
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    from={len}
+                    to={0}
+                    dur="1.6s"
+                    fill="freeze"
+                  />
+                )}
+                {isExecuting && (
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    from="0"
+                    to="-20"
+                    dur="0.9s"
+                    repeatCount="indefinite"
+                  />
+                )}
+                {isDelivering && (
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    from="0"
+                    to="-20"
+                    dur="1.4s"
+                    repeatCount="indefinite"
+                  />
+                )}
+              </line>
+            </g>
+          )
+        })}
+      </g>
+
+      {/* ─── 3b. PAYLOAD LABELS — drawn AFTER lines so cream halos cover them ─── */}
+      <g>
+        {lines.map((l, i) => {
+          const m = midpoint(l)
+          const a = angleDeg(l)
+          const stroke = PHASE_STROKE[l.phase]
+          return (
+            <g key={i} transform={`translate(${m.x}, ${m.y}) rotate(${a})`}>
+              <rect
+                x={-l.payload.length * 3.2}
+                y={-7}
+                width={l.payload.length * 6.4}
+                height={14}
+                fill="var(--cream)"
+                opacity="0.92"
+              />
+              <text
+                x="0"
+                y="3"
+                fontFamily="Geist Mono"
+                fontSize={11}
+                fill={stroke.color}
+                textAnchor="middle"
+                letterSpacing="0.10em"
+                fontWeight="500"
+                fontStyle={l.phase === 'delivering' ? 'italic' : 'normal'}
+              >
+                {l.payload}
+              </text>
+            </g>
+          )
+        })}
+      </g>
+
+      {/* ─── 4. SCALE BAR (bottom-left corner of active region) ─── */}
+      <g transform="translate(120, 720)" style={{ color: 'var(--ink-2)' }}>
+        <line x1="0" y1="0" x2="320" y2="0" stroke="currentColor" strokeWidth="1" />
+        {[0, 80, 160, 240, 320].map((x, i) => (
+          <g key={i} transform={`translate(${x}, 0)`}>
+            <line x1="0" y1="-4" x2="0" y2="4" stroke="currentColor" strokeWidth="1" />
+            <text
+              x="0"
+              y="18"
+              fontFamily="Geist Mono"
+              fontSize="9"
+              fill="currentColor"
+              textAnchor="middle"
+              letterSpacing="0.08em"
+            >
+              {`0x${(i * 4).toString(16).padStart(2, '0').toUpperCase()}__`}
+            </text>
+          </g>
+        ))}
+        <text
+          x="0"
+          y="-10"
+          fontFamily="Geist Mono"
+          fontSize="9"
+          fill="currentColor"
+          letterSpacing="0.10em"
+        >
+          ADDRESS SPACE →
+        </text>
+      </g>
+
+      {/* ─── 5. NAMED CAST ─── */}
+      <g>
+        {cast.map((a, i) => {
           const slot = slots[i]
+          if (!slot) return null
           const seed = sigilFor(a.addr)
           const accent = STATE_COLOR[a.phase]
           const isFlip = slot.anchor === 'end'
           const labelX = isFlip ? -18 : 18
           return (
             <g key={a.addr} transform={`translate(${slot.x}, ${slot.y})`} style={{ color: accent }}>
-              <use href={`#sigil-base-${String(seed.shape).padStart(2, '0')}`} transform={`rotate(${seed.orientation})`} />
+              {/* faint cream halo behind sigil so dust never muddies the read */}
+              <circle cx="0" cy="0" r="14" fill="var(--cream)" opacity="0.85" />
+              <use
+                href={`#sigil-base-${String(seed.shape).padStart(2, '0')}`}
+                transform={`rotate(${seed.orientation})`}
+              />
               <text
                 x={labelX}
-                y="4"
+                y="2"
                 fontFamily="Fraunces"
                 fontSize="15"
                 fontWeight="350"
@@ -239,7 +283,7 @@ export default function Plate({ agents }: PlateProps) {
               </text>
               <text
                 x={labelX}
-                y="22"
+                y="20"
                 fontFamily="Geist Mono"
                 fontSize="10"
                 fill="var(--ink-3)"
