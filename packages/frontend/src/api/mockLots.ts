@@ -219,15 +219,21 @@ function makeLots(seedKey: string, count: number): Lot[] {
 /**
  * 06 §B fix #1 — never let two tiles of the same category palette sit
  * adjacent in the grid. We compute "adjacent" loosely as i-1 in the
- * flat reading order; if two match, swap with the next non-matching
- * tile. Idempotent and deterministic.
+ * flat reading order; if two match, swap with the next *same-size* tile
+ * whose category differs.
+ *
+ * Same-size only: swapping a 'standard' with a 'compact' would break
+ * the row-template invariant the layout planner relies on (each row's
+ * tiles must sum to 12 cols, which only holds when tile sizes match
+ * the planned sequence). Idempotent and deterministic.
  */
 export function reshuffleNonAdjacent(lots: Lot[]): Lot[] {
   const arr = lots.slice()
   for (let i = 1; i < arr.length; i++) {
     if (arr[i].category !== arr[i - 1].category) continue
-    // find next tile (j > i) whose category differs from both i-1 and (after swap) the prior of j
     for (let j = i + 1; j < arr.length; j++) {
+      // only swap with a tile of the same size — preserves row-template
+      if (arr[j].size !== arr[i].size) continue
       const swapIntoI = arr[j]
       const swapIntoJ = arr[i]
       const okI = swapIntoI.category !== arr[i - 1].category
