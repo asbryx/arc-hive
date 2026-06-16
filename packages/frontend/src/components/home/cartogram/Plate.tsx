@@ -108,7 +108,7 @@ export default function Plate() {
     // population stipple, denser on high ground
     const keepClear = SETTLEMENTS.map(s => ({ x: s.x, y: s.y, r: 34 }))
     keepClear.push({ x: PORT.x, y: PORT.y, r: 40 })
-    const stipple = buildStipple(620, (x, y) => Math.min(1, field.at(x, y) / max), keepClear)
+    const stipple = buildStipple(300, (x, y) => Math.min(1, field.at(x, y) / max), keepClear)
 
     return { contours, coastline, stipple }
   }, [])
@@ -139,10 +139,12 @@ export default function Plate() {
       {/* ─── 2. COASTLINE — bold contour, edge of settled space ─── */}
       <path d={coastline} fill="none" stroke="var(--ink-3)" strokeWidth="1.6" opacity="0.7" />
 
-      {/* ─── 3. POPULATION STIPPLE ─── */}
-      <g fill="var(--ink-3)">
+      {/* ─── 3. POPULATION STIPPLE — recessive background texture ───
+          Faint dust-tan, small, low opacity. It must read as ambient
+          terrain texture, NOT compete with the routes + settlements. */}
+      <g fill="var(--dust)" opacity="0.5">
         {stipple.map((s, i) => (
-          <circle key={i} cx={s.x} cy={s.y} r={s.r} opacity={0.45} />
+          <circle key={i} cx={s.x} cy={s.y} r={s.r * 0.8} opacity={0.35 + s.r * 0.12} />
         ))}
       </g>
 
@@ -160,9 +162,9 @@ export default function Plate() {
               key={i}
               d={d}
               stroke={color}
-              strokeWidth={idle ? 1 : 1.6}
+              strokeWidth={idle ? 1 : 2.2}
               strokeDasharray={dash}
-              opacity={idle ? 0.35 : settled ? 0.9 : 0.8}
+              opacity={idle ? 0.38 : settled ? 1 : 0.92}
               markerEnd={settled ? 'url(#route-arrow)' : undefined}
             >
               {!reduced && !settled && !idle && (
@@ -214,6 +216,8 @@ export default function Plate() {
         const nameSize = s.capital ? 19 : 15
         return (
           <g key={s.addr} transform={`translate(${s.x}, ${s.y})`} style={{ color }}>
+            {/* cream clearing so the settlement lifts off the stipple/contours */}
+            <circle r={s.capital ? 22 : 15} fill="var(--cream)" opacity="0.78" />
             <Glyph kind={s.glyph} capital={s.capital} />
             {s.capital && (
               <text x={lx} y={-16} fontFamily="Geist Mono" fontSize="9" fill="var(--hot)"
