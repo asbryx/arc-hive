@@ -181,11 +181,13 @@ export default function Plate({ agents }: PlateProps) {
           if (i === 2) {
             captionY = Math.max(485, topY - 18)
           } else if (i === 1) {
+            // NE caption — clamped LEFT to avoid the edition stamp overlay at top-right
             captionY = 130
-            captionX = Math.min(captionX, 1240)
+            captionX = Math.min(captionX, 1080)
           } else {
+            // NW caption — clamped RIGHT to avoid the legend overlay at top-left
             captionY = 130
-            captionX = Math.max(captionX, 280)
+            captionX = Math.max(captionX, 520)
           }
           return (
             <g key={i}>
@@ -310,15 +312,22 @@ export default function Plate({ agents }: PlateProps) {
         })}
       </g>
 
-      {/* payload labels — horizontal, on the line near the agent end */}
+      {/* payload labels — horizontal, staggered along each curve so they
+          don't cluster at the same t-value. Alternating t ∈ {0.5, 0.65, 0.78}
+          spreads them across the diagonal. */}
       <g>
         {lines.map((l, i) => {
-          const p = bezierAt(l.from, l.ctrl, l.to, 0.62)
+          // vary t per line so midpoints don't pile up
+          const ts = [0.55, 0.68, 0.78, 0.50, 0.72, 0.62, 0.80]
+          const t = ts[i % ts.length]
+          const p = bezierAt(l.from, l.ctrl, l.to, t)
           const stroke = PHASE_STROKE[l.phase]
           const w = l.payload.length * 6.4
+          // lift higher above the line for short curves
+          const lift = 12
           return (
-            <g key={i} transform={`translate(${p.x}, ${p.y - 10})`}>
-              <rect x={-w/2 - 4} y={-7} width={w + 8} height={14} fill="var(--cream)" opacity="0.95" />
+            <g key={i} transform={`translate(${p.x}, ${p.y - lift})`}>
+              <rect x={-w/2 - 4} y={-7} width={w + 8} height={14} fill="var(--cream)" opacity="0.96" />
               <text
                 x="0"
                 y="3"
