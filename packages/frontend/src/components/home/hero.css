@@ -13,7 +13,6 @@
 .bh-map {
   display: flex;
   flex-direction: column;
-  min-height: 760px;
 }
 .bh-map-head {
   padding: 28px 28px 18px;
@@ -57,19 +56,29 @@
   font-variation-settings: 'wght' 400, 'opsz' 12, 'slnt' -10;
 }
 
-/* SVG shell — the plate */
+/* SVG shell — the plate.
+ *
+ * Locked to the SVG viewBox aspect (2:1) via aspect-ratio so the plate
+ * never bloats vertically on wide viewports — flight lines, agent
+ * labels, and the cartouche all sit at predictable scales. The
+ * inset box-shadow draws the printed double-rule frame without
+ * adding pixel-rounded corners.
+ */
 .bh-svg-wrap {
   position: relative;
-  flex: 1;
-  min-height: 600px;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  max-height: 80vh;
   background: var(--cream);
-  /* the printed plate frame: outer ink rule, inner cream rule, then ink-3 hairline */
   box-shadow:
     inset 0 0 0 1px var(--ink),
     inset 0 0 0 5px var(--cream),
     inset 0 0 0 6px var(--ink-3);
   margin: 22px;
   padding: 22px;
+  /* margin eats from width; recompute so the plate fits the viewport */
+  width: calc(100% - 44px);
+  box-sizing: border-box;
 }
 .bh-vignette {
   position: absolute;

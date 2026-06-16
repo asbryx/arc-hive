@@ -93,6 +93,12 @@
 .lots {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
+  /* `dense` packs smaller tiles into gaps left by feature/tall tiles —
+   * the right edge stays full instead of trailing into white space. */
+  grid-auto-flow: dense;
+  /* a uniform row baseline keeps the grid visually rectangular even with
+   * mixed-span tiles; tall/feature consume two of these. */
+  grid-auto-rows: minmax(180px, auto);
   gap: 0;
   border: 1px solid var(--rule-2);
 }
@@ -113,12 +119,20 @@
   color: inherit;
 }
 
-/* size variants on the 12-col grid */
-.lot.feature  { grid-column: span 7; grid-row: span 2; padding: 32px 32px 28px; gap: 18px; }
+/* size variants on the 12-col grid.
+ * Every variant's column-span divides 12 cleanly so dense packing
+ * always settles at a flush right edge:
+ *   feature 8 + std 4         = 12
+ *   std 4 × 3                 = 12
+ *   compact 3 × 4             = 12
+ *   tall 4 + std 4 + std 4    = 12
+ *   thin 3 × 4                = 12
+ */
+.lot.feature  { grid-column: span 8; grid-row: span 2; padding: 32px 32px 28px; gap: 18px; }
 .lot.standard { grid-column: span 4; }
 .lot.compact  { grid-column: span 3; gap: 10px; }
 .lot.thin     { grid-column: span 3; gap: 8px; }
-.lot.tall     { grid-column: span 5; grid-row: span 2; }
+.lot.tall     { grid-column: span 4; grid-row: span 2; }
 
 /* category coloring (resting) */
 .lot.cat-code        { background: var(--code-bg);     color: var(--code-fg); }

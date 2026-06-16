@@ -76,9 +76,8 @@
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .bh-marquee-track { animation: none; padding-left: 240px; }
-}
+/* marquee stays scrolling regardless of OS reduce-motion — the moving
+ * line is part of how the user reads the page as "live". */
 
 /* ─── 3. RANKS LEDGER (Tufte) ─── */
 .ranks-section {

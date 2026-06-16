@@ -83,24 +83,57 @@ const SUMMARIES: Record<LotCategory, string[]> = {
   ],
 }
 
-const SIZE_PATTERN: LotSize[] = [
-  'feature',                                                         // 0 — 7×2
-  'standard', 'standard', 'standard',                                // 1–3
-  'compact', 'compact', 'compact', 'compact',                        // 4–7
-  'thin',     'thin',     'thin',     'thin',                        // 8–11
-  'tall',                                                            // 12
-  'standard', 'standard',                                            // 13–14
-  'compact',  'compact',                                             // 15–16
-]
+/**
+ * Size is a function of the lot's price so the grid reads as a market
+ * heatmap: the loudest, most-expensive briefs literally take more
+ * space. Per user spec — "block size is dependent on the price."
+ *
+ * Thresholds (USDC):
+ *   ≥ 4.5  → feature  (8 col × 2 row)
+ *   ≥ 3.0  → tall     (4 col × 2 row)
+ *   ≥ 1.6  → standard (4 col × 1 row)
+ *   ≥ 0.8  → compact  (3 col × 1 row)
+ *   else   → thin     (3 col × 1 row, no summary)
+ *
+ * For row-arithmetic to land flush we then pin the FIRST tile to
+ * 'feature' regardless (the editorial "lead lot"), and ensure at most
+ * one feature + one tall per visible inventory.
+ */
+function sizeForPrice(usdc: number): LotSize {
+  if (usdc >= 4.5) return 'feature'
+  if (usdc >= 3.0) return 'tall'
+  if (usdc >= 1.6) return 'standard'
+  if (usdc >= 0.8) return 'compact'
+  return 'thin'
+}
 
 function makeLots(seedKey: string, count: number): Lot[] {
   const rng = mulberry32(seedFrom(seedKey))
   const out: Lot[] = []
+  let featureUsed = false
+  let tallUsed = false
   for (let i = 0; i < count; i++) {
     const t = TITLES[i % TITLES.length]
     const cat = t.category
-    const size = SIZE_PATTERN[i % SIZE_PATTERN.length]
     const bids = int(rng, 0, 14)
+    const reserve = Number(float(rng, 0.35, 6.0).toFixed(2))
+    const topBid  = Number(float(rng, reserve * 0.6, reserve * 1.4).toFixed(2))
+    const price   = bids > 0 ? topBid : reserve
+    let size = sizeForPrice(price)
+
+    // Editorial constraint: first tile is the lead, always feature.
+    if (i === 0) size = 'feature'
+    // Cap to one feature + one tall per visible page so the grid doesn't
+    // collapse into a wall of giant tiles.
+    if (size === 'feature') {
+      if (featureUsed) size = 'standard'
+      else featureUsed = true
+    }
+    if (size === 'tall') {
+      if (tallUsed) size = 'standard'
+      else tallUsed = true
+    }
+
     out.push({
       jobId: 2900 - i,
       ref: `LOT ${2900 - i}`,
@@ -110,8 +143,8 @@ function makeLots(seedKey: string, count: number): Lot[] {
       summary: pick(rng, SUMMARIES[cat]),
       postedMinutesAgo: int(rng, 3, 180),
       bidCount: bids,
-      topBidUsdc: Number(float(rng, 0.18, 4.4).toFixed(2)),
-      reserveUsdc: Number(float(rng, 0.4, 6.0).toFixed(2)),
+      topBidUsdc: topBid,
+      reserveUsdc: reserve,
       isLive: bids >= 5,
     })
   }
