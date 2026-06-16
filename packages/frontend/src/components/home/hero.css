@@ -213,66 +213,54 @@
   font-family: var(--mono);
 }
 
-/* ─── cartouche · bottom-right ─── */
-.broadsheet-hero .cartouche {
-  position: absolute;
-  bottom: 32px;
-  right: 32px;
-  width: 300px;
-  z-index: 5;
-  background: var(--cream);
-  border: 1px solid var(--ink);
-  box-shadow: inset 0 0 0 1px var(--cream), inset 0 0 0 2px var(--ink-3);
-  padding: 0;
+/* ─── dossier · selected-settlement strip, docked BELOW the plate ───
+   Normal flow (NOT absolute) so it never overlaps the map. Full width,
+   laid out left→right. This is what fixes the "box covers the right
+   side of the map" + "dead empty band" bug. */
+.broadsheet-hero .dossier {
+  border-top: 1px solid var(--ink);
+  background: var(--cream-2);
   font-family: var(--mono);
-  font-size: 11px;
   color: var(--ink-2);
-  line-height: 1.55;
 }
-.broadsheet-hero .cartouche::before {
-  content: '';
-  position: absolute;
-  inset: 4px;
-  border: 1px solid var(--ink-3);
-  pointer-events: none;
-}
-.broadsheet-hero .cartouche .car-head {
-  padding: 7px 14px 6px;
-  border-bottom: 1px solid var(--ink);
-  text-align: center;
-  font-family: var(--mono);
+.broadsheet-hero .dossier .dossier-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 22px;
+  border-bottom: 1px solid var(--rule-2);
   font-size: 9px;
   letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--ink-3);
-  background: var(--cream-2);
-  margin: 4px 4px 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
 }
-.broadsheet-hero .cartouche .car-head em {
+.broadsheet-hero .dossier .dossier-head em {
   font-family: var(--serif);
   font-style: italic;
   color: var(--hot);
   text-transform: none;
   letter-spacing: 0;
-  font-size: 11px;
+  font-size: 12px;
   font-variation-settings: 'wght' 400, 'opsz' 12, 'slnt' -10;
 }
-.broadsheet-hero .cartouche .car-body {
-  padding: 8px 4px 4px;
-  position: relative;
+.broadsheet-hero .dossier .dossier-body {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.4fr) auto;
+  align-items: center;
+  gap: 28px;
+  padding: 14px 22px;
 }
-.broadsheet-hero .cartouche .car-portrait {
-  margin: 8px auto 4px;
-  width: 60px;
-  height: 60px;
-  color: var(--marsh);
-  display: block;
+.broadsheet-hero .dossier .dossier-id {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
-.broadsheet-hero .cartouche .car-name {
-  text-align: center;
+.broadsheet-hero .dossier .dossier-portrait {
+  width: 44px;
+  height: 44px;
+  flex: none;
+}
+.broadsheet-hero .dossier .dossier-name {
   font-family: var(--serif);
   font-size: 22px;
   font-weight: 300;
@@ -280,88 +268,63 @@
   letter-spacing: -0.02em;
   color: var(--ink);
   font-variation-settings: 'wght' 300, 'opsz' 24;
-  margin-top: 2px;
 }
-.broadsheet-hero .cartouche .car-name em {
+.broadsheet-hero .dossier .dossier-name em {
   font-style: italic;
   color: var(--hot);
   font-variation-settings: 'wght' 350, 'opsz' 24, 'slnt' -10;
 }
-.broadsheet-hero .cartouche .car-addr {
-  text-align: center;
+.broadsheet-hero .dossier .dossier-addr {
   color: var(--ink-3);
   font-size: 9px;
   letter-spacing: 0.06em;
-  margin: 2px 0 10px;
+  margin-top: 4px;
 }
-.broadsheet-hero .cartouche .car-divider {
-  text-align: center;
-  color: var(--ink-3);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  margin: 0 0 8px;
-  user-select: none;
-}
-.broadsheet-hero .cartouche .car-rows {
+.broadsheet-hero .dossier .dossier-rows {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto 1fr;
   gap: 4px 14px;
-  padding: 4px 16px 6px;
   font-size: 10px;
+  align-items: baseline;
 }
-.broadsheet-hero .cartouche .car-rows .l {
+.broadsheet-hero .dossier .dossier-rows .l {
   color: var(--ink-3);
   letter-spacing: 0.10em;
   text-transform: uppercase;
   font-size: 9px;
-  padding-top: 2px;
-  border-top: 1px dotted var(--rule-2);
 }
-.broadsheet-hero .cartouche .car-rows .l:first-child { border-top: 0; }
-.broadsheet-hero .cartouche .car-rows .v {
+.broadsheet-hero .dossier .dossier-rows .v {
   color: var(--ink);
   font-variant-numeric: tabular-nums;
-  text-align: right;
-  padding-top: 2px;
-  border-top: 1px dotted var(--rule-2);
 }
-.broadsheet-hero .cartouche .car-rows > .v:nth-child(2) { border-top: 0; }
-.broadsheet-hero .cartouche .car-rows .v em {
-  color: var(--hot);
-  font-style: normal;
-  font-weight: 500;
-}
-.broadsheet-hero .cartouche .car-rows .v small {
-  color: var(--ink-3);
-  font-size: 9px;
-}
-.broadsheet-hero .cartouche .car-state {
-  margin: 8px 4px 4px;
-  padding: 7px 14px;
-  font-family: var(--mono);
+.broadsheet-hero .dossier .dossier-rows .v em { color: var(--hot); font-style: normal; font-weight: 500; }
+.broadsheet-hero .dossier .dossier-rows .v small { color: var(--ink-3); font-size: 9px; }
+.broadsheet-hero .dossier .dossier-state {
+  justify-self: end;
+  padding: 8px 16px;
   font-size: 9px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 500;
-  text-align: center;
   color: var(--cream);
+  white-space: nowrap;
 }
-.broadsheet-hero .cartouche .car-state.executing  { background: var(--hot); }
-.broadsheet-hero .cartouche .car-state.bidding    { background: var(--ochre); }
-.broadsheet-hero .cartouche .car-state.delivering { background: var(--marsh); }
-.broadsheet-hero .cartouche .car-state.idle       { background: var(--ink-2); }
+.broadsheet-hero .dossier .dossier-state.executing  { background: var(--hot); }
+.broadsheet-hero .dossier .dossier-state.bidding    { background: var(--ochre); }
+.broadsheet-hero .dossier .dossier-state.delivering { background: var(--marsh); }
+.broadsheet-hero .dossier .dossier-state.idle       { background: var(--ink-2); }
 
 /* ─── responsive ─── */
 @media (max-width: 900px) {
-  .broadsheet-hero .bh-map { min-height: 560px; }
-  .broadsheet-hero .bh-map-svg-wrap { min-height: 440px; }
   .broadsheet-hero .edition-stamp,
   .broadsheet-hero .scale-bar,
   .broadsheet-hero .fig-caption { display: none; }
-  .broadsheet-hero .cartouche {
-    width: auto;
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
+  .broadsheet-hero .dossier .dossier-body {
+    grid-template-columns: 1fr;
+    gap: 14px;
   }
+  .broadsheet-hero .dossier .dossier-rows {
+    grid-template-columns: auto 1fr;
+  }
+  .broadsheet-hero .dossier .dossier-state { justify-self: start; }
 }

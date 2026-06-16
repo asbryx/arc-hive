@@ -54,15 +54,20 @@ export interface Settlement {
  * composition: a dense western highland (where the port feeds activity),
  * a central ridge, and quieter eastern uplands. Each crowns one peak.
  */
-// Spread across the FULL width so the territory is balanced, not left-heavy.
-// West: Iris + the capital Lyra. Center: Thorne. East: Carter, Verity, Halden.
+// Ten settlements spread across the FULL width so the territory is dense
+// and balanced. West: Iris + capital Lyra + Quill. Center: Thorne, Mira,
+// Osric. East: Carter, Verity, Halden, Selden.
 export const SETTLEMENTS: Settlement[] = [
   { name: 'Lyra Synthwright', addr: '0xA8C3', score: 9.42, x: 470,  y: 250, phase: 'executing',  glyph: 'star',  anchor: 'start', peak: 0, capital: true },
-  { name: 'Thorne Ledger',    addr: '0x12FA', score: 8.43, x: 800,  y: 440, phase: 'executing',  glyph: 'tri',   anchor: 'start', peak: 1 },
-  { name: 'Carter & Vale',    addr: '0x4C91', score: 8.71, x: 1080, y: 270, phase: 'delivering',  glyph: 'cross', anchor: 'start', peak: 2 },
-  { name: 'Iris Voss',        addr: '0x88BD', score: 7.68, x: 380,  y: 480, phase: 'delivering',  glyph: 'lens',  anchor: 'start', peak: 3 },
-  { name: 'Halden Court',     addr: '0x55AB', score: 7.81, x: 1410, y: 430, phase: 'idle',        glyph: 'keep',  anchor: 'end',   peak: 4 },
-  { name: 'Verity & Bell',    addr: '0x7E02', score: 7.94, x: 1290, y: 200, phase: 'idle',        glyph: 'ring',  anchor: 'end',   peak: 5 },
+  { name: 'Thorne Ledger',    addr: '0x12FA', score: 8.43, x: 800,  y: 430, phase: 'executing',  glyph: 'tri',   anchor: 'start', peak: 1 },
+  { name: 'Carter & Vale',    addr: '0x4C91', score: 8.71, x: 1070, y: 250, phase: 'delivering',  glyph: 'cross', anchor: 'start', peak: 2 },
+  { name: 'Iris Voss',        addr: '0x88BD', score: 7.68, x: 350,  y: 470, phase: 'delivering',  glyph: 'lens',  anchor: 'start', peak: 3 },
+  { name: 'Halden Court',     addr: '0x55AB', score: 7.81, x: 1430, y: 420, phase: 'idle',        glyph: 'keep',  anchor: 'end',   peak: 4 },
+  { name: 'Verity & Bell',    addr: '0x7E02', score: 7.94, x: 1300, y: 180, phase: 'idle',        glyph: 'ring',  anchor: 'end',   peak: 5 },
+  { name: 'Osric Wynn',       addr: '0x1F44', score: 8.22, x: 640,  y: 200, phase: 'executing',  glyph: 'tri',   anchor: 'start', peak: 6 },
+  { name: 'Mira Tolle',       addr: '0x9D7C', score: 8.05, x: 980,  y: 470, phase: 'delivering',  glyph: 'lens',  anchor: 'start', peak: 7 },
+  { name: 'Quill Marlowe',    addr: '0x2B66', score: 7.55, x: 280,  y: 250, phase: 'idle',        glyph: 'ring',  anchor: 'start', peak: 8 },
+  { name: 'Selden Roe',       addr: '0x7A10', score: 7.40, x: 1200, y: 470, phase: 'idle',        glyph: 'keep',  anchor: 'end',   peak: 9 },
 ]
 
 /** Elevation peaks — one under each settlement, sized by score, plus two
@@ -76,11 +81,10 @@ export function buildPeaks(): Peak[] {
   }))
   // ambient swells — give the lowlands gentle relief so contours fill the
   // field across the FULL width (incl. the right flank + corners)
-  peaks.push({ x: 230, y: 150, h: 38, spread: 170 })
-  peaks.push({ x: 620, y: 560, h: 44, spread: 200 })
-  peaks.push({ x: 1000, y: 540, h: 42, spread: 200 })
-  peaks.push({ x: 1480, y: 250, h: 40, spread: 180 })
-  peaks.push({ x: 1500, y: 580, h: 34, spread: 160 })
+  peaks.push({ x: 160, y: 380, h: 36, spread: 160 })
+  peaks.push({ x: 620, y: 580, h: 40, spread: 190 })
+  peaks.push({ x: 1120, y: 600, h: 40, spread: 200 })
+  peaks.push({ x: 1500, y: 300, h: 38, spread: 170 })
   return peaks
 }
 
@@ -95,14 +99,19 @@ export interface Route {
 
 /** Trade routes from the PORT to EVERY settlement — no settlement is
  *  stranded without a connecting road. Active routes carry a payload
- *  label + animate; idle routes are faint dormant roads (no label). */
+ *  label, animate, and send a traveling brief-packet along the road;
+ *  idle routes are faint dormant roads (no label, no packet). */
 export const ROUTES: Route[] = [
   { to: 0, phase: 'executing',  payload: 'JOB-2840 · 9/12 steps',  cx: 280, cy: 250 },
   { to: 1, phase: 'executing',  payload: 'JOB-2839 · 4/8 steps',   cx: 460, cy: 470 },
-  { to: 2, phase: 'settled',    payload: 'JOB-2841 · +2.40 USDC',  cx: 600, cy: 220 },
-  { to: 3, phase: 'delivering', payload: 'JOB-2838 · delivering',  cx: 250, cy: 460 },
-  { to: 5, phase: 'idle',       payload: '',                       cx: 720, cy: 180 },
-  { to: 4, phase: 'idle',       payload: '',                       cx: 880, cy: 470 },
+  { to: 2, phase: 'settled',    payload: 'JOB-2841 · +2.40 USDC',  cx: 600, cy: 210 },
+  { to: 3, phase: 'delivering', payload: 'JOB-2838 · delivering',  cx: 240, cy: 470 },
+  { to: 6, phase: 'executing',  payload: 'JOB-2842 · 2/6 steps',   cx: 420, cy: 190 },
+  { to: 7, phase: 'delivering', payload: 'JOB-2836 · delivering',  cx: 560, cy: 470 },
+  { to: 5, phase: 'idle',       payload: '',                       cx: 740, cy: 150 },
+  { to: 4, phase: 'idle',       payload: '',                       cx: 900, cy: 470 },
+  { to: 8, phase: 'idle',       payload: '',                       cx: 220, cy: 330 },
+  { to: 9, phase: 'idle',       payload: '',                       cx: 700, cy: 470 },
 ]
 
 export interface Stipple { x: number; y: number; r: number }

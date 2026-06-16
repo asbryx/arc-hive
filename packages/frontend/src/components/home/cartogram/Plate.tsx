@@ -197,6 +197,34 @@ export default function Plate() {
         })}
       </g>
 
+      {/* brief-packets — a glowing dot travels port → settlement along each
+          active route, so the map visibly MOVES (briefs in flight). */}
+      {!reduced && (
+        <g>
+          {ROUTES.filter(rt => rt.phase !== 'idle').map((rt, i) => {
+            const dest = SETTLEMENTS[rt.to]
+            const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
+            const color = PHASE_COLOR[rt.phase]
+            const dur = rt.phase === 'settled' ? 3.4 : rt.phase === 'executing' ? 2.6 : 3.0
+            const begin = `${(i * 0.5).toFixed(1)}s`
+            return (
+              <g key={i}>
+                <circle r="4.5" fill={color} opacity="0.9">
+                  <animateMotion dur={`${dur}s`} begin={begin} repeatCount="indefinite" path={d} rotate="auto" />
+                  <animate attributeName="opacity" values="0;0.95;0.95;0" keyTimes="0;0.1;0.85;1"
+                           dur={`${dur}s`} begin={begin} repeatCount="indefinite" />
+                </circle>
+                <circle r="9" fill="none" stroke={color} strokeWidth="1" opacity="0.35">
+                  <animateMotion dur={`${dur}s`} begin={begin} repeatCount="indefinite" path={d} />
+                  <animate attributeName="opacity" values="0;0.4;0.4;0" keyTimes="0;0.1;0.85;1"
+                           dur={`${dur}s`} begin={begin} repeatCount="indefinite" />
+                </circle>
+              </g>
+            )
+          })}
+        </g>
+      )}
+
       {/* ─── 5. PORT — client gateway on the west coast ─── */}
       <g transform={`translate(${PORT.x}, ${PORT.y})`} style={{ color: 'var(--ink)' }}>
         <circle r="13" fill="var(--cream)" stroke="currentColor" strokeWidth="1.6" />

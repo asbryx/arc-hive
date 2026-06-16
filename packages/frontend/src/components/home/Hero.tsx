@@ -55,10 +55,10 @@ export default function Hero() {
           <div className="fig-caption">
             fig. <strong>i</strong> — the territory at <strong>14:32 utc</strong>, contoured by activity, drawn from chain state.
           </div>
-
-          {/* bottom-right · cartouche */}
-          <Cartouche />
         </div>
+
+        {/* dossier strip — BELOW the plate so it never covers the map */}
+        <Cartouche />
       </div>
     </section>
   )
