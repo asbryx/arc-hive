@@ -66,15 +66,18 @@ function bezierAt(from: { x: number; y: number }, ctrl: { x: number; y: number }
   }
 }
 
-/** Build the graticule path: vertical + horizontal hairlines every 200u. */
+/** Build the graticule path: vertical + horizontal hairlines every 200u
+ *  (visual grid), but labels only at every 400u (less crowded). */
 function graticulePath(): { v: string; h: string; vLabels: number[]; hLabels: number[] } {
   const xs: number[] = []
   const ys: number[] = []
   for (let x = 200; x <= 1500; x += 200) xs.push(x)
   for (let y = 200; y <= 660; y += 200) ys.push(y)
+  const vLabels: number[] = []
+  for (let x = 400; x <= 1400; x += 400) vLabels.push(x)
   const v = xs.map(x => `M ${x} 80 L ${x} 720`).join(' ')
   const h = ys.map(y => `M 80 ${y} L 1520 ${y}`).join(' ')
-  return { v, h, vLabels: xs, hLabels: ys }
+  return { v, h, vLabels, hLabels: ys }
 }
 
 /** Build SVG path d="…" string for a region's convex hull. */
@@ -170,19 +173,19 @@ export default function Plate({ agents }: PlateProps) {
           //   SOUTH STRIP (2)   — BELOW the region (between strip and bottom dust)
           const topY = Math.min(...r.hull.map(p => p.y))
           const botY = Math.max(...r.hull.map(p => p.y))
-          let captionY = topY - 18
+          // captions live in the top marginalia band (y=130) for NW + NE so they
+          // never collide with the active region. SOUTH STRIP gets its caption
+          // in a mid-band gap between NW and the strip itself.
+          let captionY: number
           let captionX = r.centroid.x
           if (i === 2) {
-            // SOUTH STRIP — caption ABOVE the strip, sitting in the gap between
-            // NW lower edge and SOUTH STRIP upper edge. Clamped so it never
-            // sits over an agent.
-            captionY = Math.max(485, topY - 16)
+            captionY = Math.max(485, topY - 18)
           } else if (i === 1) {
-            // NE caption: keep clear of top frame AND of edition stamp top-right
-            captionY = Math.max(captionY, 145)
-            captionX = Math.min(captionX, 1280)
+            captionY = 130
+            captionX = Math.min(captionX, 1240)
           } else {
-            captionY = Math.max(captionY, 145)
+            captionY = 130
+            captionX = Math.max(captionX, 280)
           }
           return (
             <g key={i}>
