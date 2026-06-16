@@ -146,25 +146,26 @@ export default function Plate() {
         ))}
       </g>
 
-      {/* ─── 4. TRADE ROUTES — port → settlements ─── */}
+      {/* ─── 4. TRADE ROUTES — port → every settlement ─── */}
       <g fill="none">
         {ROUTES.map((rt, i) => {
           const dest = SETTLEMENTS[rt.to]
           const color = PHASE_COLOR[rt.phase]
           const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
           const settled = rt.phase === 'settled'
-          const dash = settled ? undefined : rt.phase === 'executing' ? '3 5' : '9 6'
+          const idle = rt.phase === 'idle'
+          const dash = settled ? undefined : idle ? '1 7' : rt.phase === 'executing' ? '3 5' : '9 6'
           return (
             <path
               key={i}
               d={d}
               stroke={color}
-              strokeWidth="1.6"
+              strokeWidth={idle ? 1 : 1.6}
               strokeDasharray={dash}
-              opacity={settled ? 0.9 : 0.8}
+              opacity={idle ? 0.35 : settled ? 0.9 : 0.8}
               markerEnd={settled ? 'url(#route-arrow)' : undefined}
             >
-              {!reduced && !settled && (
+              {!reduced && !settled && !idle && (
                 <animate attributeName="stroke-dashoffset"
                          from="0" to={rt.phase === 'executing' ? '-16' : '-30'}
                          dur={rt.phase === 'executing' ? '1.5s' : '2.4s'}
@@ -175,11 +176,11 @@ export default function Plate() {
         })}
       </g>
 
-      {/* route payload labels — at route midpoint, horizontal, cream halo */}
+      {/* route payload labels — at route midpoint, horizontal, cream halo.
+          idle routes carry no payload, so skip them. */}
       <g>
-        {ROUTES.map((rt, i) => {
+        {ROUTES.filter(rt => rt.payload).map((rt, i) => {
           const dest = SETTLEMENTS[rt.to]
-          // midpoint of the quadratic at t=0.5
           const mx = 0.25 * PORT.x + 0.5 * rt.cx + 0.25 * dest.x
           const my = 0.25 * PORT.y + 0.5 * rt.cy + 0.25 * dest.y
           const w = rt.payload.length * 6.0

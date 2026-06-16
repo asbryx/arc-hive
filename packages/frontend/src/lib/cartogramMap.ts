@@ -54,13 +54,15 @@ export interface Settlement {
  * composition: a dense western highland (where the port feeds activity),
  * a central ridge, and quieter eastern uplands. Each crowns one peak.
  */
+// Spread across the FULL width so the territory is balanced, not left-heavy.
+// West: Iris + the capital Lyra. Center: Thorne. East: Carter, Verity, Halden.
 export const SETTLEMENTS: Settlement[] = [
-  { name: 'Lyra Synthwright', addr: '0xA8C3', score: 9.42, x: 540,  y: 250, phase: 'executing',  glyph: 'star',  anchor: 'start', peak: 0, capital: true },
-  { name: 'Thorne Ledger',    addr: '0x12FA', score: 8.43, x: 720,  y: 440, phase: 'executing',  glyph: 'tri',   anchor: 'start', peak: 1 },
-  { name: 'Carter & Vale',    addr: '0x4C91', score: 8.71, x: 1040, y: 300, phase: 'delivering',  glyph: 'cross', anchor: 'start', peak: 2 },
-  { name: 'Iris Voss',        addr: '0x88BD', score: 7.68, x: 410,  y: 470, phase: 'delivering',  glyph: 'lens',  anchor: 'start', peak: 3 },
-  { name: 'Halden Court',     addr: '0x55AB', score: 7.81, x: 1340, y: 220, phase: 'idle',        glyph: 'keep',  anchor: 'end',   peak: 4 },
-  { name: 'Verity & Bell',    addr: '0x7E02', score: 7.94, x: 1200, y: 480, phase: 'idle',        glyph: 'ring',  anchor: 'end',   peak: 5 },
+  { name: 'Lyra Synthwright', addr: '0xA8C3', score: 9.42, x: 470,  y: 250, phase: 'executing',  glyph: 'star',  anchor: 'start', peak: 0, capital: true },
+  { name: 'Thorne Ledger',    addr: '0x12FA', score: 8.43, x: 800,  y: 440, phase: 'executing',  glyph: 'tri',   anchor: 'start', peak: 1 },
+  { name: 'Carter & Vale',    addr: '0x4C91', score: 8.71, x: 1080, y: 270, phase: 'delivering',  glyph: 'cross', anchor: 'start', peak: 2 },
+  { name: 'Iris Voss',        addr: '0x88BD', score: 7.68, x: 380,  y: 480, phase: 'delivering',  glyph: 'lens',  anchor: 'start', peak: 3 },
+  { name: 'Halden Court',     addr: '0x55AB', score: 7.81, x: 1410, y: 430, phase: 'idle',        glyph: 'keep',  anchor: 'end',   peak: 4 },
+  { name: 'Verity & Bell',    addr: '0x7E02', score: 7.94, x: 1290, y: 200, phase: 'idle',        glyph: 'ring',  anchor: 'end',   peak: 5 },
 ]
 
 /** Elevation peaks — one under each settlement, sized by score, plus two
@@ -72,10 +74,13 @@ export function buildPeaks(): Peak[] {
     h: s.capital ? 150 : 80 + (s.score - 7.5) * 28,
     spread: s.capital ? 230 : 150 + (s.score - 7.5) * 40,
   }))
-  // ambient swells — give the lowlands gentle relief so contours fill the field
-  peaks.push({ x: 280, y: 160, h: 40, spread: 180 })
-  peaks.push({ x: 900, y: 560, h: 44, spread: 200 })
-  peaks.push({ x: 1440, y: 420, h: 36, spread: 170 })
+  // ambient swells — give the lowlands gentle relief so contours fill the
+  // field across the FULL width (incl. the right flank + corners)
+  peaks.push({ x: 230, y: 150, h: 38, spread: 170 })
+  peaks.push({ x: 620, y: 560, h: 44, spread: 200 })
+  peaks.push({ x: 1000, y: 540, h: 42, spread: 200 })
+  peaks.push({ x: 1480, y: 250, h: 40, spread: 180 })
+  peaks.push({ x: 1500, y: 580, h: 34, spread: 160 })
   return peaks
 }
 
@@ -88,12 +93,16 @@ export interface Route {
   cy: number
 }
 
-/** Trade routes from the PORT to active settlements. Both ends are real. */
+/** Trade routes from the PORT to EVERY settlement — no settlement is
+ *  stranded without a connecting road. Active routes carry a payload
+ *  label + animate; idle routes are faint dormant roads (no label). */
 export const ROUTES: Route[] = [
-  { to: 0, phase: 'executing',  payload: 'JOB-2840 · 9/12 steps',  cx: 300, cy: 230 },
-  { to: 1, phase: 'executing',  payload: 'JOB-2839 · 4/8 steps',   cx: 420, cy: 470 },
-  { to: 2, phase: 'settled',    payload: 'JOB-2841 · +2.40 USDC',  cx: 640, cy: 230 },
-  { to: 3, phase: 'delivering', payload: 'JOB-2838 · delivering',  cx: 250, cy: 440 },
+  { to: 0, phase: 'executing',  payload: 'JOB-2840 · 9/12 steps',  cx: 280, cy: 250 },
+  { to: 1, phase: 'executing',  payload: 'JOB-2839 · 4/8 steps',   cx: 460, cy: 470 },
+  { to: 2, phase: 'settled',    payload: 'JOB-2841 · +2.40 USDC',  cx: 600, cy: 220 },
+  { to: 3, phase: 'delivering', payload: 'JOB-2838 · delivering',  cx: 250, cy: 460 },
+  { to: 5, phase: 'idle',       payload: '',                       cx: 720, cy: 180 },
+  { to: 4, phase: 'idle',       payload: '',                       cx: 880, cy: 470 },
 ]
 
 export interface Stipple { x: number; y: number; r: number }
