@@ -1,13 +1,28 @@
 /**
  * Lot — single duotone tile.
  *
- * Per _design-archive/components/lot-tile-spec.md. Photonegative hover
- * is handled in home.css. The component is markup only; size + category
- * come in as classes.
+ * Position + size come in as a TreemapTile from the parent's squarified
+ * layout (lib/squarifiedTreemap.ts). The tile picks its typography
+ * bucket from its rendered area, so a large area gets the feature
+ * treatment (huge title, summary visible) and a tiny area drops to
+ * just ref + title + price.
+ *
+ * Hover photonegative is in lots.css.
  */
 
 import { Link } from 'react-router-dom'
 import type { Lot as LotData } from '@/api/mockLots'
+import type { TreemapTile } from '@/lib/squarifiedTreemap'
+
+type SizeBucket = 'feature' | 'tall' | 'standard' | 'compact' | 'thin'
+
+function bucketFor(area: number): SizeBucket {
+  if (area >= 60000) return 'feature'
+  if (area >= 30000) return 'tall'
+  if (area >= 15000) return 'standard'
+  if (area >= 7000)  return 'compact'
+  return 'thin'
+}
 
 function formatAgo(min: number) {
   if (min < 60) return `${min}m ago`
@@ -15,11 +30,26 @@ function formatAgo(min: number) {
   return `${h}h ago`
 }
 
-export default function Lot({ lot }: { lot: LotData }) {
-  const className = ['lot', lot.size, `cat-${lot.category}`].join(' ')
+export default function Lot({ lot, tile }: { lot: LotData; tile: TreemapTile }) {
+  const area = tile.w * tile.h
+  const bucket = bucketFor(area)
+  const className = ['lot', `size-${bucket}`, `cat-${lot.category}`].join(' ')
   const cat = lot.category === 'translation' ? 'TRANSLATION' : lot.category.toUpperCase()
+  const style: React.CSSProperties = {
+    position: 'absolute',
+    left:   `${tile.x}px`,
+    top:    `${tile.y}px`,
+    width:  `${tile.w}px`,
+    height: `${tile.h}px`,
+  }
+
   return (
-    <Link to={`/marketplace/${lot.jobId}`} className={className} aria-label={`Open ${lot.ref}`}>
+    <Link
+      to={`/marketplace/${lot.jobId}`}
+      className={className}
+      aria-label={`Open ${lot.ref}`}
+      style={style}
+    >
       <div className="meta">
         <span className="ref">{lot.ref}</span>
         <span>{cat}</span>

@@ -4,9 +4,14 @@
  * The real /jobs/open endpoint returns a paginated Job[] but the design
  * requires per-lot fields the indexer doesn't yet surface (category,
  * activity bid count, descriptive title with italic accents, summary
- * text). We model those here, deterministically, so layout looks
- * production-quality. When the indexer adds them, swap this for a real
- * useOpenLots that pulls from /jobs/open.
+ * text, USDC price). We model those here, deterministically, so layout
+ * looks production-quality. When the indexer adds them, swap this for a
+ * real useOpenLots that pulls from /jobs/open.
+ *
+ * Tile sizing is decided by the squarified treemap (see
+ * lib/squarifiedTreemap.ts) at render time using each lot's `price`.
+ * No fixed bento; no row-template planner. The right and bottom edges
+ * are flush by construction.
  */
 
 import { useQuery } from '@tanstack/react-query'
@@ -14,23 +19,21 @@ import { useStats } from './hooks'
 import { mulberry32, seedFrom, pick, int, float } from '../lib/seededRandom'
 
 export type LotCategory = 'code' | 'research' | 'audit' | 'brand' | 'copy' | 'translation'
-export type LotSize = 'feature' | 'standard' | 'compact' | 'tall' | 'thin'
 
 export interface Lot {
   jobId: number
   ref: string                    // 'LOT 2840'
   category: LotCategory
-  size: LotSize
   title: string                  // may contain <em>...</em> markers
   summary: string
   postedMinutesAgo: number
   bidCount: number
   topBidUsdc: number
   reserveUsdc: number
+  /** rendering price (top bid if any, else reserve). Treemap weights by this. */
+  price: number
   isLive: boolean                // true if live + ≥ 5 bids
 }
-
-const CATS: LotCategory[] = ['code', 'research', 'audit', 'brand', 'copy', 'translation']
 
 interface TitleSeed {
   text: string
@@ -84,48 +87,33 @@ const SUMMARIES: Record<LotCategory, string[]> = {
 }
 
 /**
- * Layout discipline — every row sums to 12 cols. Possible row shapes:
- *
- *   feature(7) + tall(5)               ← 2 rows tall (paired)
- *   standard(6) + standard(6)          ← 1 row
- *   compact(4) × 3                     ← 1 row
- *   thin(3) × 4                        ← 1 row
- *
- * The page always opens with a feature(7×2) + tall(5×2) pair so the
- * top of section iii reads as "two big briefs facing off."  After that,
- * we emit chunks of {std×2, compact×3, thin×4} sized to the requested
- * total count. Anything that doesn't divide cleanly is dropped from
- * the tail rather than leaving a partial row.
- *
- * Size is still informed by price (the loudest brief gets the feature),
- * but the row-template enforces the visual rhythm — no holes possible.
+ * Build N raw lots. Prices are spread across a roughly log-normal-ish
+ * range so the treemap produces visible hierarchy: a couple of loud
+ * briefs, several mid-priced, lots of small. Deterministic per seed.
  */
-
-interface CoreLot {
-  jobId: number
-  cat: LotCategory
-  title: string
-  summary: string
-  postedMinutesAgo: number
-  bidCount: number
-  topBidUsdc: number
-  reserveUsdc: number
-  price: number
-}
-
-function makeCore(seedKey: string, count: number): CoreLot[] {
+function makeLots(seedKey: string, count: number): Lot[] {
   const rng = mulberry32(seedFrom(seedKey))
-  const out: CoreLot[] = []
+  const out: Lot[] = []
   for (let i = 0; i < count; i++) {
     const t = TITLES[i % TITLES.length]
     const cat = t.category
     const bids = int(rng, 0, 14)
-    const reserve = Number(float(rng, 0.35, 6.0).toFixed(2))
-    const topBid  = Number(float(rng, reserve * 0.6, reserve * 1.4).toFixed(2))
-    const price   = bids > 0 ? topBid : reserve
+
+    // price tiers: ~10% loud (8–14 USDC), ~25% mid (2.5–6), rest small (0.4–2.2)
+    const tier = rng()
+    let reserve: number
+    if (tier < 0.1) reserve = float(rng, 8, 14)
+    else if (tier < 0.35) reserve = float(rng, 2.5, 6)
+    else reserve = float(rng, 0.4, 2.2)
+    reserve = Number(reserve.toFixed(2))
+
+    const topBid = Number(float(rng, reserve * 0.6, reserve * 1.4).toFixed(2))
+    const price  = bids > 0 ? topBid : reserve
+
     out.push({
       jobId: 2900 - i,
-      cat,
+      ref: `LOT ${2900 - i}`,
+      category: cat,
       title: t.text,
       summary: pick(rng, SUMMARIES[cat]),
       postedMinutesAgo: int(rng, 3, 180),
@@ -133,120 +121,10 @@ function makeCore(seedKey: string, count: number): CoreLot[] {
       topBidUsdc: topBid,
       reserveUsdc: reserve,
       price,
+      isLive: bids >= 5,
     })
   }
   return out
-}
-
-/** turn a CoreLot into a Lot with the given size */
-function withSize(c: CoreLot, size: LotSize): Lot {
-  return {
-    jobId: c.jobId,
-    ref: `LOT ${c.jobId}`,
-    category: c.cat,
-    size,
-    title: c.title,
-    summary: c.summary,
-    postedMinutesAgo: c.postedMinutesAgo,
-    bidCount: c.bidCount,
-    topBidUsdc: c.topBidUsdc,
-    reserveUsdc: c.reserveUsdc,
-    isLive: c.bidCount >= 5,
-  }
-}
-
-/**
- * Layout planner. Sorts cores by price descending. Top 2 become the
- * feature+tall pair on rows 0-1. Then walks a fixed row-template
- * sequence, consuming cores in order, until inventory runs out.
- *
- * Row template (cycled):
- *   1. standard × 2
- *   2. compact × 3
- *   3. thin × 4
- *   4. standard × 2
- *   5. compact × 3
- *
- * That's 14 tiles per cycle; the first row eats 2 cores (feat+tall),
- * so a full screen of 16 tiles fills neatly. Trailing partial rows are
- * dropped to keep the right edge flush.
- */
-function makeLots(seedKey: string, count: number): Lot[] {
-  const cores = makeCore(seedKey, count)
-  if (cores.length === 0) return []
-
-  // sort by price desc so the loudest brief becomes the feature
-  const byPrice = [...cores].sort((a, b) => b.price - a.price)
-  const feature = byPrice[0]
-  const tall    = byPrice[1]
-  // remove those from the rest, preserving original (= chronological) order
-  const featureId = feature?.jobId
-  const tallId    = tall?.jobId
-  const rest = cores.filter(c => c.jobId !== featureId && c.jobId !== tallId)
-
-  const out: Lot[] = []
-  if (feature) out.push(withSize(feature, 'feature'))
-  if (tall)    out.push(withSize(tall,    'tall'))
-
-  // row-template cycle, each entry = (size, fillCount)
-  const ROW_TEMPLATES: Array<[LotSize, number]> = [
-    ['standard', 2],
-    ['compact',  3],
-    ['thin',     4],
-    ['standard', 2],
-    ['compact',  3],
-  ]
-
-  let cursor = 0
-  let tpl = 0
-  while (cursor < rest.length) {
-    const [size, n] = ROW_TEMPLATES[tpl % ROW_TEMPLATES.length]
-    if (rest.length - cursor < n) {
-      // not enough left for a complete row — drop the trailing tiles
-      // so the grid ends flush rather than ragged.
-      break
-    }
-    for (let k = 0; k < n; k++) {
-      out.push(withSize(rest[cursor + k], size))
-    }
-    cursor += n
-    tpl++
-  }
-
-  return reshuffleNonAdjacent(out)
-}
-
-/**
- * 06 §B fix #1 — never let two tiles of the same category palette sit
- * adjacent in the grid. We compute "adjacent" loosely as i-1 in the
- * flat reading order; if two match, swap with the next *same-size* tile
- * whose category differs.
- *
- * Same-size only: swapping a 'standard' with a 'compact' would break
- * the row-template invariant the layout planner relies on (each row's
- * tiles must sum to 12 cols, which only holds when tile sizes match
- * the planned sequence). Idempotent and deterministic.
- */
-export function reshuffleNonAdjacent(lots: Lot[]): Lot[] {
-  const arr = lots.slice()
-  for (let i = 1; i < arr.length; i++) {
-    if (arr[i].category !== arr[i - 1].category) continue
-    for (let j = i + 1; j < arr.length; j++) {
-      // only swap with a tile of the same size — preserves row-template
-      if (arr[j].size !== arr[i].size) continue
-      const swapIntoI = arr[j]
-      const swapIntoJ = arr[i]
-      const okI = swapIntoI.category !== arr[i - 1].category
-      const okJ = j + 1 >= arr.length || swapIntoJ.category !== arr[j + 1].category
-      const okJPrev = swapIntoJ.category !== arr[j - 1]?.category
-      if (okI && okJ && okJPrev) {
-        arr[i] = swapIntoI
-        arr[j] = swapIntoJ
-        break
-      }
-    }
-  }
-  return arr
 }
 
 export interface LotsBundle {
@@ -257,7 +135,7 @@ export interface LotsBundle {
   postedLastHour: number
 }
 
-export function useOpenLots(count = 16) {
+export function useOpenLots(count = 18) {
   const { data: stats } = useStats()
   const totalJobs = stats?.totalJobs ?? 0
   return useQuery<LotsBundle>({
@@ -270,10 +148,12 @@ export function useOpenLots(count = 16) {
       for (const l of lots) totalsBase[l.category] += 1
       // grossed-up category totals (the page implies more lots than visible)
       const open = Math.max(stats?.totalJobs ? Math.min(stats.totalJobs, 200) : 128, count)
+      const prices = lots.map(l => l.price).sort((a, b) => a - b)
+      const median = prices.length === 0 ? 0 : prices[Math.floor(prices.length / 2)]
       return {
         lots,
         totals: { all: open, ...totalsBase },
-        medianUsdc: Number((0.7 + (totalJobs % 23) / 100).toFixed(2)),
+        medianUsdc: Number(median.toFixed(2)),
         fillRate: 0.942,
         postedLastHour: 8 + (totalJobs % 9),
       }
