@@ -37,7 +37,13 @@ export default function Nav() {
   const { data: stats } = useStats()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const activeCount = stats?.last7Days?.newAgents ?? null
+  // Phase 1: show total agents charted as the headline live count.
+  // PR 02 (Home) replaces this with a true "active in last minute" derivation
+  // once the cartogram + flight-line activity hooks land.
+  const activeCount = stats?.totalAgents ?? null
+  const activeFmt = activeCount != null
+    ? activeCount.toLocaleString('en-US')
+    : '—'
 
   return (
     <header className={styles.shell}>
@@ -67,9 +73,9 @@ export default function Nav() {
         </ul>
 
         <div className={styles.actions}>
-          <span className={styles.live} aria-label="live activity">
+          <span className={styles.live} aria-label="agents charted">
             <span className={styles.liveDot} aria-hidden="true" />
-            {activeCount != null ? activeCount : '—'} active
+            {activeFmt} charted
           </span>
           {isConnected && address ? (
             <button
