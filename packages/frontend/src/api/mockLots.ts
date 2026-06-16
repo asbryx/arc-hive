@@ -154,35 +154,80 @@ function makeLots(seedKey: string, count: number): Lot[] {
 }
 
 /**
- * Ensure the visible inventory is a multiple of 3 tiles after the
- * feature. Feature consumes 8 cols × 2 rows, then 2 standards stack
- * on its right (rows 0+1). After that, every row is 3 tiles × 4 cols.
+ * Pack the lot list so the grid always ends flush. Layout model:
  *
- * Drop trailing tiles that don't fit a complete row, so the grid
- * always ends flush. (Better to show fewer than to show a ragged edge.)
+ *   Row 0+1:  feature(8×2) | std(4) | std(4)
+ *   Row 2+:   tile + tile + tile   ← 3 tiles per row, each 4 cols
+ *
+ * A 'tall' (4×2) tile in a regular row needs the row beneath it on the
+ * tall's column to also be available. We simulate the layout slot by
+ * slot, demote tall→standard when we don't have 2 partners for its
+ * second row, and drop trailing tiles that can't complete a row.
  */
 function packForFlushGrid(lots: Lot[]): Lot[] {
   if (lots.length === 0) return lots
-  // Tile 0 is feature (8×2). Tiles 1..n must form complete rows of 3.
-  // Feature occupies the left 8 cols of rows 0+1. Right 4 cols of
-  // rows 0+1 needs 2 stacked tiles. Then every subsequent row is 3
-  // tiles. So total tiles = 1 (feature) + 2 (right stack) + 3*K.
-  const head = lots.slice(0, 1)
-  const rest = lots.slice(1)
-  // tall(4×2) on the right of the feature would also work but only if
-  // it pairs with another stack on the next column. Simpler rule:
-  // demote any non-feature 'tall' tiles in the first 2 positions to
-  // standard so the right column of the feature row is clean.
-  const fixed: Lot[] = head.slice()
-  rest.forEach((lot, i) => {
-    if (i < 2 && lot.size === 'tall') fixed.push({ ...lot, size: 'standard' })
-    else fixed.push(lot)
-  })
-  // Now: total non-feature must be 2 + 3K.
-  const nonFeature = fixed.length - 1
-  // After the 2 stack-fillers, K full rows of 3.
-  const drop = nonFeature < 2 ? 0 : (nonFeature - 2) % 3
-  return drop > 0 ? fixed.slice(0, fixed.length - drop) : fixed
+  // 1. The first non-feature tiles (positions 1 & 2) sit to the right
+  //    of the feature. Force them to 'standard' so the feature row
+  //    column stays clean.
+  const fixed: Lot[] = [lots[0]]
+  for (let i = 1; i < lots.length; i++) {
+    if (i < 3 && lots[i].size === 'tall') {
+      fixed.push({ ...lots[i], size: 'standard' })
+    } else {
+      fixed.push(lots[i])
+    }
+  }
+
+  // 2. Walk the rest of the list row by row. Each "regular" row holds
+  //    3 tiles (each 4 cols). A 'tall' tile consumes a column for 2
+  //    rows — meaning the next row at the same column position is
+  //    pre-occupied, so that row only needs 2 more tiles, not 3.
+  //
+  //    We track, per column slot, how many rows are still "blocked
+  //    above" by a tall.
+  const head = fixed.slice(0, 3)   // feature + 2 right-stack tiles
+  const tail = fixed.slice(3)
+  const packed: Lot[] = []
+  let blocked: [number, number, number] = [0, 0, 0]
+  let i = 0
+  let safety = 0
+  while (i < tail.length && safety++ < 200) {
+    // free slots in this row are those where blocked[c] === 0
+    const freeSlots: number[] = []
+    for (let c = 0; c < 3; c++) if (blocked[c] === 0) freeSlots.push(c)
+    if (freeSlots.length === 0) {
+      // entire row blocked by tall(s) from above — advance row
+      blocked = blocked.map(b => Math.max(0, b - 1)) as [number, number, number]
+      continue
+    }
+    // do we have enough tiles to fill the free slots in this row?
+    if (tail.length - i < freeSlots.length) {
+      // not enough — drop trailing tiles, the row can't complete flush
+      break
+    }
+    const newlyBlocked: [number, number, number] = [0, 0, 0]
+    for (const c of freeSlots) {
+      const lot = tail[i++]
+      let size = lot.size
+      // 'tall' demoted if no room for its second row's partners.
+      if (size === 'tall') {
+        // after this tile, do we have at least 2 more partners for the
+        // second row of the tall (which only has 2 free columns)?
+        const remainingAfter = tail.length - i
+        if (remainingAfter < 2) size = 'standard'
+      }
+      packed.push(size === lot.size ? lot : { ...lot, size })
+      if (size === 'tall') newlyBlocked[c] = 1
+    }
+    // advance: existing blocks decrement, newly placed talls block next row
+    blocked = [
+      Math.max(0, blocked[0] - 1) || newlyBlocked[0],
+      Math.max(0, blocked[1] - 1) || newlyBlocked[1],
+      Math.max(0, blocked[2] - 1) || newlyBlocked[2],
+    ]
+  }
+
+  return [...head, ...packed]
 }
 
 /**
