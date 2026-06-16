@@ -1,0 +1,240 @@
+/**
+ * lots.css — section iii · the rest of the floor.
+ *
+ * Lifted out of home.css so each stylesheet stays under the 800-line
+ * cap. Imported by LotsSection.tsx. Per
+ * _design-archive/components/lot-tile-spec.md + section-iii-spec.md.
+ *
+ * Reused as-is by /marketplace in PR 03.
+ */
+
+.lots-section {
+  background: var(--cream);
+  border-bottom: 1px solid var(--ink);
+  padding: 48px 22px 80px;
+}
+.lots-section .lots-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 40px;
+  align-items: end;
+  margin-bottom: 28px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--rule-2);
+}
+.lots-section .lots-head .num {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.lots-section .lots-head h2 {
+  font-family: var(--serif);
+  font-weight: 200;
+  font-size: clamp(36px, 4vw, 56px);
+  line-height: 0.95;
+  letter-spacing: -0.025em;
+  font-variation-settings: 'wght' 200, 'opsz' 64;
+}
+.lots-section .lots-head h2 em {
+  font-style: italic;
+  color: var(--hot);
+  font-variation-settings: 'wght' 250, 'opsz' 64, 'slnt' -10;
+}
+.lots-section .lots-head .meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+  text-align: right;
+  line-height: 1.8;
+}
+.lots-section .lots-head .meta strong { color: var(--ink); font-weight: 500; }
+.lots-section .lots-head .meta em {
+  font-style: italic;
+  color: var(--hot);
+  letter-spacing: 0;
+  text-transform: lowercase;
+  font-variation-settings: 'wght' 400, 'opsz' 12, 'slnt' -10;
+}
+
+.lots-section .filter {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.lots-section .filter span {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  padding: 6px 10px;
+  border: 1px solid var(--rule-2);
+  cursor: pointer;
+  transition: background var(--d-fast), color var(--d-fast), border-color var(--d-fast);
+}
+.lots-section .filter span:hover {
+  background: var(--ink);
+  color: var(--cream);
+  border-color: var(--ink);
+}
+.lots-section .filter span.on {
+  background: var(--ink);
+  color: var(--cream);
+  border-color: var(--ink);
+}
+
+/* ─── the bento grid ─── */
+.lots {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 0;
+  border: 1px solid var(--rule-2);
+}
+
+.lot {
+  background: var(--cream);
+  padding: 24px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  cursor: pointer;
+  transition: background var(--d-fast), color var(--d-fast);
+  position: relative;
+  overflow: hidden;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+  color: inherit;
+}
+
+/* size variants on the 12-col grid */
+.lot.feature  { grid-column: span 7; grid-row: span 2; padding: 32px 32px 28px; gap: 18px; }
+.lot.standard { grid-column: span 4; }
+.lot.compact  { grid-column: span 3; gap: 10px; }
+.lot.thin     { grid-column: span 3; gap: 8px; }
+.lot.tall     { grid-column: span 5; grid-row: span 2; }
+
+/* category coloring (resting) */
+.lot.cat-code        { background: var(--code-bg);     color: var(--code-fg); }
+.lot.cat-research    { background: var(--research-bg); color: var(--research-fg); }
+.lot.cat-audit       { background: var(--audit-bg);    color: var(--audit-fg); }
+.lot.cat-brand       { background: var(--brand-bg);    color: var(--brand-fg); }
+.lot.cat-copy        { background: var(--copy-bg);     color: var(--copy-fg); }
+.lot.cat-translation { background: var(--trans-bg);    color: var(--trans-fg); }
+
+/* photonegative hover — full bg/fg flip */
+.lot:hover           { background: var(--ink); color: var(--cream); text-decoration: none; }
+.lot:hover .meta,
+.lot:hover .activity,
+.lot:hover .summary,
+.lot:hover .bid-info { color: var(--cream); opacity: 0.92; }
+.lot:hover .title em,
+.lot:hover .price    { color: var(--cream); }
+.lot:hover .foot     { border-top-color: rgba(244, 240, 226, 0.25); }
+
+.lot .meta {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  display: flex;
+  gap: 14px;
+  opacity: 0.7;
+  align-items: baseline;
+}
+.lot .meta .ref { font-weight: 500; }
+
+.lot .activity {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hot);
+  font-weight: 500;
+}
+.lot:hover .activity { color: var(--ochre); }
+
+.lot .title {
+  font-family: var(--serif);
+  font-weight: 300;
+  font-size: 22px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  font-variation-settings: 'wght' 300, 'opsz' 32;
+}
+.lot.feature .title { font-size: 32px; line-height: 1.05; }
+.lot.compact .title { font-size: 16px; line-height: 1.2; }
+.lot.thin    .title { font-size: 15px; line-height: 1.25; }
+.lot .title em {
+  font-style: italic;
+  font-variation-settings: 'wght' 350, 'opsz' 32, 'slnt' -10;
+}
+
+.lot .summary {
+  font-family: var(--serif);
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.78;
+}
+.lot.compact .summary,
+.lot.thin    .summary { display: none; }
+
+.lot .foot {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 0, 0, 0.18);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+.lot .bid-info {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.78;
+  line-height: 1.5;
+}
+.lot .bid-info strong { font-weight: 500; opacity: 1; }
+.lot .price {
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  font-feature-settings: 'tnum' 1;
+  font-variation-settings: 'wght' 300, 'opsz' 32;
+  line-height: 1;
+}
+.lot .price small {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-left: 4px;
+  opacity: 0.7;
+}
+
+/* responsive */
+@media (max-width: 1024px) {
+  .lot.feature  { grid-column: span 12; }
+  .lot.standard { grid-column: span 6; }
+  .lot.compact  { grid-column: span 4; }
+  .lot.thin     { grid-column: span 6; }
+  .lot.tall     { grid-column: span 12; }
+}
+@media (max-width: 768px) {
+  .lots-section { padding: 28px 12px 48px; }
+  .lots-section .lots-head { grid-template-columns: 1fr; gap: 12px; }
+  .lots-section .lots-head .meta { text-align: left; }
+  .lots { grid-template-columns: 1fr; }
+  .lot.feature, .lot.standard, .lot.compact, .lot.thin, .lot.tall {
+    grid-column: span 1; grid-row: span 1;
+  }
+}
