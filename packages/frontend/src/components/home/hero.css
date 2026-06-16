@@ -9,22 +9,26 @@
 .bh-hero {
   border-bottom: 1px solid var(--ink);
   background: var(--cream);
+  min-height: 760px;
 }
 .bh-map {
+  position: relative;
   display: flex;
   flex-direction: column;
+  min-height: 760px;
+  overflow: hidden;
 }
 .bh-map-head {
-  padding: 28px 28px 18px;
-  border-bottom: 1px solid var(--rule-2);
+  padding: 16px 22px 12px;
+  border-bottom: 1px solid var(--ink);
 }
 .bh-map-head .num {
   font-family: var(--mono);
   font-size: 10px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-3);
-  margin-bottom: 8px;
+  color: var(--hot);
+  margin-bottom: 6px;
 }
 .bh-h2 {
   font-family: var(--serif);
@@ -33,7 +37,6 @@
   line-height: 0.95;
   letter-spacing: -0.025em;
   font-variation-settings: 'wght' 200, 'opsz' 64;
-  max-width: 22ch;
   color: var(--ink);
 }
 .bh-h2 em {
@@ -42,47 +45,64 @@
   font-variation-settings: 'wght' 250, 'opsz' 64, 'slnt' -10;
 }
 .bh-map-head .strap {
-  margin-top: 14px;
+  margin-top: 8px;
   font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  line-height: 1.7;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-2);
 }
 .bh-map-head .strap strong { color: var(--ink); font-weight: 500; }
 .bh-map-head .strap em {
   color: var(--hot);
-  font-style: italic;
-  font-variation-settings: 'wght' 400, 'opsz' 12, 'slnt' -10;
+  font-style: normal;
+  font-weight: 500;
 }
 
 /* SVG shell — the plate.
  *
- * Locked to the SVG viewBox aspect (2:1) via aspect-ratio so the plate
- * never bloats vertically on wide viewports — flight lines, agent
- * labels, and the cartouche all sit at predictable scales. The
- * inset box-shadow draws the printed double-rule frame without
- * adding pixel-rounded corners.
+ * Full-bleed inside the .bh-map column. The printed double-rule frame is
+ * drawn via two pseudo-elements (12px and 16px insets), matching the
+ * canonical mockup. No outer margin, no padding gutter, no aspect-ratio
+ * lock — the wrap stretches with flex:1 to whatever space the .bh-map
+ * has after the head, and the SVG is absolutely positioned inset:0.
  */
 .bh-svg-wrap {
   position: relative;
-  width: calc(100% - 44px);
-  aspect-ratio: 2 / 1;
+  flex: 1;
+  overflow: hidden;
   background: var(--cream);
-  box-shadow:
-    inset 0 0 0 1px var(--ink),
-    inset 0 0 0 5px var(--cream),
-    inset 0 0 0 6px var(--ink-3);
-  margin: 22px;
-  padding: 22px;
-  box-sizing: border-box;
+}
+.bh-svg-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border: 1px solid var(--ink-3);
+  pointer-events: none;
+  z-index: 3;
+}
+.bh-svg-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 16px;
+  border: 1px solid var(--ink);
+  pointer-events: none;
+  z-index: 3;
+}
+.bh-svg-wrap > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 .bh-vignette {
   position: absolute;
-  inset: 0;
+  inset: 16px;
   pointer-events: none;
+  z-index: 2;
   background:
-    radial-gradient(ellipse 80% 60% at 50% 50%, transparent 50%, rgba(26, 24, 23, 0.10) 100%);
+    radial-gradient(ellipse at center, transparent 55%, rgba(26, 24, 23, 0.07) 100%);
 }
 
 /* legend top-left */
@@ -150,47 +170,6 @@
   text-transform: lowercase;
 }
 
-/* scale bar bottom-left */
-.bh-scale {
-  position: absolute;
-  bottom: 32px;
-  left: 32px;
-  z-index: 4;
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-.bh-scale-line {
-  display: grid;
-  grid-template-columns: repeat(5, 32px);
-  border-top: 1px solid var(--ink);
-  height: 6px;
-}
-.bh-scale-line span {
-  border-left: 1px solid var(--ink);
-  height: 6px;
-}
-.bh-scale-line span:last-child { border-right: 1px solid var(--ink); }
-.bh-scale-labels {
-  display: grid;
-  grid-template-columns: repeat(5, 32px);
-  margin-top: 4px;
-  font-size: 8px;
-}
-.bh-scale-labels span:nth-child(2),
-.bh-scale-labels span:nth-child(4) { visibility: hidden; }
-.bh-scale-cap {
-  margin-top: 6px;
-  font-style: italic;
-  font-family: var(--serif);
-  text-transform: lowercase;
-  letter-spacing: 0;
-  font-variation-settings: 'wght' 400, 'opsz' 12, 'slnt' -10;
-  color: var(--ink-3);
-}
-
 /* fig caption bottom-center */
 .bh-figcap {
   position: absolute;
@@ -212,7 +191,10 @@
   font-variation-settings: 'wght' 400, 'opsz' 14, 'slnt' -10;
 }
 
-/* ─── CARTOUCHE — bottom-right ─── */
+/* ─── CARTOUCHE — bottom-right of plate.
+ * Ported byte-for-byte from the canonical mockup so dimensions and
+ * rhythm match (300 × 319 at 1280 viewport). Centered text. Dotted
+ * rules between vital rows. */
 .cartouche {
   position: absolute;
   bottom: 32px;
@@ -221,10 +203,10 @@
   z-index: 5;
   background: var(--cream);
   border: 1px solid var(--ink);
-  /* signature double-rule */
   box-shadow:
     inset 0 0 0 1px var(--cream),
     inset 0 0 0 2px var(--ink-3);
+  padding: 0;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--ink-2);
@@ -234,45 +216,47 @@
   content: '';
   position: absolute;
   inset: 4px;
-  border: 1px solid var(--ink);
+  border: 1px solid var(--ink-3);
   pointer-events: none;
 }
 .cartouche .car-head {
-  padding: 8px 14px;
-  background: var(--cream-2);
+  padding: 7px 14px 6px;
   border-bottom: 1px solid var(--ink);
-  display: flex;
-  justify-content: space-between;
+  text-align: center;
+  font-family: var(--mono);
   font-size: 9px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--ink-3);
+  background: var(--cream-2);
+  margin: 4px 4px 0;
 }
 .cartouche .car-head em {
   font-family: var(--serif);
   font-style: italic;
-  color: var(--marsh);
+  color: var(--hot);
+  text-transform: none;
   letter-spacing: 0;
-  text-transform: lowercase;
   font-size: 11px;
   font-variation-settings: 'wght' 400, 'opsz' 12, 'slnt' -10;
 }
-.cartouche .car-body {
-  padding: 18px 16px 14px;
-  position: relative;
-}
 .cartouche .car-portrait {
+  margin: 8px auto 4px;
+  width: 60px;
+  height: 60px;
+  color: var(--marsh);
   display: block;
-  margin-bottom: 8px;
 }
 .cartouche .car-name {
+  text-align: center;
   font-family: var(--serif);
   font-size: 22px;
   font-weight: 300;
-  color: var(--ink);
   line-height: 1;
   letter-spacing: -0.02em;
+  color: var(--ink);
   font-variation-settings: 'wght' 300, 'opsz' 24;
+  margin-top: 2px;
 }
 .cartouche .car-name em {
   font-style: italic;
@@ -280,60 +264,82 @@
   font-variation-settings: 'wght' 350, 'opsz' 24, 'slnt' -10;
 }
 .cartouche .car-addr {
-  margin-top: 4px;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-align: center;
   color: var(--ink-3);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+  margin-bottom: 10px;
 }
 .cartouche .car-divider {
-  margin: 10px 0;
-  font-size: 10px;
-  color: var(--ink-3);
-  letter-spacing: 0.4em;
+  text-align: center;
+  color: var(--hot);
+  font-family: var(--serif);
+  font-size: 14px;
+  letter-spacing: 1em;
+  margin: 0 0 8px;
+  line-height: 0.5;
+  font-variation-settings: 'wght' 400, 'opsz' 14, 'slnt' -10;
+  font-style: italic;
+}
+.cartouche .car-body {
+  padding: 8px 4px 4px;
+  position: relative;
 }
 .cartouche .car-rows {
   display: grid;
-  grid-template-columns: 60px 1fr;
-  gap: 0;
-  font-feature-settings: 'tnum' 1;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  padding: 4px 16px 6px;
+  font-size: 10px;
 }
 .cartouche .car-rows .l {
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
   color: var(--ink-3);
-  padding: 6px 0;
-  border-top: 1px solid var(--rule);
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  font-size: 9px;
+  padding-top: 2px;
+  border-top: 1px dotted var(--rule-2);
 }
+.cartouche .car-rows .l:first-child { border-top: 0; }
 .cartouche .car-rows .v {
-  font-size: 11px;
   color: var(--ink);
-  padding: 6px 0;
-  border-top: 1px solid var(--rule);
+  font-variant-numeric: tabular-nums;
   text-align: right;
+  padding-top: 2px;
+  border-top: 1px dotted var(--rule-2);
 }
-.cartouche .car-rows .l:first-child,
 .cartouche .car-rows > .v:nth-child(2) { border-top: 0; }
 .cartouche .car-rows .v em {
-  font-style: italic;
   color: var(--hot);
-  font-variation-settings: 'wght' 400, 'opsz' 12, 'slnt' -10;
+  font-style: normal;
+  font-weight: 500;
 }
 .cartouche .car-rows .v small {
-  font-size: 9px;
   color: var(--ink-3);
-  margin-left: 4px;
+  font-size: 9px;
 }
 .cartouche .car-state {
-  margin-top: 12px;
+  margin: 8px 8px 8px;
+  padding: 6px 10px;
   background: var(--marsh);
   color: var(--cream);
-  padding: 6px 10px;
-  font-size: 10px;
-  letter-spacing: 0.12em;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 500;
+}
+.cartouche .car-state em {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--cream);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+  margin-left: 4px;
+  font-variation-settings: 'wght' 500, 'opsz' 12, 'slnt' -10;
 }
 .cartouche .car-state.delivering { background: var(--marsh); }
 .cartouche .car-state.executing  { background: var(--hot); }

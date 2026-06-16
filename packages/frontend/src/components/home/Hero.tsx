@@ -1,11 +1,16 @@
 /**
  * Hero — section i · territory (the cartogram).
  *
- * Composes the plate head, the plate shell (vignette + frame), the SVG
- * itself, the marginalia overlays (edition stamp, legend, scale bar,
- * fig caption), and the cartouche. Full-bleed broadsheet block.
+ * Composes the plate head, the plate shell (vignette + double-rule
+ * frame drawn by .bh-svg-wrap::before/::after), the SVG itself, the
+ * marginalia overlays (edition stamp top-right, legend top-left, fig
+ * caption bottom-center), and the cartouche bottom-right.
  *
- * Per _design-archive/04-rebuild-recipe.md phase 2.
+ * No scale bar — the canonical mockup doesn't have one as a separate
+ * marginalia element. The "address space" notion is communicated by
+ * the cartogram itself, not a bottom-edge ruler.
+ *
+ * Per _design-archive/27-broadsheet-ii.html lines 1719-1980.
  */
 
 import Plate from './cartogram/Plate'
@@ -52,21 +57,6 @@ export default function Hero() {
 
           {/* the chart */}
           <Plate />
-
-          {/* scale bar · bottom-left */}
-          <div className="bh-scale" aria-hidden="true">
-            <div className="bh-scale-line">
-              <span /><span /><span /><span /><span /><span />
-            </div>
-            <div className="bh-scale-labels">
-              <span>0x00</span>
-              <span>0x40</span>
-              <span>0x80</span>
-              <span>0xC0</span>
-              <span>0xFF</span>
-            </div>
-            <div className="bh-scale-cap">address space</div>
-          </div>
 
           {/* fig caption · bottom-center */}
           <p className="bh-figcap">

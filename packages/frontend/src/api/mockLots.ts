@@ -84,38 +84,38 @@ const SUMMARIES: Record<LotCategory, string[]> = {
 }
 
 /**
- * Layout discipline:
+ * Layout discipline — every row sums to 12 cols. Possible row shapes:
  *
- * The grid is 12 columns wide. To guarantee a flush right edge with no
- * holes, every tile spans either 4 or 8 columns. Three sizes only:
+ *   feature(7) + tall(5)               ← 2 rows tall (paired)
+ *   standard(6) + standard(6)          ← 1 row
+ *   compact(4) × 3                     ← 1 row
+ *   thin(3) × 4                        ← 1 row
  *
- *   feature  — 8 cols × 2 rows  (the editorial lead, top-left)
- *   tall     — 4 cols × 2 rows  (an occasional vertical anchor)
- *   standard — 4 cols × 1 row   (everything else, with summary)
- *   thin     — 4 cols × 1 row   (cheap lots, no summary, denser)
+ * The page always opens with a feature(7×2) + tall(5×2) pair so the
+ * top of section iii reads as "two big briefs facing off."  After that,
+ * we emit chunks of {std×2, compact×3, thin×4} sized to the requested
+ * total count. Anything that doesn't divide cleanly is dropped from
+ * the tail rather than leaving a partial row.
  *
- * 12 / 4 = 3 tiles per row exactly. Feature(8) + standard(4) on the
- * right adds to 12. Tall(4) + standard(4) + standard(4) = 12. Every
- * combination divides cleanly. Right edge is always full.
- *
- * Size is a function of the lot's price so the grid reads as a market
- * heatmap — the loudest, most-expensive briefs literally take more
- * space. The first tile is always the lead (feature). Beyond that, one
- * cap: at most one feature and one tall per visible page so the grid
- * doesn't collapse into a wall of giants.
+ * Size is still informed by price (the loudest brief gets the feature),
+ * but the row-template enforces the visual rhythm — no holes possible.
  */
-function sizeForPrice(usdc: number): LotSize {
-  if (usdc >= 4.0) return 'feature'
-  if (usdc >= 2.5) return 'tall'
-  if (usdc >= 1.0) return 'standard'
-  return 'thin'
+
+interface CoreLot {
+  jobId: number
+  cat: LotCategory
+  title: string
+  summary: string
+  postedMinutesAgo: number
+  bidCount: number
+  topBidUsdc: number
+  reserveUsdc: number
+  price: number
 }
 
-function makeLots(seedKey: string, count: number): Lot[] {
+function makeCore(seedKey: string, count: number): CoreLot[] {
   const rng = mulberry32(seedFrom(seedKey))
-  const out: Lot[] = []
-  let featureUsed = false
-  let tallUsed = false
+  const out: CoreLot[] = []
   for (let i = 0; i < count; i++) {
     const t = TITLES[i % TITLES.length]
     const cat = t.category
@@ -123,111 +123,97 @@ function makeLots(seedKey: string, count: number): Lot[] {
     const reserve = Number(float(rng, 0.35, 6.0).toFixed(2))
     const topBid  = Number(float(rng, reserve * 0.6, reserve * 1.4).toFixed(2))
     const price   = bids > 0 ? topBid : reserve
-    let size = sizeForPrice(price)
-
-    // Editorial constraint: first tile is the lead, always feature.
-    if (i === 0) size = 'feature'
-    if (size === 'feature') {
-      if (featureUsed) size = 'standard'
-      else featureUsed = true
-    }
-    if (size === 'tall') {
-      if (tallUsed) size = 'standard'
-      else tallUsed = true
-    }
-
     out.push({
       jobId: 2900 - i,
-      ref: `LOT ${2900 - i}`,
-      category: cat,
-      size,
+      cat,
       title: t.text,
       summary: pick(rng, SUMMARIES[cat]),
       postedMinutesAgo: int(rng, 3, 180),
       bidCount: bids,
       topBidUsdc: topBid,
       reserveUsdc: reserve,
-      isLive: bids >= 5,
+      price,
     })
   }
-  return packForFlushGrid(reshuffleNonAdjacent(out))
+  return out
+}
+
+/** turn a CoreLot into a Lot with the given size */
+function withSize(c: CoreLot, size: LotSize): Lot {
+  return {
+    jobId: c.jobId,
+    ref: `LOT ${c.jobId}`,
+    category: c.cat,
+    size,
+    title: c.title,
+    summary: c.summary,
+    postedMinutesAgo: c.postedMinutesAgo,
+    bidCount: c.bidCount,
+    topBidUsdc: c.topBidUsdc,
+    reserveUsdc: c.reserveUsdc,
+    isLive: c.bidCount >= 5,
+  }
 }
 
 /**
- * Pack the lot list so the grid always ends flush. Layout model:
+ * Layout planner. Sorts cores by price descending. Top 2 become the
+ * feature+tall pair on rows 0-1. Then walks a fixed row-template
+ * sequence, consuming cores in order, until inventory runs out.
  *
- *   Row 0+1:  feature(8×2) | std(4) | std(4)
- *   Row 2+:   tile + tile + tile   ← 3 tiles per row, each 4 cols
+ * Row template (cycled):
+ *   1. standard × 2
+ *   2. compact × 3
+ *   3. thin × 4
+ *   4. standard × 2
+ *   5. compact × 3
  *
- * A 'tall' (4×2) tile in a regular row needs the row beneath it on the
- * tall's column to also be available. We simulate the layout slot by
- * slot, demote tall→standard when we don't have 2 partners for its
- * second row, and drop trailing tiles that can't complete a row.
+ * That's 14 tiles per cycle; the first row eats 2 cores (feat+tall),
+ * so a full screen of 16 tiles fills neatly. Trailing partial rows are
+ * dropped to keep the right edge flush.
  */
-function packForFlushGrid(lots: Lot[]): Lot[] {
-  if (lots.length === 0) return lots
-  // 1. The first non-feature tiles (positions 1 & 2) sit to the right
-  //    of the feature. Force them to 'standard' so the feature row
-  //    column stays clean.
-  const fixed: Lot[] = [lots[0]]
-  for (let i = 1; i < lots.length; i++) {
-    if (i < 3 && lots[i].size === 'tall') {
-      fixed.push({ ...lots[i], size: 'standard' })
-    } else {
-      fixed.push(lots[i])
-    }
-  }
+function makeLots(seedKey: string, count: number): Lot[] {
+  const cores = makeCore(seedKey, count)
+  if (cores.length === 0) return []
 
-  // 2. Walk the rest of the list row by row. Each "regular" row holds
-  //    3 tiles (each 4 cols). A 'tall' tile consumes a column for 2
-  //    rows — meaning the next row at the same column position is
-  //    pre-occupied, so that row only needs 2 more tiles, not 3.
-  //
-  //    We track, per column slot, how many rows are still "blocked
-  //    above" by a tall.
-  const head = fixed.slice(0, 3)   // feature + 2 right-stack tiles
-  const tail = fixed.slice(3)
-  const packed: Lot[] = []
-  let blocked: [number, number, number] = [0, 0, 0]
-  let i = 0
-  let safety = 0
-  while (i < tail.length && safety++ < 200) {
-    // free slots in this row are those where blocked[c] === 0
-    const freeSlots: number[] = []
-    for (let c = 0; c < 3; c++) if (blocked[c] === 0) freeSlots.push(c)
-    if (freeSlots.length === 0) {
-      // entire row blocked by tall(s) from above — advance row
-      blocked = blocked.map(b => Math.max(0, b - 1)) as [number, number, number]
-      continue
-    }
-    // do we have enough tiles to fill the free slots in this row?
-    if (tail.length - i < freeSlots.length) {
-      // not enough — drop trailing tiles, the row can't complete flush
+  // sort by price desc so the loudest brief becomes the feature
+  const byPrice = [...cores].sort((a, b) => b.price - a.price)
+  const feature = byPrice[0]
+  const tall    = byPrice[1]
+  // remove those from the rest, preserving original (= chronological) order
+  const featureId = feature?.jobId
+  const tallId    = tall?.jobId
+  const rest = cores.filter(c => c.jobId !== featureId && c.jobId !== tallId)
+
+  const out: Lot[] = []
+  if (feature) out.push(withSize(feature, 'feature'))
+  if (tall)    out.push(withSize(tall,    'tall'))
+
+  // row-template cycle, each entry = (size, fillCount)
+  const ROW_TEMPLATES: Array<[LotSize, number]> = [
+    ['standard', 2],
+    ['compact',  3],
+    ['thin',     4],
+    ['standard', 2],
+    ['compact',  3],
+  ]
+
+  let cursor = 0
+  let tpl = 0
+  while (cursor < rest.length) {
+    const [size, n] = ROW_TEMPLATES[tpl % ROW_TEMPLATES.length]
+    if (rest.length - cursor < n) {
+      // not enough left for a complete row — drop the trailing tiles
+      // so the grid ends flush rather than ragged.
       break
     }
-    const newlyBlocked: [number, number, number] = [0, 0, 0]
-    for (const c of freeSlots) {
-      const lot = tail[i++]
-      let size = lot.size
-      // 'tall' demoted if no room for its second row's partners.
-      if (size === 'tall') {
-        // after this tile, do we have at least 2 more partners for the
-        // second row of the tall (which only has 2 free columns)?
-        const remainingAfter = tail.length - i
-        if (remainingAfter < 2) size = 'standard'
-      }
-      packed.push(size === lot.size ? lot : { ...lot, size })
-      if (size === 'tall') newlyBlocked[c] = 1
+    for (let k = 0; k < n; k++) {
+      out.push(withSize(rest[cursor + k], size))
     }
-    // advance: existing blocks decrement, newly placed talls block next row
-    blocked = [
-      Math.max(0, blocked[0] - 1) || newlyBlocked[0],
-      Math.max(0, blocked[1] - 1) || newlyBlocked[1],
-      Math.max(0, blocked[2] - 1) || newlyBlocked[2],
-    ]
+    cursor += n
+    tpl++
   }
 
-  return [...head, ...packed]
+  return reshuffleNonAdjacent(out)
 }
 
 /**

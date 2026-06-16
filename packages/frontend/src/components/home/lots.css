@@ -93,14 +93,10 @@
 .lots {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  /* `dense` packs smaller tiles into gaps left by feature/tall tiles —
-   * the right edge stays full instead of trailing into white space. */
-  grid-auto-flow: dense;
-  /* a uniform row baseline keeps the grid visually rectangular even with
-   * mixed-span tiles; tall/feature consume two of these. */
-  grid-auto-rows: minmax(180px, auto);
-  gap: 0;
-  border: 1px solid var(--rule-2);
+  grid-auto-rows: min-content;
+  gap: 1px;
+  background: var(--rule-2);
+  border: 1px solid var(--ink);
 }
 
 .lot {
@@ -119,20 +115,25 @@
   color: inherit;
 }
 
-/* size variants on the 12-col grid.
+/* Size variants on the 12-col grid (canonical mockup spec).
  *
- * Every tile is a multiple of 4 cols wide. 12 / 4 = 3 tiles per row.
- * Combinations always sum to 12 — no holes possible at the right edge:
- *   feature(8) + standard(4) on right (stacked × 2 rows) = 12 × 2
- *   tall(4) + standard(4) + standard(4)                  = 12
- *   standard(4) × 3                                      = 12
- *   thin(4) × 3                                          = 12
+ *   feature  7 cols × 2 rows · min-height 320px
+ *   tall     5 cols × 2 rows · min-height 320px        ← pairs with feature
+ *   standard 6 cols × 1 row  · min-height 200px        ← 6+6 = 12
+ *   compact  4 cols × 1 row  · min-height 180px        ← 4+4+4 = 12
+ *   thin     3 cols × 1 row  · min-height 180px        ← 3+3+3+3 = 12
+ *
+ * Pairing rules enforced in mockLots.makeLots so every row sums to 12:
+ *   row 0+1: feature(7) + tall(5)
+ *   row N:   standard(6) + standard(6)
+ *   row N:   compact(4) × 3
+ *   row N:   thin(3) × 4
  */
-.lot.feature  { grid-column: span 8; grid-row: span 2; padding: 32px 32px 28px; gap: 18px; }
-.lot.standard { grid-column: span 4; }
-.lot.compact  { grid-column: span 4; gap: 10px; }
-.lot.thin     { grid-column: span 4; gap: 8px; }
-.lot.tall     { grid-column: span 4; grid-row: span 2; }
+.lot.feature  { grid-column: span 7; grid-row: span 2; min-height: 320px; padding: 32px 32px 28px; gap: 18px; }
+.lot.tall     { grid-column: span 5; grid-row: span 2; min-height: 320px; padding: 28px 28px 24px; gap: 16px; }
+.lot.standard { grid-column: span 6; min-height: 200px; }
+.lot.compact  { grid-column: span 4; min-height: 180px; gap: 10px; }
+.lot.thin     { grid-column: span 3; min-height: 180px; gap: 8px; }
 
 /* category coloring (resting) */
 .lot.cat-code        { background: var(--code-bg);     color: var(--code-fg); }
@@ -182,9 +183,11 @@
   letter-spacing: -0.015em;
   font-variation-settings: 'wght' 300, 'opsz' 32;
 }
-.lot.feature .title { font-size: 32px; line-height: 1.05; }
-.lot.compact .title { font-size: 16px; line-height: 1.2; }
-.lot.thin    .title { font-size: 15px; line-height: 1.25; }
+.lot.feature  .title { font-size: clamp(30px, 3.4vw, 44px); line-height: 1.05; }
+.lot.tall     .title { font-size: 26px; line-height: 1.1; }
+.lot.standard .title { font-size: 22px; }
+.lot.compact  .title { font-size: 18px; line-height: 1.2; }
+.lot.thin     .title { font-size: 17px; line-height: 1.25; }
 .lot .title em {
   font-style: italic;
   font-variation-settings: 'wght' 350, 'opsz' 32, 'slnt' -10;
@@ -226,6 +229,11 @@
   font-variation-settings: 'wght' 300, 'opsz' 32;
   line-height: 1;
 }
+.lot.feature .price  { font-size: 56px; }
+.lot.tall    .price  { font-size: 48px; }
+.lot.standard .price { font-size: 40px; }
+.lot.compact .price  { font-size: 32px; }
+.lot.thin    .price  { font-size: 28px; }
 .lot .price small {
   font-family: var(--mono);
   font-size: 9px;
