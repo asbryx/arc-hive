@@ -110,31 +110,32 @@ interface SlotSeed {
 }
 
 // rank-1-indexed → seed. Index 0 is the focal.
+// Spread agents to fill the plate; avoid the cartouche zone (x>1200, y>480).
 const SEEDS: SlotSeed[] = [
-  // RANK 1 — Lyra, focal, NW region, center-top of NW cluster
-  { x:  520, y: 270, region: 0, anchor: 'start' },
-  // RANK 2 — Thorne, NW, upper-right of NW cluster
-  { x:  780, y: 230, region: 0, anchor: 'start' },
-  // RANK 3 — Carter & Vale, NW, lower-left of NW cluster
-  { x:  360, y: 380, region: 0, anchor: 'start' },
-  // RANK 4 — Selden Park, NW, lower-right of NW cluster
-  { x:  680, y: 410, region: 0, anchor: 'start' },
-  // RANK 5 — Osric Wynn, NW, top-left of NW
-  { x:  280, y: 230, region: 0, anchor: 'start' },
-  // RANK 6 — Mathis & Roe, NE region, upper-right
-  { x: 1120, y: 240, region: 1, anchor: 'start' },
-  // RANK 7 — Brae Hollinger, NE, far-right top, label flips
-  { x: 1390, y: 290, region: 1, anchor: 'end'   },
-  // RANK 8 — Verity & Bell, NE, mid-right
-  { x: 1180, y: 390, region: 1, anchor: 'start' },
-  // RANK 9 — Halden Court, NE, far-right mid, label flips
-  { x: 1410, y: 430, region: 1, anchor: 'end'   },
-  // RANK 10 — Iris Voss, SE strip, center-bottom
-  { x:  640, y: 555, region: 2, anchor: 'start' },
-  // RANK 11 — Petra Sloane, SE strip, left-bottom
-  { x:  400, y: 590, region: 2, anchor: 'start' },
-  // RANK 12 — Quill Marlowe, SE strip, mid-bottom
-  { x:  900, y: 535, region: 2, anchor: 'start' },
+  // RANK 1 — Lyra, focal, NW center
+  { x:  560, y: 300, region: 0, anchor: 'start' },
+  // RANK 2 — Thorne, NW upper-right
+  { x:  860, y: 230, region: 0, anchor: 'start' },
+  // RANK 3 — Carter & Vale, NW lower
+  { x:  340, y: 410, region: 0, anchor: 'start' },
+  // RANK 4 — Selden Park, NW mid-right
+  { x:  760, y: 400, region: 0, anchor: 'start' },
+  // RANK 5 — Osric Wynn, NW upper-left
+  { x:  250, y: 240, region: 0, anchor: 'start' },
+  // RANK 6 — Mathis & Roe, NE upper-center
+  { x: 1090, y: 250, region: 1, anchor: 'start' },
+  // RANK 7 — Brae Hollinger, NE upper-right (label flips left, well clear of edge)
+  { x: 1340, y: 220, region: 1, anchor: 'end'   },
+  // RANK 8 — Verity & Bell, NE mid
+  { x: 1100, y: 390, region: 1, anchor: 'start' },
+  // RANK 9 — Halden Court, NE mid-right (label flips left)
+  { x: 1380, y: 360, region: 1, anchor: 'end'   },
+  // RANK 10 — Iris Voss, SW (south, west of cartouche)
+  { x:  690, y: 570, region: 2, anchor: 'start' },
+  // RANK 11 — Petra Sloane, SW left
+  { x:  360, y: 590, region: 2, anchor: 'start' },
+  // RANK 12 — Quill Marlowe, SW center
+  { x:  970, y: 560, region: 2, anchor: 'start' },
 ]
 
 const SIGIL_RADIUS_BY_RANK = (rank: number): number => {
@@ -209,20 +210,26 @@ export function buildRegions(slots: Slot[]): Region[] {
     if (s.region < 3) groups[s.region].push({ x: s.x, y: s.y })
   }
   const meta = [
-    { label: 'BLOCK NW',  subLabel: '0x00__ → 0x9F__' },
-    { label: 'BLOCK NE',  subLabel: '0xA0__ → 0xFF__' },
-    { label: 'BLOCK SE',  subLabel: '0x60__ → 0xD0__' },
+    { label: 'NW QUADRANT · busy belt', subLabel: '0x00__ → 0x9F__' },
+    { label: 'NE QUADRANT · long tail', subLabel: '0xA0__ → 0xFF__' },
+    { label: 'SOUTH STRIP · settling',  subLabel: '0x20__ → 0xC0__' },
   ]
   return groups.map((g, i) => {
     if (g.length < 3) {
-      // not enough for a hull — return a tiny dummy region centered on the points
       const cx = g.reduce((a, p) => a + p.x, 0) / Math.max(g.length, 1)
       const cy = g.reduce((a, p) => a + p.y, 0) / Math.max(g.length, 1)
       return { hull: [], centroid: { x: cx, y: cy }, label: meta[i].label, subLabel: meta[i].subLabel }
     }
-    const hull = expandHull(convexHull(g), 60)
-    const centroid = { x: hull.reduce((a, p) => a + p.x, 0) / hull.length, y: hull.reduce((a, p) => a + p.y, 0) / hull.length }
-    return { hull, centroid, label: meta[i].label, subLabel: meta[i].subLabel }
+    const hull = expandHull(convexHull(g), 75)
+    // place the label at the TOP of the hull (not centroid), so it sits in dust not over agents
+    const topY = Math.min(...hull.map(p => p.y))
+    const topX = hull.reduce((a, p) => a + p.x, 0) / hull.length
+    return {
+      hull,
+      centroid: { x: topX, y: topY },
+      label: meta[i].label,
+      subLabel: meta[i].subLabel,
+    }
   })
 }
 
@@ -286,51 +293,52 @@ export function placeDust(
   agentSlots: Slot[],
   lines: FlightLine[],
 ): DustDot[] {
-  const rng = mulberry32(seedFrom('cartogram-dust-v5'))
+  const rng = mulberry32(seedFrom('cartogram-dust-v6'))
   const out: DustDot[] = []
 
   const labelRects = agentSlots.map(s => {
     const w = s.rank === 1 ? 200 : 140
     const h = s.rank === 1 ? 48 : 32
     const left = s.anchor === 'end' ? s.x - 24 - w : s.x + 24
-    return { x1: left - 6, y1: s.y - h / 2 - 6, x2: left + w + 6, y2: s.y + h / 2 + 6 }
+    return { x1: left - 8, y1: s.y - h / 2 - 8, x2: left + w + 8, y2: s.y + h / 2 + 8 }
   })
 
   // density field: dense in each region's vicinity, denser along curved flight paths
   const regionCenters = [
     { x: 540, y: 320 },
-    { x: 1240, y: 340 },
-    { x: 640, y: 555 },
+    { x: 1200, y: 320 },
+    { x: 660, y: 580 },
   ]
   const density = (x: number, y: number): number => {
-    let d = 0.12
+    let d = 0   // HARD ZERO baseline — dead zones get NO dust
     for (const c of regionCenters) {
       const r = Math.hypot(c.x - x, c.y - y)
-      if (r < 360) d = Math.max(d, 0.85 - r / 480)
+      if (r < 300) d = Math.max(d, 1.0 - r / 360)
     }
     for (const l of lines) {
       const r = distanceToSegment({ x, y }, l.from, l.to)
-      if (r < 80) d = Math.max(d, 1.0 - r / 100)
+      if (r < 70) d = Math.max(d, 0.85 - r / 100)
     }
     return Math.min(1.2, d)
   }
 
   let attempts = 0
-  while (out.length < count && attempts < count * 16) {
+  while (out.length < count && attempts < count * 20) {
     attempts++
     const x = ACTIVE.x1 + 24 + rng() * (ACTIVE.x2 - ACTIVE.x1 - 48)
     const y = ACTIVE.y1 + 24 + rng() * (ACTIVE.y2 - ACTIVE.y1 - 48)
     const d = density(x, y)
+    if (d <= 0) continue           // dead zone — skip outright
     if (rng() > d) continue
     if (labelRects.some(r => x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2)) continue
     if (agentSlots.some(s => Math.hypot(s.x - x, s.y - y) < s.sigilRadius + 12)) continue
     if (lines.some(l => distanceToSegment({ x, y }, l.from, l.to) < 5)) continue
-    // cartouche zone (bottom-right)
-    if (x > 1200 && y > 480) continue
+    if (x > 1200 && y > 480) continue   // cartouche zone
 
-    const r = rng() < 0.18 ? 1.6 : rng() < 0.65 ? 1.1 : 0.8
-    const op = 0.30 + (d - 0.12) * 0.40
-    out.push({ x, y, r, opacity: Math.min(0.78, op) })
+    // dot size + opacity scale with density (denser zones = bolder dots)
+    const r = d > 0.7 ? (rng() < 0.4 ? 1.7 : 1.3) : (rng() < 0.6 ? 1.0 : 0.7)
+    const op = 0.40 + d * 0.45
+    out.push({ x, y, r, opacity: Math.min(0.85, op) })
   }
   return out
 }

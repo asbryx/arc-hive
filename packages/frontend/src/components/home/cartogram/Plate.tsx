@@ -160,43 +160,57 @@ export default function Plate({ agents }: PlateProps) {
         ))}
       </g>
 
-      {/* ─── 2. REGIONS ─── */}
+      {/* ─── 2. REGIONS — visible dashed outlines + caption above each ─── */}
       <g>
         {regions.map((r, i) => {
           const d = regionPath(r)
           if (!d) return null
+          // caption sits ABOVE the region (above the topmost vertex)
+          const captionY = Math.max(150, r.centroid.y - 22)
           return (
             <g key={i}>
               <path
                 d={d}
                 fill="var(--ink)"
-                opacity="0.04"
+                opacity="0.025"
+              />
+              <path
+                d={d}
+                fill="none"
                 stroke="var(--ink-3)"
-                strokeWidth="0.8"
-                strokeDasharray="4 5"
+                strokeWidth="1"
+                strokeDasharray="6 6"
+                opacity="0.55"
+              />
+              {/* caption */}
+              <rect
+                x={r.centroid.x - 130}
+                y={captionY - 12}
+                width={260}
+                height={18}
+                fill="var(--cream)"
+                opacity="0.9"
               />
               <text
                 x={r.centroid.x}
-                y={r.centroid.y - 100}
+                y={captionY + 2}
                 fontFamily="Geist Mono"
-                fontSize="11"
+                fontSize="10"
                 fill="var(--ink-2)"
                 textAnchor="middle"
-                letterSpacing="0.18em"
+                letterSpacing="0.20em"
                 fontWeight="500"
-                opacity="0.65"
               >
                 {r.label}
               </text>
               <text
                 x={r.centroid.x}
-                y={r.centroid.y - 86}
+                y={captionY + 16}
                 fontFamily="Geist Mono"
                 fontSize="9"
                 fill="var(--ink-3)"
                 textAnchor="middle"
                 letterSpacing="0.10em"
-                opacity="0.65"
               >
                 {r.subLabel}
               </text>
