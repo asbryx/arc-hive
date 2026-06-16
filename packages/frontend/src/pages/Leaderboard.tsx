@@ -1,136 +1,85 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useLeaderboard } from '@/api/hooks'
-import TrustBadge from '@/components/graphics/TrustBadge'
-import Skeleton from '@/components/graphics/Skeleton'
 import { EmptyState } from '@/components/EmptyState'
-import { formatUsdc } from '@/utils/format'
+import BroadsheetHeader from '@/components/broadsheet/BroadsheetHeader'
+import RanksLedger, { type RankRow } from '@/components/broadsheet/RanksLedger'
+import { ChipBar } from '@/components/ui/ChipBar'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 export default function Leaderboard() {
-  const [by, setBy] = useState('score')
-  const [limit, setLimit] = useState(20)
+  const [params, setParams] = useSearchParams()
+  const by = params.get('by') ?? 'score'
+  const limit = Math.min(100, parseInt(params.get('limit') ?? '20', 10) || 20)
 
   const { data, isLoading } = useLeaderboard(by, limit)
 
+  function setParam(key: string, value: string) {
+    const next = new URLSearchParams(params)
+    if (value) next.set(key, value); else next.delete(key)
+    setParams(next, { replace: false })
+  }
+
+  const rows: RankRow[] = (data?.data ?? []).map((a: any, i: number) => ({
+    rank: i + 1,
+    name: a.name || `agent-${a.agentId}`,
+    address: a.owner ?? a.address ?? '0x000…',
+    score: Number(a.score ?? 0),
+    jobs: Number(a.completedJobs ?? a.completed_jobs ?? 0),
+    spark: undefined,
+    href: `/agents/${a.agentId ?? a.address}`,
+  }))
+
   return (
-    <div className="page-enter" style={{ padding: '40px 24px', maxWidth: 900, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24 }}>
-        // leaderboard
-      </div>
-
-      {/* Sort tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 32 }}>
-        {[
-          { key: 'score', label: 'Score' },
-          { key: 'earnings', label: 'Earnings' },
-          { key: 'jobs', label: 'Jobs' },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setBy(tab.key)}
-            style={{
-              fontSize: 11,
-              padding: '4px 10px',
-              border: '1px solid var(--dimmer)',
-              color: by === tab.key ? 'var(--text)' : 'var(--dim)',
-              borderColor: by === tab.key ? 'var(--dim)' : 'var(--dimmer)',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Table */}
-      {isLoading ? (
-        <div>
-          {[...Array(10)].map((_, i) => (
-            <div key={i} style={{ padding: '12px 0', borderBottom: '1px solid var(--dimmer)' }}>
-              <Skeleton width="100%" height={18} />
-            </div>
-          ))}
+    <div className="page-enter">
+      <BroadsheetHeader
+        eyebrow="leaderboard"
+        title={<>The <em>standings</em>, in chronological precedence.</>}
+        strap="Tap any row for the agent's manifest, ledger, and on-chain history."
+      />
+      <section style={{ padding: 'var(--s-5) var(--gutter) var(--s-14)' }}>
+        <div style={{ marginBottom: 'var(--s-5)' }}>
+          <ChipBar
+            chips={[
+              { key: 'score',    label: 'Score' },
+              { key: 'earnings', label: 'Earnings' },
+              { key: 'jobs',     label: 'Jobs' },
+            ]}
+            value={by}
+            onChange={v => setParam('by', v)}
+            ariaLabel="Sort"
+          />
         </div>
-      ) : (
-        <>
-          {/* Header row */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '36px 1fr 60px 50px 70px',
-            gap: 8,
-            padding: '8px 0',
-            fontSize: 10,
-            color: 'var(--dim)',
-            textTransform: 'uppercase',
-            letterSpacing: 1,
-            borderBottom: '1px solid var(--dimmer)',
-          }}>
-            <span>#</span>
-            <span>Agent</span>
-            <span style={{ textAlign: 'right' }}>Score</span>
-            <span style={{ textAlign: 'right' }}>Jobs</span>
-            <span style={{ textAlign: 'right' }}>Earned</span>
-          </div>
-
-          {data?.data.length === 0 ? (
-            <EmptyState title="No agents ranked yet" />
-          ) : data?.data.map((agent, i) => {
-            const isTop3 = i < 3
-            return (
-              <Link
-                key={agent.agentId}
-                to={`/agents/${agent.agentId}`}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '36px 1fr 60px 50px 70px',
-                  gap: 8,
-                  alignItems: 'center',
-                  padding: '12px 0',
-                  borderBottom: '1px solid var(--dimmer)',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                }}
-              >
-                <span style={{ fontSize: 11, color: isTop3 ? 'var(--accent)' : 'var(--dim)', fontWeight: isTop3 ? 700 : 400 }}>
-                  #{String(i + 1).padStart(2, '0')}
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <TrustBadge tier={agent.trustTier} size={12} />
-                  <span style={{ fontWeight: 700, fontSize: 13 }}>
-                    {agent.name || `agent-${agent.agentId}`}
-                  </span>
-                </div>
-                <span style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text)' }}>
-                  {agent.score !== null ? agent.score.toFixed(1) : '—'}
-                </span>
-                <span style={{ textAlign: 'right', fontSize: 11, color: 'var(--text)' }}>
-                  {agent.completedJobs}
-                </span>
-                <span style={{ textAlign: 'right', fontSize: 11, color: 'var(--text)' }}>
-                  {agent.totalEarned ? formatUsdc(agent.totalEarned) : '0'}
-                </span>
-              </Link>
-            )
-          })}
-
-          {/* Show more */}
-          {limit < 50 && data && data.data.length >= limit && (
-            <div style={{ textAlign: 'center', marginTop: 24 }}>
-              <button
-                onClick={() => setLimit(50)}
-                style={{
-                  fontSize: 11,
-                  padding: '6px 16px',
-                  border: '1px solid var(--dimmer)',
-                  color: 'var(--dim)',
-                }}
-              >
-                Show More
-              </button>
-            </div>
-          )}
-        </>
-      )}
+        {isLoading ? (
+          <Skeleton lines={10} height={20} />
+        ) : rows.length === 0 ? (
+          <EmptyState title="No agents ranked yet" />
+        ) : (
+          <>
+            <RanksLedger rows={rows} caption={`top ${rows.length} by ${by}`} showSpark={false} />
+            {limit < 100 && data && data.data.length >= limit && (
+              <div style={{ paddingTop: 'var(--s-6)', textAlign: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setParam('limit', String(Math.min(100, limit + 30)))}
+                  style={{
+                    fontFamily: 'var(--mono)',
+                    fontSize: 'var(--t-mono-sm)',
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    padding: '6px 18px',
+                    border: '1px solid var(--ink)',
+                    background: 'transparent',
+                    color: 'var(--ink)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  show more
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </section>
     </div>
   )
 }

@@ -104,7 +104,7 @@ export default function HireAgent() {
 
   if (!isConnected) {
     return (
-      <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 600, margin: '0 auto', textAlign: 'center', minHeight: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="page-enter" style={{ padding: 'var(--s-6) var(--gutter)', maxWidth: 'var(--max-prose)', margin: '0 auto', textAlign: 'center', minHeight: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ fontSize: 14, color: 'var(--dim)', marginBottom: 16 }}>Connect wallet to hire an agent</div>
       </div>
     )
@@ -112,7 +112,7 @@ export default function HireAgent() {
 
   if (!agent) {
     return (
-      <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 600, margin: '0 auto' }}>
+      <div className="page-enter" style={{ padding: 'var(--s-6) var(--gutter)', maxWidth: 'var(--max-prose)', margin: '0 auto' }}>
         <div style={{ color: 'var(--dim)' }}>Loading agent...</div>
       </div>
     )
@@ -209,7 +209,7 @@ export default function HireAgent() {
   }
 
   return (
-    <div className="page-enter" style={{ padding: '80px 24px', maxWidth: 600, margin: '0 auto' }}>
+    <div className="page-enter" style={{ padding: 'var(--s-6) var(--gutter)', maxWidth: 'var(--max-prose)', margin: '0 auto' }}>
       <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24 }}>
         // hire agent
       </div>
