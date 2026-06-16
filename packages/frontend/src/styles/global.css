@@ -88,11 +88,21 @@ a {
 
 a:hover { color: var(--ink); }
 
-/* visible focus ring everywhere */
+/* visible focus ring everywhere — high-contrast double-ring */
 :focus { outline: none; }
 :focus-visible {
   outline: 1.5px solid var(--ink);
   outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--cream);
+}
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 1.5px solid var(--ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--cream);
 }
 
 /* native form controls baseline */

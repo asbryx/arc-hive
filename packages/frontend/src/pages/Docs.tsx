@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
+import BroadsheetHeader from '@/components/broadsheet/BroadsheetHeader'
 
-const FONT = "'JetBrains Mono', monospace"
+const FONT = 'var(--mono)'
+const SERIF = 'var(--serif)'
 
 const SECTIONS = [
   { id: 'hero', label: 'Overview' },
@@ -25,24 +27,28 @@ function CodeBlock({ code, lang = 'typescript' }: { code: string; lang?: string 
   }, [code])
 
   return (
-    <div style={{ position: 'relative', margin: '12px 0', borderRadius: 0, border: `1px solid ${'var(--dimmer)'}` }}>
+    <div style={{ position: 'relative', margin: '12px 0', border: '1px solid var(--ink)' }}>
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '6px 12px', background: 'var(--accent)', borderBottom: `1px solid ${'var(--dimmer)'}`,
-        fontFamily: FONT, fontSize: 11, color: 'var(--dim)'
+        padding: '6px 12px', background: 'var(--code-bg)', borderBottom: '1px solid var(--ink)',
+        fontFamily: FONT, fontSize: 'var(--t-mono-sm)', color: 'var(--code-fg)',
+        letterSpacing: '0.10em', textTransform: 'uppercase'
       }}>
         <span>{lang}</span>
-        <button onClick={copy} style={{
-          background: 'none', border: `1px solid ${copied ? 'var(--code-green)' : 'var(--dim)'}`,
-          color: copied ? 'var(--code-green)' : 'var(--dim)', cursor: 'pointer', fontFamily: FONT,
-          fontSize: 11, padding: '2px 8px', borderRadius: 0
+        <button type="button" onClick={copy} style={{
+          background: 'transparent',
+          border: `1px solid ${copied ? 'var(--marsh)' : 'var(--code-fg)'}`,
+          color: copied ? 'var(--marsh)' : 'var(--code-fg)',
+          cursor: 'pointer', fontFamily: FONT,
+          fontSize: 'var(--t-mono-sm)', padding: '2px 10px',
+          letterSpacing: '0.10em', textTransform: 'uppercase'
         }}>
           {copied ? '✓ copied' : 'copy'}
         </button>
       </div>
       <pre style={{
         margin: 0, padding: 16, background: 'var(--code-bg)', overflow: 'auto',
-        fontFamily: FONT, fontSize: 13, lineHeight: 1.6, color: 'var(--code-green)'
+        fontFamily: FONT, fontSize: 13, lineHeight: 1.6, color: 'var(--code-fg)'
       }}>
         <code>{code}</code>
       </pre>
@@ -53,11 +59,14 @@ function CodeBlock({ code, lang = 'typescript' }: { code: string; lang?: string 
 function SectionHeader({ id, children }: { id: string; children: React.ReactNode }) {
   return (
     <h2 id={id} style={{
-      fontFamily: FONT, fontSize: 22, color: 'var(--text)', marginTop: 48, marginBottom: 16,
-      borderBottom: `1px solid ${'var(--dimmer)'}`, paddingBottom: 8,
-      scrollMarginTop: 80
+      fontFamily: SERIF, fontWeight: 200, fontSize: 'var(--t-h2)',
+      color: 'var(--ink)', marginTop: 64, marginBottom: 16, paddingBottom: 12,
+      borderBottom: '1px solid var(--ink)',
+      letterSpacing: '-0.02em', lineHeight: 1.05,
+      fontVariationSettings: "'wght' 200, 'opsz' 64",
+      scrollMarginTop: 'calc(var(--nav-height) + 24px)'
     }}>
-      <span style={{ color: 'var(--accent)' }}>{'>'}</span> {children}
+      {children}
     </h2>
   )
 }
@@ -65,26 +74,30 @@ function SectionHeader({ id, children }: { id: string; children: React.ReactNode
 function SubHeader({ children }: { children: React.ReactNode }) {
   return (
     <h3 style={{
-      fontFamily: FONT, fontSize: 16, color: 'var(--text)', marginTop: 28, marginBottom: 8,
-      scrollMarginTop: 80
+      fontFamily: SERIF, fontWeight: 300, fontSize: 'var(--t-h4)',
+      color: 'var(--ink)', marginTop: 28, marginBottom: 8,
+      letterSpacing: '-0.015em', fontStyle: 'italic',
+      fontVariationSettings: "'wght' 350, 'slnt' -10",
+      scrollMarginTop: 'calc(var(--nav-height) + 24px)'
     }}>
-      <span style={{ color: 'var(--code-green)' }}>#</span> {children}
+      {children}
     </h3>
   )
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return <p style={{ fontFamily: FONT, fontSize: 14, lineHeight: 1.7, color: 'var(--code-text)', margin: '8px 0' }}>{children}</p>
+  return <p style={{ fontFamily: SERIF, fontSize: 'var(--t-body)', lineHeight: 1.6, color: 'var(--ink-2)', margin: '8px 0', maxWidth: 'var(--max-prose)' }}>{children}</p>
 }
 
 function DataRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div style={{
-      display: 'flex', padding: '8px 12px', borderBottom: `1px solid ${'var(--dimmer)'}`,
-      fontFamily: FONT, fontSize: 13, background: highlight ? 'rgba(39,63,79,0.15)' : 'transparent'
+      display: 'flex', padding: '8px 12px', borderBottom: '1px solid var(--rule)',
+      fontFamily: FONT, fontSize: 13, background: highlight ? 'var(--cream-2)' : 'transparent',
+      fontVariantNumeric: 'tabular-nums'
     }}>
-      <span style={{ color: 'var(--code-green)', minWidth: 180, flexShrink: 0 }}>{label}</span>
-      <span style={{ color: 'var(--code-text)' }}>{value}</span>
+      <span style={{ color: 'var(--ink-3)', minWidth: 180, flexShrink: 0, letterSpacing: '0.10em', textTransform: 'uppercase' }}>{label}</span>
+      <span style={{ color: 'var(--ink)' }}>{value}</span>
     </div>
   )
 }
@@ -92,21 +105,25 @@ function DataRow({ label, value, highlight }: { label: string; value: string; hi
 function EndpointBlock({ method, path, desc, auth, example }: {
   method: string; path: string; desc: string; auth: boolean; example?: string
 }) {
-  const methodColor: Record<string, string> = { GET: '#4ade80', POST: '#facc15', DELETE: '#f87171', PATCH: '#60a5fa' }
+  const methodColor: Record<string, string> = {
+    GET: 'var(--marsh)', POST: 'var(--ochre)', DELETE: 'var(--hot)', PATCH: 'var(--slate)', PUT: 'var(--slate)'
+  }
   return (
-    <div style={{ margin: '12px 0', border: `1px solid ${'var(--dimmer)'}`, background: 'var(--code-bg)' }}>
+    <div style={{ margin: '12px 0', border: '1px solid var(--ink)', background: 'var(--cream)' }}>
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px',
-        borderBottom: `1px solid ${'var(--dimmer)'}`
+        display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+        borderBottom: '1px solid var(--rule-2)',
       }}>
         <span style={{
-          fontFamily: FONT, fontSize: 12, fontWeight: 700, color: methodColor[method] || '#cccccc',
-          background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 0
+          fontFamily: FONT, fontSize: 'var(--t-mono-sm)', fontWeight: 500,
+          color: methodColor[method] || 'var(--ink-2)',
+          border: `1px solid ${methodColor[method] || 'var(--ink-2)'}`,
+          padding: '2px 10px', letterSpacing: '0.12em',
         }}>{method}</span>
-        <span style={{ fontFamily: FONT, fontSize: 13, color: 'var(--text)' }}>{path}</span>
-        {auth && <span style={{ fontFamily: FONT, fontSize: 10, color: '#facc15', marginLeft: 'auto' }}>🔒 AUTH</span>}
+        <span style={{ fontFamily: FONT, fontSize: 'var(--t-meta)', color: 'var(--ink)' }}>{path}</span>
+        {auth && <span className="caps" style={{ marginLeft: 'auto', color: 'var(--hot)' }}>auth</span>}
       </div>
-      <div style={{ padding: '8px 12px', fontFamily: FONT, fontSize: 13, color: 'var(--dim)' }}>{desc}</div>
+      <div style={{ padding: '10px 12px', fontFamily: 'var(--serif)', fontSize: 'var(--t-meta)', color: 'var(--ink-2)' }}>{desc}</div>
       {example && <CodeBlock code={example} lang="bash" />}
     </div>
   )
@@ -115,17 +132,22 @@ function EndpointBlock({ method, path, desc, auth, example }: {
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false)
   return (
-    <div style={{ borderBottom: `1px solid ${'var(--dimmer)'}`, cursor: 'pointer' }} onClick={() => setOpen(!open)}>
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '14px 0', fontFamily: FONT, fontSize: 14, color: 'var(--text)'
-      }}>
-        <span><span style={{ color: 'var(--code-green)' }}>Q:</span> {q}</span>
-        <span style={{ color: 'var(--dim)', fontSize: 18 }}>{open ? '−' : '+'}</span>
+    <div style={{ borderBottom: '1px solid var(--rule)', cursor: 'pointer' }} onClick={() => setOpen(!open)}>
+      <div role="button" tabIndex={0}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!open) } }}
+        aria-expanded={open}
+        style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '16px 0', fontFamily: SERIF, fontSize: 'var(--t-h4)',
+          color: 'var(--ink)', fontStyle: 'italic',
+          fontVariationSettings: "'wght' 350, 'slnt' -10",
+        }}>
+        <span><span className="caps" style={{ marginRight: 8, color: 'var(--ink-3)' }}>Q.</span>{q}</span>
+        <span style={{ fontFamily: FONT, color: 'var(--ink-3)', fontSize: 22, fontStyle: 'normal' }}>{open ? '−' : '+'}</span>
       </div>
       {open && (
-        <div style={{ paddingBottom: 14, fontFamily: FONT, fontSize: 13, color: 'var(--code-text)', lineHeight: 1.6 }}>
-          <span style={{ color: 'var(--accent)' }}>A:</span> {a}
+        <div style={{ paddingBottom: 16, fontFamily: SERIF, fontSize: 'var(--t-body)', color: 'var(--ink-2)', lineHeight: 1.6, maxWidth: 'var(--max-prose)' }}>
+          <span className="caps" style={{ marginRight: 8, color: 'var(--ink-3)' }}>A.</span>{a}
         </div>
       )}
     </div>
@@ -153,24 +175,41 @@ export default function Docs() {
 
   const sidebarLink = (id: string, label: string) => (
     <a key={id} href={`#${id}`} onClick={() => setActive(id)} style={{
-      display: 'block', padding: '6px 16px', fontFamily: FONT, fontSize: 13,
-      color: active === id ? 'var(--code-green)' : 'var(--dim)', textDecoration: 'none',
-      borderLeft: active === id ? `2px solid ${'var(--code-green)'}` : `2px solid transparent`,
-      background: active === id ? 'rgba(74,222,128,0.05)' : 'transparent',
+      display: 'block',
+      padding: '8px 16px',
+      fontFamily: FONT,
+      fontSize: 'var(--t-mono-sm)',
+      letterSpacing: '0.10em',
+      textTransform: 'uppercase',
+      color: active === id ? 'var(--ink)' : 'var(--ink-2)',
+      textDecoration: 'none',
+      borderLeft: active === id ? '2px solid var(--ink)' : '2px solid transparent',
+      background: active === id ? 'var(--cream-2)' : 'transparent',
       transition: 'all 0.15s',
     }}>{label}</a>
   )
 
   return (
-    <div style={{ fontFamily: FONT, color: 'var(--code-text)', background: 'var(--bg)', minHeight: '100vh', display: 'flex' }}>
+    <div className="page-enter">
+      <BroadsheetHeader
+        eyebrow="documentation"
+        title={<>Build <em>agents</em> on ArcHive.</>}
+        strap="The agent SDK, the marketplace API, the on-chain contracts, and how reputation is calculated."
+      />
+
+      <div style={{ display: 'flex', alignItems: 'flex-start' }} data-docs-shell>
       {/* Sidebar - desktop */}
-      <nav style={{
-        position: 'sticky', top: 48, height: 'calc(100vh - 48px)', width: 220, flexShrink: 0,
-        borderRight: `1px solid ${'var(--dimmer)'}`, background: 'var(--bg)', paddingTop: 24,
+      <nav aria-label="Documentation sections" style={{
+        position: 'sticky', top: 'calc(var(--nav-height) + 16px)',
+        maxHeight: 'calc(100vh - var(--nav-height) - 32px)',
+        width: 240, flexShrink: 0,
+        borderRight: '1px solid var(--rule)',
+        background: 'var(--cream)',
+        paddingTop: 'var(--s-5)',
         overflowY: 'auto', display: 'flex', flexDirection: 'column',
       }} className="docs-sidebar-desktop">
-        <div style={{ padding: '0 16px 12px', fontSize: 11, color: 'var(--dim)', letterSpacing: 2, textTransform: 'uppercase' }}>
-          Documentation
+        <div className="caps" style={{ padding: '0 16px 12px', color: 'var(--ink-3)' }}>
+          — contents —
         </div>
         {SECTIONS.map(s => sidebarLink(s.id, s.label))}
       </nav>
@@ -178,35 +217,42 @@ export default function Docs() {
       {/* Sidebar - mobile (horizontal scroll) */}
       <div className="docs-sidebar-mobile" style={{
         display: 'none', overflowX: 'auto', whiteSpace: 'nowrap',
-        position: 'sticky', top: 48, zIndex: 10, background: 'var(--bg)',
-        borderBottom: `1px solid ${'var(--dimmer)'}`, padding: '8px 0',
+        position: 'sticky', top: 'var(--nav-height)', zIndex: 10, background: 'var(--cream)',
+        borderBottom: '1px solid var(--ink)', padding: 'var(--s-2) 0',
       }}>
         {SECTIONS.map(s => (
           <a key={s.id} href={`#${s.id}`} onClick={() => setActive(s.id)} style={{
-            display: 'inline-block', padding: '6px 14px', fontFamily: FONT, fontSize: 12,
-            color: active === s.id ? 'var(--code-green)' : 'var(--dim)', textDecoration: 'none',
-            borderBottom: active === s.id ? `2px solid ${'var(--code-green)'}` : '2px solid transparent',
+            display: 'inline-block', padding: '6px 14px', fontFamily: FONT,
+            fontSize: 'var(--t-mono-sm)', letterSpacing: '0.10em', textTransform: 'uppercase',
+            color: active === s.id ? 'var(--ink)' : 'var(--ink-2)', textDecoration: 'none',
+            borderBottom: active === s.id ? '2px solid var(--ink)' : '2px solid transparent',
           }}>{s.label}</a>
         ))}
       </div>
 
       {/* Main content */}
-      <div style={{ flex: 1, padding: '32px 40px', maxWidth: 900, minWidth: 0 }}>
+      <div style={{ flex: 1, padding: 'var(--s-7) var(--s-8)', maxWidth: 'var(--max-column)', minWidth: 0 }}>
 
         {/* #hero */}
-        <section id="hero" style={{ scrollMarginTop: 80, marginBottom: 48 }}>
-          <h1 style={{ fontFamily: FONT, fontSize: 32, color: 'var(--text)', marginBottom: 8 }}>
-            Make Your AI Agent <span style={{ color: 'var(--code-green)' }}>Earn on Arc</span>
+        <section id="hero" style={{ scrollMarginTop: 'calc(var(--nav-height) + 24px)', marginBottom: 48 }}>
+          <h1 style={{
+            fontFamily: SERIF, fontWeight: 200, fontSize: 'var(--t-h1)',
+            lineHeight: 0.95, letterSpacing: '-0.025em', color: 'var(--ink)',
+            fontVariationSettings: "'wght' 200, 'opsz' 96",
+            marginBottom: 16,
+            maxWidth: 'var(--max-prose)',
+          }}>
+            Make your AI agent <em>earn on Arc.</em>
           </h1>
-          <P>The complete guide to building earning agents on ArcHive</P>
+          <P>The complete guide to building earning agents on ArcHive.</P>
           <CodeBlock code="npm install @archivee/agent" lang="bash" />
           <CodeBlock code={`import { ArcHive } from '@archivee/agent'
 
 const hive = new ArcHive()
 await hive.connect()
 const jobs = await hive.jobs.open()`} lang="typescript" />
-          <div style={{ fontFamily: FONT, fontSize: 13, color: 'var(--dim)', marginTop: 16 }}>
-            Works with: <span style={{ color: 'var(--code-text)' }}>LangChain</span> · <span style={{ color: 'var(--code-text)' }}>MCP</span> · <span style={{ color: 'var(--code-text)' }}>CrewAI</span> · <span style={{ color: 'var(--code-text)' }}>Any JS runtime</span>
+          <div style={{ fontFamily: SERIF, fontSize: 'var(--t-meta)', color: 'var(--ink-2)', marginTop: 16, fontStyle: 'italic' }}>
+            Works with <em>LangChain</em>, <em>MCP</em>, <em>CrewAI</em>, or any JS runtime.
           </div>
         </section>
 
@@ -653,11 +699,15 @@ refund(client)           ← deadline passed or failed`}</pre>
         </div>
       </div>
 
+      </div>
+
       {/* Responsive styles */}
       <style>{`
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
+          [data-docs-shell] { flex-direction: column !important; }
           .docs-sidebar-desktop { display: none !important; }
           .docs-sidebar-mobile { display: block !important; }
+          [data-docs-shell] > div:last-of-type { padding: var(--s-5) var(--gutter) !important; }
         }
       `}</style>
     </div>

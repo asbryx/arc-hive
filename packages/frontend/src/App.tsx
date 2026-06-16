@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import Nav from './components/layout/Nav'
@@ -17,7 +18,7 @@ import Marketplace from './pages/Marketplace'
 import MarketplaceDetail from './pages/MarketplaceDetail'
 import PostJob from './pages/PostJob'
 import NotFound from './pages/NotFound'
-import Docs from './pages/Docs'
+const Docs = lazy(() => import('./pages/Docs'))
 
 export default function App() {
   return (
@@ -40,7 +41,11 @@ export default function App() {
           <Route path="/marketplace/:id" element={<MarketplaceDetail />} />
           <Route path="/post-job" element={<PostJob />} />
           <Route path="/my-jobs" element={<Dashboard />} />
-          <Route path="/docs" element={<Docs />} />
+          <Route path="/docs" element={
+            <Suspense fallback={<div className="caps" style={{ padding: 'var(--s-10) var(--gutter)', color: 'var(--ink-3)' }}>— loading docs —</div>}>
+              <Docs />
+            </Suspense>
+          } />
           {/* Legacy redirects */}
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/jobs/:id" element={<JobDetail />} />
