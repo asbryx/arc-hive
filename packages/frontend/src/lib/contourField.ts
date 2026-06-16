@@ -139,3 +139,79 @@ export function segsToPath(segs: Seg[]): string {
   }
   return d
 }
+
+/**
+ * Chain disconnected marching-squares segments into continuous polylines
+ * by matching endpoints, then emit smooth SVG paths (Catmull-Rom → cubic
+ * Bézier). This turns the jagged broken-dash output into clean, elegant,
+ * nested contour lines that read as real topography.
+ */
+export function segsToSmoothPaths(segs: Seg[], quant = 1): string {
+  if (segs.length === 0) return ''
+  const key = (x: number, y: number) => `${Math.round(x / quant)},${Math.round(y / quant)}`
+
+  // adjacency: endpoint key -> list of {seg index, which end}
+  type End = { seg: number; end: 0 | 1 }
+  const ends = new Map<string, End[]>()
+  segs.forEach((s, i) => {
+    const k0 = key(s.x1, s.y1)
+    const k1 = key(s.x2, s.y2)
+    ;(ends.get(k0) ?? ends.set(k0, []).get(k0)!).push({ seg: i, end: 0 })
+    ;(ends.get(k1) ?? ends.set(k1, []).get(k1)!).push({ seg: i, end: 1 })
+  })
+
+  const used = new Array(segs.length).fill(false)
+  const polylines: Array<Array<{ x: number; y: number }>> = []
+
+  const ptOf = (i: number, end: 0 | 1) =>
+    end === 0 ? { x: segs[i].x1, y: segs[i].y1 } : { x: segs[i].x2, y: segs[i].y2 }
+
+  for (let start = 0; start < segs.length; start++) {
+    if (used[start]) continue
+    used[start] = true
+    const line = [ptOf(start, 0), ptOf(start, 1)]
+
+    // extend forward from the tail
+    let grew = true
+    while (grew) {
+      grew = false
+      const tail = line[line.length - 1]
+      const cand = ends.get(key(tail.x, tail.y)) ?? []
+      for (const e of cand) {
+        if (used[e.seg]) continue
+        const near = ptOf(e.seg, e.end)
+        const far = ptOf(e.seg, e.end === 0 ? 1 : 0)
+        if (Math.abs(near.x - tail.x) < quant && Math.abs(near.y - tail.y) < quant) {
+          line.push(far)
+          used[e.seg] = true
+          grew = true
+          break
+        }
+      }
+    }
+    polylines.push(line)
+  }
+
+  // emit each polyline as a smoothed path (Catmull-Rom to cubic Bézier)
+  let d = ''
+  for (const pts of polylines) {
+    if (pts.length < 2) continue
+    if (pts.length === 2) {
+      d += `M${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}L${pts[1].x.toFixed(1)} ${pts[1].y.toFixed(1)}`
+      continue
+    }
+    d += `M${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] ?? pts[i]
+      const p1 = pts[i]
+      const p2 = pts[i + 1]
+      const p3 = pts[i + 2] ?? p2
+      const c1x = p1.x + (p2.x - p0.x) / 6
+      const c1y = p1.y + (p2.y - p0.y) / 6
+      const c2x = p2.x - (p3.x - p1.x) / 6
+      const c2y = p2.y - (p3.y - p1.y) / 6
+      d += `C${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`
+    }
+  }
+  return d
+}

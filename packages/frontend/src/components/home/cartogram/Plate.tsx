@@ -22,7 +22,7 @@
 import { useMemo } from 'react'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import {
-  sampleField, contourAt, segsToPath,
+  sampleField, contourAt, segsToSmoothPaths,
 } from '@/lib/contourField'
 import {
   VB, PORT, ROUTES, SETTLEMENTS, buildPeaks, buildStipple,
@@ -99,11 +99,12 @@ export default function Plate() {
     const field = sampleField({ w: VB.w, h: VB.h, cell: 20, peaks })
 
     // contour levels as fractions of max elevation. The lowest is the
-    // coastline; the rest are interior topo lines.
+    // coastline; the rest are interior topo lines. Segments are chained +
+    // smoothed so contours read as clean nested loops, not jagged dashes.
     const max = field.max
-    const levels = [0.10, 0.20, 0.32, 0.46, 0.62, 0.80].map(f => f * max)
-    const contours = levels.map(l => segsToPath(contourAt(field, l)))
-    const coastline = segsToPath(contourAt(field, 0.10 * max))
+    const levels = [0.08, 0.16, 0.26, 0.38, 0.52, 0.68, 0.84].map(f => f * max)
+    const contours = levels.map(l => segsToSmoothPaths(contourAt(field, l), 18))
+    const coastline = segsToSmoothPaths(contourAt(field, 0.08 * max), 18)
 
     // population stipple, denser on high ground
     const keepClear = SETTLEMENTS.map(s => ({ x: s.x, y: s.y, r: 34 }))
@@ -129,15 +130,19 @@ export default function Plate() {
         </marker>
       </defs>
 
-      {/* ─── 1. CONTOUR FIELD — the land itself ─── */}
-      <g fill="none" stroke="var(--dust)" strokeWidth="1" opacity="0.55">
+      {/* ─── 1. CONTOUR FIELD — the land itself. Visible ink so the
+              topography actually reads; higher contours darker = highland. */}
+      <g fill="none" stroke="var(--ink-3)" strokeLinecap="round" strokeLinejoin="round">
         {contours.map((d, i) => (
-          <path key={i} d={d} strokeWidth={0.8 + i * 0.18} opacity={0.4 + i * 0.1} />
+          <path key={i} d={d}
+                strokeWidth={1 + i * 0.22}
+                opacity={0.42 + i * 0.07} />
         ))}
       </g>
 
       {/* ─── 2. COASTLINE — bold contour, edge of settled space ─── */}
-      <path d={coastline} fill="none" stroke="var(--ink-3)" strokeWidth="1.6" opacity="0.7" />
+      <path d={coastline} fill="none" stroke="var(--ink-2)" strokeWidth="2.2"
+            strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
 
       {/* ─── 3. POPULATION STIPPLE — recessive background texture ───
           Faint dust-tan, small, low opacity. It must read as ambient
@@ -149,6 +154,14 @@ export default function Plate() {
       </g>
 
       {/* ─── 4. TRADE ROUTES — port → every settlement ─── */}
+      {/* cream casing under active routes so they separate from the terrain */}
+      <g fill="none" stroke="var(--cream)" opacity="0.75">
+        {ROUTES.filter(rt => rt.phase !== 'idle').map((rt, i) => {
+          const dest = SETTLEMENTS[rt.to]
+          const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
+          return <path key={i} d={d} strokeWidth="5" strokeLinecap="round" />
+        })}
+      </g>
       <g fill="none">
         {ROUTES.map((rt, i) => {
           const dest = SETTLEMENTS[rt.to]
@@ -162,9 +175,9 @@ export default function Plate() {
               key={i}
               d={d}
               stroke={color}
-              strokeWidth={idle ? 1 : 2.2}
+              strokeWidth={idle ? 1 : 2.4}
               strokeDasharray={dash}
-              opacity={idle ? 0.38 : settled ? 1 : 0.92}
+              opacity={idle ? 0.4 : settled ? 1 : 0.95}
               markerEnd={settled ? 'url(#route-arrow)' : undefined}
             >
               {!reduced && !settled && !idle && (
@@ -248,7 +261,7 @@ export default function Plate() {
             <circle r={s.capital ? 22 : 15} fill="var(--cream)" opacity="0.78" />
             <Glyph kind={s.glyph} capital={s.capital} />
             {s.capital && (
-              <text x={lx} y={-16} fontFamily="Geist Mono" fontSize="9" fill="var(--hot)"
+              <text x={lx} y={-26} fontFamily="Geist Mono" fontSize="9" fill="var(--hot)"
                     textAnchor={s.anchor} letterSpacing="0.16em" fontWeight="500">CAPITAL · TOP OF FIELD</text>
             )}
             <text x={lx} y={s.capital ? 2 : 3} fontFamily="Fraunces" fontSize={nameSize}
