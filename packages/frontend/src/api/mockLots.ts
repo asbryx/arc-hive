@@ -84,26 +84,30 @@ const SUMMARIES: Record<LotCategory, string[]> = {
 }
 
 /**
+ * Layout discipline:
+ *
+ * The grid is 12 columns wide. To guarantee a flush right edge with no
+ * holes, every tile spans either 4 or 8 columns. Three sizes only:
+ *
+ *   feature  — 8 cols × 2 rows  (the editorial lead, top-left)
+ *   tall     — 4 cols × 2 rows  (an occasional vertical anchor)
+ *   standard — 4 cols × 1 row   (everything else, with summary)
+ *   thin     — 4 cols × 1 row   (cheap lots, no summary, denser)
+ *
+ * 12 / 4 = 3 tiles per row exactly. Feature(8) + standard(4) on the
+ * right adds to 12. Tall(4) + standard(4) + standard(4) = 12. Every
+ * combination divides cleanly. Right edge is always full.
+ *
  * Size is a function of the lot's price so the grid reads as a market
- * heatmap: the loudest, most-expensive briefs literally take more
- * space. Per user spec — "block size is dependent on the price."
- *
- * Thresholds (USDC):
- *   ≥ 4.5  → feature  (8 col × 2 row)
- *   ≥ 3.0  → tall     (4 col × 2 row)
- *   ≥ 1.6  → standard (4 col × 1 row)
- *   ≥ 0.8  → compact  (3 col × 1 row)
- *   else   → thin     (3 col × 1 row, no summary)
- *
- * For row-arithmetic to land flush we then pin the FIRST tile to
- * 'feature' regardless (the editorial "lead lot"), and ensure at most
- * one feature + one tall per visible inventory.
+ * heatmap — the loudest, most-expensive briefs literally take more
+ * space. The first tile is always the lead (feature). Beyond that, one
+ * cap: at most one feature and one tall per visible page so the grid
+ * doesn't collapse into a wall of giants.
  */
 function sizeForPrice(usdc: number): LotSize {
-  if (usdc >= 4.5) return 'feature'
-  if (usdc >= 3.0) return 'tall'
-  if (usdc >= 1.6) return 'standard'
-  if (usdc >= 0.8) return 'compact'
+  if (usdc >= 4.0) return 'feature'
+  if (usdc >= 2.5) return 'tall'
+  if (usdc >= 1.0) return 'standard'
   return 'thin'
 }
 
@@ -123,8 +127,6 @@ function makeLots(seedKey: string, count: number): Lot[] {
 
     // Editorial constraint: first tile is the lead, always feature.
     if (i === 0) size = 'feature'
-    // Cap to one feature + one tall per visible page so the grid doesn't
-    // collapse into a wall of giant tiles.
     if (size === 'feature') {
       if (featureUsed) size = 'standard'
       else featureUsed = true
@@ -148,7 +150,39 @@ function makeLots(seedKey: string, count: number): Lot[] {
       isLive: bids >= 5,
     })
   }
-  return reshuffleNonAdjacent(out)
+  return packForFlushGrid(reshuffleNonAdjacent(out))
+}
+
+/**
+ * Ensure the visible inventory is a multiple of 3 tiles after the
+ * feature. Feature consumes 8 cols × 2 rows, then 2 standards stack
+ * on its right (rows 0+1). After that, every row is 3 tiles × 4 cols.
+ *
+ * Drop trailing tiles that don't fit a complete row, so the grid
+ * always ends flush. (Better to show fewer than to show a ragged edge.)
+ */
+function packForFlushGrid(lots: Lot[]): Lot[] {
+  if (lots.length === 0) return lots
+  // Tile 0 is feature (8×2). Tiles 1..n must form complete rows of 3.
+  // Feature occupies the left 8 cols of rows 0+1. Right 4 cols of
+  // rows 0+1 needs 2 stacked tiles. Then every subsequent row is 3
+  // tiles. So total tiles = 1 (feature) + 2 (right stack) + 3*K.
+  const head = lots.slice(0, 1)
+  const rest = lots.slice(1)
+  // tall(4×2) on the right of the feature would also work but only if
+  // it pairs with another stack on the next column. Simpler rule:
+  // demote any non-feature 'tall' tiles in the first 2 positions to
+  // standard so the right column of the feature row is clean.
+  const fixed: Lot[] = head.slice()
+  rest.forEach((lot, i) => {
+    if (i < 2 && lot.size === 'tall') fixed.push({ ...lot, size: 'standard' })
+    else fixed.push(lot)
+  })
+  // Now: total non-feature must be 2 + 3K.
+  const nonFeature = fixed.length - 1
+  // After the 2 stack-fillers, K full rows of 3.
+  const drop = nonFeature < 2 ? 0 : (nonFeature - 2) % 3
+  return drop > 0 ? fixed.slice(0, fixed.length - drop) : fixed
 }
 
 /**

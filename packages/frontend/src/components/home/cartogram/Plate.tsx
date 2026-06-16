@@ -143,7 +143,12 @@ export default function Plate({ agents }: PlateProps) {
         ))}
       </g>
 
-      {/* flight lines */}
+      {/* flight lines.
+       * Stroke widths bumped up from 1.5 → 2 for visibility on
+       * scaled-down viewports (the plate can sit at as little as
+       * 700-1200 px wide; thin strokes faded into the cream).
+       * Marching ants on the EXECUTING + DELIVERING lines run a touch
+       * faster so the "live" reading is unambiguous. */}
       <g fill="none" strokeLinecap="square">
         {/* SETTLED · draws-on once, then freezes */}
         <line
@@ -152,12 +157,12 @@ export default function Plate({ agents }: PlateProps) {
           x2={DEMO_LINES[0].to.x}
           y2={DEMO_LINES[0].to.y}
           stroke="var(--marsh)"
-          strokeWidth="1.5"
+          strokeWidth="2"
           markerEnd="url(#arr-marsh)"
           strokeDasharray="950"
-          strokeDashoffset="0"
+          strokeDashoffset="950"
         >
-          <animate attributeName="stroke-dashoffset" from="950" to="0" dur="1.6s" fill="freeze" />
+          <animate attributeName="stroke-dashoffset" from="950" to="0" dur="1.8s" fill="freeze" />
         </line>
         {/* EXECUTING · marching ants */}
         <line
@@ -166,10 +171,10 @@ export default function Plate({ agents }: PlateProps) {
           x2={DEMO_LINES[1].to.x}
           y2={DEMO_LINES[1].to.y}
           stroke="var(--hot)"
-          strokeWidth="1.5"
-          strokeDasharray="3 5"
+          strokeWidth="2"
+          strokeDasharray="6 6"
         >
-          <animate attributeName="stroke-dashoffset" from="0" to="-16" dur="1.5s" repeatCount="indefinite" />
+          <animate attributeName="stroke-dashoffset" from="0" to="-24" dur="0.9s" repeatCount="indefinite" />
         </line>
         {/* DELIVERING · longer dashes, slower march */}
         <line
@@ -178,11 +183,11 @@ export default function Plate({ agents }: PlateProps) {
           x2={DEMO_LINES[2].to.x}
           y2={DEMO_LINES[2].to.y}
           stroke="var(--marsh)"
-          strokeWidth="1.5"
-          strokeDasharray="8 5"
-          opacity="0.85"
+          strokeWidth="2"
+          strokeDasharray="10 6"
+          opacity="0.9"
         >
-          <animate attributeName="stroke-dashoffset" from="0" to="-26" dur="2.2s" repeatCount="indefinite" />
+          <animate attributeName="stroke-dashoffset" from="0" to="-32" dur="1.4s" repeatCount="indefinite" />
         </line>
       </g>
 

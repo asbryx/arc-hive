@@ -120,18 +120,18 @@
 }
 
 /* size variants on the 12-col grid.
- * Every variant's column-span divides 12 cleanly so dense packing
- * always settles at a flush right edge:
- *   feature 8 + std 4         = 12
- *   std 4 × 3                 = 12
- *   compact 3 × 4             = 12
- *   tall 4 + std 4 + std 4    = 12
- *   thin 3 × 4                = 12
+ *
+ * Every tile is a multiple of 4 cols wide. 12 / 4 = 3 tiles per row.
+ * Combinations always sum to 12 — no holes possible at the right edge:
+ *   feature(8) + standard(4) on right (stacked × 2 rows) = 12 × 2
+ *   tall(4) + standard(4) + standard(4)                  = 12
+ *   standard(4) × 3                                      = 12
+ *   thin(4) × 3                                          = 12
  */
 .lot.feature  { grid-column: span 8; grid-row: span 2; padding: 32px 32px 28px; gap: 18px; }
 .lot.standard { grid-column: span 4; }
-.lot.compact  { grid-column: span 3; gap: 10px; }
-.lot.thin     { grid-column: span 3; gap: 8px; }
+.lot.compact  { grid-column: span 4; gap: 10px; }
+.lot.thin     { grid-column: span 4; gap: 8px; }
 .lot.tall     { grid-column: span 4; grid-row: span 2; }
 
 /* category coloring (resting) */
