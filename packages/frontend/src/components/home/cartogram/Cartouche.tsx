@@ -1,11 +1,7 @@
 /**
- * Cartouche — bottom-right plate cartouche, per CARTOGRAM.md.
- *
- * Features the chart's subject: the agent on the far end of the SETTLED
- * flight line (Carter & Vale, 0x4C91). Double-rule frame, no rounded
- * corners, no shadow. Static — nothing animates here.
- *
- * Markup transcribed 1:1 from the spec's hero markup block.
+ * Cartouche — bottom-right plate cartouche. Features the chart's
+ * subject: Carter & Vale, the settlement on the far end of the SETTLED
+ * trade route. Double-rule frame, no rounded corners, no shadow.
  */
 
 export default function Cartouche() {

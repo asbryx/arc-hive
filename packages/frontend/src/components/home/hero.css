@@ -18,7 +18,6 @@
   background: var(--cream);
   display: flex;
   flex-direction: column;
-  min-height: 760px;
 }
 
 .broadsheet-hero .bh-map-head {
@@ -60,12 +59,16 @@
 .broadsheet-hero .bh-map-head .strap strong { color: var(--ink); font-weight: 500; }
 .broadsheet-hero .bh-map-head .strap em { color: var(--hot); font-style: normal; font-weight: 500; }
 
-/* ─── plate canvas ─── */
+/* ─── plate canvas ───
+ * Locked to the SVG's native 16:9 (1600×900) so the map fills the box
+ * edge-to-edge with preserveAspectRatio="…slice" — no letterbox strip,
+ * no stranded chart, no crop. Capped so it never gets taller than the
+ * viewport on wide screens. */
 .broadsheet-hero .bh-map-svg-wrap {
   position: relative;
-  flex: 1;
+  width: 100%;
+  aspect-ratio: 1600 / 640;
   overflow: hidden;
-  min-height: 620px;
 }
 .broadsheet-hero .bh-map-svg-wrap .map-svg {
   position: absolute;

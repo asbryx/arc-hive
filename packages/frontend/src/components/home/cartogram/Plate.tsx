@@ -1,232 +1,233 @@
 /**
- * Plate — the cartogram SVG, transcribed 1:1 from
- * _design-archive/CARTOGRAM.md (PART II · technical spec).
+ * Plate — the cartogram, rebuilt as an actual topographic map.
  *
- * A printed cartographic plate of the marketplace as territory. Every
- * coordinate here is HAND-PLACED per the spec — this is not procedurally
- * generated. A plate reads as trustworthy precisely because every mark
- * was considered. Five layers, in z-order:
+ * The idea (from _design-archive/CARTOGRAM.md): address space as a
+ * TERRITORY. This builds that territory as a real map a stranger reads
+ * at a glance:
  *
- *   1. dust field — two bands (top + bottom) only; active region clear
- *   2. client markers — 3 open squares far-left where briefs originate
- *   3. flight lines — 3 (settled / executing / delivering) + payload labels
- *   4. named agents — 6, italic Fraunces label + mono addr·score subline
+ *   · contour lines (marching squares over an activity-elevation field)
+ *     fill the whole plate — the land has shape, busy clusters are
+ *     highlands, idle space is lowland.
+ *   · a bold coastline contour separates settled space from the void.
+ *   · population stipple, denser on the highlands = the 1,284 agents.
+ *   · a west-coast PORT where client briefs enter.
+ *   · trade ROUTES from the port to active settlements — both ends are
+ *     real, visible places (no dangling lines).
+ *   · six named SETTLEMENTS crowning the highlands, each a survey marker
+ *     + name + address + score.
  *
- * Only the 3 flight lines animate; everything else is static. Motion is
- * gated by prefers-reduced-motion (see hero.css / the reduced check below).
- *
- * Per CARTOGRAM.md: do NOT add more than 6 agents or more than 3 lines.
+ * Fills its 1600×900 box edge-to-edge. Only the routes animate.
  */
 
+import { useMemo } from 'react'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import {
+  sampleField, contourAt, segsToPath,
+} from '@/lib/contourField'
+import {
+  VB, PORT, ROUTES, SETTLEMENTS, buildPeaks, buildStipple,
+  type Settlement, type Phase,
+} from '@/lib/cartogramMap'
 
-const VIEWBOX = '0 0 1600 800'
+const PHASE_COLOR: Record<Phase, string> = {
+  executing:  'var(--hot)',
+  delivering: 'var(--marsh)',
+  settled:    'var(--marsh)',
+  idle:       'var(--slate)',
+}
+
+/* settlement glyphs — small survey markers */
+function Glyph({ kind, capital }: { kind: Settlement['glyph']; capital?: boolean }) {
+  const s = capital ? 1.5 : 1
+  const sw = 1.6
+  switch (kind) {
+    case 'star':
+      return (
+        <g transform={`scale(${s})`}>
+          <circle r="9" fill="var(--cream)" stroke="currentColor" strokeWidth={sw} />
+          <circle r="3" fill="currentColor" />
+          <line x1="0" y1="-13" x2="0" y2="-9" stroke="currentColor" strokeWidth={sw} />
+          <line x1="0" y1="9" x2="0" y2="13" stroke="currentColor" strokeWidth={sw} />
+          <line x1="-13" y1="0" x2="-9" y2="0" stroke="currentColor" strokeWidth={sw} />
+          <line x1="9" y1="0" x2="13" y2="0" stroke="currentColor" strokeWidth={sw} />
+        </g>
+      )
+    case 'cross':
+      return (
+        <g transform={`scale(${s})`}>
+          <rect x="-7" y="-7" width="14" height="14" fill="var(--cream)" stroke="currentColor" strokeWidth={sw} />
+          <line x1="-7" y1="-7" x2="7" y2="7" stroke="currentColor" strokeWidth={sw} />
+          <line x1="7" y1="-7" x2="-7" y2="7" stroke="currentColor" strokeWidth={sw} />
+        </g>
+      )
+    case 'tri':
+      return (
+        <g transform={`scale(${s})`}>
+          <polygon points="0,-9 8,6 -8,6" fill="var(--cream)" stroke="currentColor" strokeWidth={sw} />
+          <circle r="2.4" fill="currentColor" />
+        </g>
+      )
+    case 'lens':
+      return (
+        <g transform={`scale(${s})`}>
+          <path d="M -9 0 Q 0 -8 9 0 Q 0 8 -9 0 Z" fill="var(--cream)" stroke="currentColor" strokeWidth={sw} />
+          <circle r="2" fill="currentColor" />
+        </g>
+      )
+    case 'keep':
+      return (
+        <g transform={`scale(${s})`}>
+          <polygon points="-8,-7 8,-7 8,5 0,9 -8,5" fill="var(--cream)" stroke="currentColor" strokeWidth={sw} />
+        </g>
+      )
+    case 'ring':
+    default:
+      return (
+        <g transform={`scale(${s})`}>
+          <circle r="8" fill="var(--cream)" stroke="currentColor" strokeWidth={sw} />
+          <circle r="3" fill="none" stroke="currentColor" strokeWidth={sw} />
+        </g>
+      )
+  }
+}
 
 export default function Plate() {
   const reduced = useReducedMotion()
 
+  const { contours, coastline, stipple } = useMemo(() => {
+    const peaks = buildPeaks()
+    const field = sampleField({ w: VB.w, h: VB.h, cell: 20, peaks })
+
+    // contour levels as fractions of max elevation. The lowest is the
+    // coastline; the rest are interior topo lines.
+    const max = field.max
+    const levels = [0.10, 0.20, 0.32, 0.46, 0.62, 0.80].map(f => f * max)
+    const contours = levels.map(l => segsToPath(contourAt(field, l)))
+    const coastline = segsToPath(contourAt(field, 0.10 * max))
+
+    // population stipple, denser on high ground
+    const keepClear = SETTLEMENTS.map(s => ({ x: s.x, y: s.y, r: 34 }))
+    keepClear.push({ x: PORT.x, y: PORT.y, r: 40 })
+    const stipple = buildStipple(620, (x, y) => Math.min(1, field.at(x, y) / max), keepClear)
+
+    return { contours, coastline, stipple }
+  }, [])
+
   return (
     <svg
       className="map-svg"
-      viewBox={VIEWBOX}
+      viewBox={`0 0 ${VB.w} ${VB.h}`}
       preserveAspectRatio="xMidYMid meet"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
-      aria-label="Live cartogram of the marketplace — six named agents, three briefs in flight"
+      aria-label="Topographic map of the marketplace — elevation is agent activity, settlements are named agents, routes are briefs in flight"
     >
       <defs>
-        {/* six agent sigils — bespoke, one per named agent */}
-        <symbol id="g-lyra" viewBox="-12 -12 24 24">
-          <circle cx="0" cy="0" r="9" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          <circle cx="0" cy="-5" r="2" fill="currentColor" />
-          <line x1="-6" y1="4" x2="6" y2="4" stroke="currentColor" strokeWidth="1.5" />
-        </symbol>
-        <symbol id="g-carter" viewBox="-12 -12 24 24">
-          <rect x="-8" y="-8" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          <line x1="-8" y1="-8" x2="8" y2="8" stroke="currentColor" strokeWidth="1.5" />
-          <line x1="8" y1="-8" x2="-8" y2="8" stroke="currentColor" strokeWidth="1.5" />
-        </symbol>
-        <symbol id="g-thorne" viewBox="-12 -12 24 24">
-          <polygon points="0,-9 8,5 -8,5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          <circle cx="0" cy="0" r="2.5" fill="currentColor" />
-        </symbol>
-        <symbol id="g-iris" viewBox="-12 -12 24 24">
-          <path d="M -9 0 Q 0 -9 9 0 Q 0 9 -9 0 Z" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          <circle cx="0" cy="0" r="2" fill="currentColor" />
-        </symbol>
-        <symbol id="g-verity" viewBox="-12 -12 24 24">
-          <line x1="0" y1="-9" x2="0" y2="9" stroke="currentColor" strokeWidth="1.5" />
-          <line x1="-9" y1="0" x2="9" y2="0" stroke="currentColor" strokeWidth="1.5" />
-          <circle cx="0" cy="0" r="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
-        </symbol>
-        <symbol id="g-halden" viewBox="-12 -12 24 24">
-          <polygon points="-8,-8 8,-8 8,4 0,9 -8,4" fill="none" stroke="currentColor" strokeWidth="1.5" />
-        </symbol>
-
-        {/* supporting glyphs */}
-        <symbol id="g-client" viewBox="-8 -8 16 16">
-          <rect x="-5" y="-5" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1" />
-        </symbol>
-        <symbol id="g-dust" viewBox="-8 -8 16 16">
-          <circle cx="0" cy="0" r="2" fill="currentColor" opacity="0.5" />
-        </symbol>
-
-        {/* arrowhead for the settled line */}
-        <marker id="arr-marsh" viewBox="-6 -6 12 12" refX="6" refY="0"
-                markerWidth="8" markerHeight="8" orient="auto">
+        <marker id="route-arrow" viewBox="-6 -6 12 12" refX="5" refY="0"
+                markerWidth="7" markerHeight="7" orient="auto">
           <path d="M -6 -5 L 6 0 L -6 5 Z" fill="var(--marsh)" />
         </marker>
       </defs>
 
-      {/* ─── 1. DUST FIELD — top + bottom bands only ─── */}
-      <g style={{ color: 'var(--dust)' }} opacity="0.5">
-        {/* top band, y 86–138 */}
-        <use href="#g-dust" x="80"   y="86" />
-        <use href="#g-dust" x="160"  y="124" />
-        <use href="#g-dust" x="240"  y="92" />
-        <use href="#g-dust" x="320"  y="130" />
-        <use href="#g-dust" x="400"  y="98" />
-        <use href="#g-dust" x="490"  y="135" />
-        <use href="#g-dust" x="580"  y="92" />
-        <use href="#g-dust" x="680"  y="128" />
-        <use href="#g-dust" x="780"  y="96" />
-        <use href="#g-dust" x="880"  y="132" />
-        <use href="#g-dust" x="980"  y="100" />
-        <use href="#g-dust" x="1080" y="128" />
-        <use href="#g-dust" x="1180" y="96" />
-        <use href="#g-dust" x="1280" y="134" />
-        <use href="#g-dust" x="1380" y="100" />
-        <use href="#g-dust" x="1480" y="128" />
-        <use href="#g-dust" x="1560" y="98" />
-        {/* bottom band, y 688–724 */}
-        <use href="#g-dust" x="80"   y="724" />
-        <use href="#g-dust" x="160"  y="688" />
-        <use href="#g-dust" x="240"  y="722" />
-        <use href="#g-dust" x="320"  y="690" />
-        <use href="#g-dust" x="400"  y="724" />
-        <use href="#g-dust" x="490"  y="690" />
-        <use href="#g-dust" x="580"  y="722" />
-        <use href="#g-dust" x="680"  y="688" />
-        <use href="#g-dust" x="780"  y="724" />
-        <use href="#g-dust" x="880"  y="690" />
-        <use href="#g-dust" x="980"  y="722" />
-        <use href="#g-dust" x="1080" y="688" />
-        <use href="#g-dust" x="1180" y="724" />
-        <use href="#g-dust" x="1280" y="690" />
-        <use href="#g-dust" x="1380" y="722" />
-        <use href="#g-dust" x="1480" y="688" />
-        <use href="#g-dust" x="1560" y="722" />
+      {/* ─── 1. CONTOUR FIELD — the land itself ─── */}
+      <g fill="none" stroke="var(--dust)" strokeWidth="1" opacity="0.55">
+        {contours.map((d, i) => (
+          <path key={i} d={d} strokeWidth={0.8 + i * 0.18} opacity={0.4 + i * 0.1} />
+        ))}
       </g>
 
-      {/* ─── 2. CLIENT MARKERS — far-left, where briefs originate ─── */}
-      <g style={{ color: 'var(--ink-3)' }} opacity="0.75">
-        <use href="#g-client" x="120" y="280" />
-        <use href="#g-client" x="100" y="500" />
-        <use href="#g-client" x="180" y="620" />
+      {/* ─── 2. COASTLINE — bold contour, edge of settled space ─── */}
+      <path d={coastline} fill="none" stroke="var(--ink-3)" strokeWidth="1.6" opacity="0.7" />
+
+      {/* ─── 3. POPULATION STIPPLE ─── */}
+      <g fill="var(--ink-3)">
+        {stipple.map((s, i) => (
+          <circle key={i} cx={s.x} cy={s.y} r={s.r} opacity={0.45} />
+        ))}
       </g>
 
-      {/* ─── 3. FLIGHT LINES ─── */}
-      <g fill="none" strokeLinecap="square">
-        {/* 1. SETTLED · marsh · solid · arrowhead · draws on once */}
-        <line x1="180" y1="620" x2="1080" y2="420"
-              stroke="var(--marsh)" strokeWidth="1.5"
-              markerEnd="url(#arr-marsh)"
-              strokeDasharray="950" strokeDashoffset={reduced ? 0 : 950}>
-          {!reduced && (
-            <animate attributeName="stroke-dashoffset" from="950" to="0" dur="1.6s" fill="freeze" />
-          )}
-        </line>
-
-        {/* 2. EXECUTING · hot · short-dashed · marching ants */}
-        <line x1="120" y1="280" x2="700" y2="340"
-              stroke="var(--hot)" strokeWidth="1.5"
-              strokeDasharray="3 5">
-          {!reduced && (
-            <animate attributeName="stroke-dashoffset" from="0" to="-16" dur="1.5s" repeatCount="indefinite" />
-          )}
-        </line>
-
-        {/* 3. DELIVERING · marsh · long-dashed · slower marching ants */}
-        <line x1="100" y1="500" x2="380" y2="220"
-              stroke="var(--marsh)" strokeWidth="1.5"
-              strokeDasharray="8 5" opacity="0.85">
-          {!reduced && (
-            <animate attributeName="stroke-dashoffset" from="0" to="-26" dur="2.2s" repeatCount="indefinite" />
-          )}
-        </line>
+      {/* ─── 4. TRADE ROUTES — port → settlements ─── */}
+      <g fill="none">
+        {ROUTES.map((rt, i) => {
+          const dest = SETTLEMENTS[rt.to]
+          const color = PHASE_COLOR[rt.phase]
+          const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
+          const settled = rt.phase === 'settled'
+          const dash = settled ? undefined : rt.phase === 'executing' ? '3 5' : '9 6'
+          return (
+            <path
+              key={i}
+              d={d}
+              stroke={color}
+              strokeWidth="1.6"
+              strokeDasharray={dash}
+              opacity={settled ? 0.9 : 0.8}
+              markerEnd={settled ? 'url(#route-arrow)' : undefined}
+            >
+              {!reduced && !settled && (
+                <animate attributeName="stroke-dashoffset"
+                         from="0" to={rt.phase === 'executing' ? '-16' : '-30'}
+                         dur={rt.phase === 'executing' ? '1.5s' : '2.4s'}
+                         repeatCount="indefinite" />
+              )}
+            </path>
+          )
+        })}
       </g>
 
-      {/* inline payload labels — cream halo riding each line at its midpoint */}
-      <g transform="translate(630,520) rotate(-12.5)">
-        <rect x="-78" y="-10" width="156" height="16" fill="var(--cream)" opacity="0.94" />
-        <text x="0" y="2" fontFamily="Geist Mono" fontSize="11" fill="var(--marsh)"
-              textAnchor="middle" letterSpacing="0.10em" fontWeight="500">JOB-2841 · +2.40 USDC</text>
-      </g>
-      <g transform="translate(410,304) rotate(5.9)">
-        <rect x="-78" y="-10" width="156" height="16" fill="var(--cream)" opacity="0.94" />
-        <text x="0" y="2" fontFamily="Geist Mono" fontSize="11" fill="var(--hot)"
-              textAnchor="middle" letterSpacing="0.10em" fontWeight="500">JOB-2840 · 9/12 STEPS</text>
-      </g>
-      <g transform="translate(240,360) rotate(-45)">
-        <rect x="-72" y="-10" width="144" height="16" fill="var(--cream)" opacity="0.94" />
-        <text x="0" y="2" fontFamily="Geist Mono" fontSize="10" fill="var(--marsh)"
-              textAnchor="middle" letterSpacing="0.10em" fontWeight="500" fontStyle="italic">JOB-2838 · DELIV.</text>
-      </g>
-
-      {/* ─── 4. NAMED AGENTS (6) ─── */}
-      {/* 01 · Iris Voss · DELIVERING (marsh) */}
-      <g style={{ color: 'var(--marsh)' }} transform="translate(380,220)">
-        <use href="#g-iris" />
-        <text x="18" y="4" fontFamily="Fraunces" fontSize="15" fontWeight="350"
-              fill="var(--ink)" fontStyle="italic" letterSpacing="-0.005em">Iris Voss</text>
-        <text x="18" y="22" fontFamily="Geist Mono" fontSize="10" fill="var(--ink-3)"
-              letterSpacing="0.06em">0x88BD · 7.68</text>
+      {/* route payload labels — at route midpoint, horizontal, cream halo */}
+      <g>
+        {ROUTES.map((rt, i) => {
+          const dest = SETTLEMENTS[rt.to]
+          // midpoint of the quadratic at t=0.5
+          const mx = 0.25 * PORT.x + 0.5 * rt.cx + 0.25 * dest.x
+          const my = 0.25 * PORT.y + 0.5 * rt.cy + 0.25 * dest.y
+          const w = rt.payload.length * 6.0
+          return (
+            <g key={i} transform={`translate(${mx}, ${my})`}>
+              <rect x={-w / 2 - 4} y={-8} width={w + 8} height={15} fill="var(--cream)" opacity="0.92" />
+              <text x="0" y="3" fontFamily="Geist Mono" fontSize="10.5"
+                    fill={PHASE_COLOR[rt.phase]} textAnchor="middle"
+                    letterSpacing="0.06em" fontWeight="500">{rt.payload}</text>
+            </g>
+          )
+        })}
       </g>
 
-      {/* 02 · Lyra Synthwright · IDLE (slate) */}
-      <g style={{ color: 'var(--slate)' }} transform="translate(840,210)">
-        <use href="#g-lyra" />
-        <text x="18" y="4" fontFamily="Fraunces" fontSize="15" fontWeight="350"
-              fill="var(--ink)" fontStyle="italic" letterSpacing="-0.005em">Lyra Synthwright</text>
-        <text x="18" y="22" fontFamily="Geist Mono" fontSize="10" fill="var(--ink-3)"
-              letterSpacing="0.06em">0xA8C3 · 9.42</text>
+      {/* ─── 5. PORT — client gateway on the west coast ─── */}
+      <g transform={`translate(${PORT.x}, ${PORT.y})`} style={{ color: 'var(--ink)' }}>
+        <circle r="13" fill="var(--cream)" stroke="currentColor" strokeWidth="1.6" />
+        <circle r="5" fill="currentColor" />
+        <circle r="20" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="2 4" opacity="0.5" />
+        <text x="0" y="38" fontFamily="Geist Mono" fontSize="11" fill="var(--ink)"
+              textAnchor="middle" letterSpacing="0.16em" fontWeight="500">CLIENT PORT</text>
+        <text x="0" y="53" fontFamily="Fraunces" fontSize="12" fill="var(--ink-3)"
+              textAnchor="middle" fontStyle="italic">briefs make landfall here</text>
       </g>
 
-      {/* 03 · Thorne Ledger · EXECUTING (hot) · terminus of EXEC line */}
-      <g style={{ color: 'var(--hot)' }} transform="translate(700,340)">
-        <use href="#g-thorne" />
-        <text x="18" y="4" fontFamily="Fraunces" fontSize="15" fontWeight="350"
-              fill="var(--ink)" fontStyle="italic" letterSpacing="-0.005em">Thorne Ledger</text>
-        <text x="18" y="22" fontFamily="Geist Mono" fontSize="10" fill="var(--ink-3)"
-              letterSpacing="0.06em">0x12FA · 8.43</text>
-      </g>
-
-      {/* 04 · Carter & Vale · DELIVERING (marsh) · terminus of SETTLED line · cartouche subject */}
-      <g style={{ color: 'var(--marsh)' }} transform="translate(1080,420)">
-        <use href="#g-carter" />
-        <text x="18" y="4" fontFamily="Fraunces" fontSize="15" fontWeight="350"
-              fill="var(--ink)" fontStyle="italic" letterSpacing="-0.005em">Carter &amp; Vale</text>
-        <text x="18" y="22" fontFamily="Geist Mono" fontSize="10" fill="var(--ink-3)"
-              letterSpacing="0.06em">0x4C91 · 8.71</text>
-      </g>
-
-      {/* 05 · Verity & Bell · IDLE (slate) */}
-      <g style={{ color: 'var(--slate)' }} transform="translate(540,580)">
-        <use href="#g-verity" />
-        <text x="18" y="4" fontFamily="Fraunces" fontSize="15" fontWeight="350"
-              fill="var(--ink)" fontStyle="italic" letterSpacing="-0.005em">Verity &amp; Bell</text>
-        <text x="18" y="22" fontFamily="Geist Mono" fontSize="10" fill="var(--ink-3)"
-              letterSpacing="0.06em">0x7E02 · 7.94</text>
-      </g>
-
-      {/* 06 · Halden K. · IDLE (slate) · label flips LEFT */}
-      <g style={{ color: 'var(--slate)' }} transform="translate(1340,300)">
-        <use href="#g-halden" />
-        <text x="-18" y="4" fontFamily="Fraunces" fontSize="15" fontWeight="350"
-              fill="var(--ink)" fontStyle="italic" textAnchor="end" letterSpacing="-0.005em">Halden K.</text>
-        <text x="-18" y="22" fontFamily="Geist Mono" fontSize="10" fill="var(--ink-3)"
-              textAnchor="end" letterSpacing="0.06em">0x55AB · 7.81</text>
-      </g>
+      {/* ─── 6. SETTLEMENTS — named agents on the highlands ─── */}
+      {SETTLEMENTS.map(s => {
+        const color = PHASE_COLOR[s.phase]
+        const flip = s.anchor === 'end'
+        const lx = flip ? -16 : 16
+        const nameSize = s.capital ? 19 : 15
+        return (
+          <g key={s.addr} transform={`translate(${s.x}, ${s.y})`} style={{ color }}>
+            <Glyph kind={s.glyph} capital={s.capital} />
+            {s.capital && (
+              <text x={lx} y={-16} fontFamily="Geist Mono" fontSize="9" fill="var(--hot)"
+                    textAnchor={s.anchor} letterSpacing="0.16em" fontWeight="500">CAPITAL · TOP OF FIELD</text>
+            )}
+            <text x={lx} y={s.capital ? 2 : 3} fontFamily="Fraunces" fontSize={nameSize}
+                  fontWeight={s.capital ? 400 : 350} fill="var(--ink)" fontStyle="italic"
+                  textAnchor={s.anchor} letterSpacing="-0.01em">{s.name}</text>
+            <text x={lx} y={s.capital ? 22 : 20} fontFamily="Geist Mono" fontSize="10"
+                  fill="var(--ink-3)" textAnchor={s.anchor} letterSpacing="0.06em">
+              {s.addr} · {s.score.toFixed(2)}
+            </text>
+          </g>
+        )
+      })}
     </svg>
   )
 }

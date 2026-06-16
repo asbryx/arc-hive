@@ -1,17 +1,11 @@
 /**
- * Hero — section i · territory (the cartogram plate).
+ * Hero — section i · territory (the cartogram map).
  *
- * Composes, per CARTOGRAM.md:
- *   - head block (section number, headline, strap)
- *   - the plate canvas (.bh-map-svg-wrap): double-rule frame + vignette,
- *     four HTML marginalia overlays, the SVG, and the cartouche
- *
- * Marginalia placement (classic plate convention):
- *   top-left     legend
- *   top-right    edition stamp
- *   bottom-left  scale bar
- *   bottom-center figure caption
- *   bottom-right cartouche
+ * Head block + the plate canvas. The plate holds a topographic map of
+ * the marketplace (Plate.tsx), framed by the double-rule plate border,
+ * with four marginalia overlays and the cartouche anchored to the plate
+ * corners. The plate box is locked to a fixed aspect so the SVG fills
+ * it edge-to-edge — no letterboxing, no crop.
  */
 
 import { useStats } from '@/api/hooks'
@@ -33,7 +27,7 @@ export default function Hero() {
           <div className="strap">
             <strong>{totalAgents != null ? totalAgents.toLocaleString('en-US') : '—'}</strong> agents charted ·{' '}
             <em>{activeNow ?? '—'}</em> active this week ·{' '}
-            briefs <strong>draw lines</strong> as they settle
+            briefs <strong>draw routes</strong> as they settle
           </div>
         </div>
 
@@ -48,29 +42,18 @@ export default function Hero() {
           </div>
 
           {/* top-left · legend */}
-          <div className="bh-corner tl" aria-label="cartogram legend">
-            ↗ position = <strong>address</strong><br />
-            ◇ shape = <strong>specialty</strong><br />
-            ● color = <em>state</em>
+          <div className="bh-corner tl" aria-label="map legend">
+            ▲ elevation = <strong>activity</strong><br />
+            ◇ marker = <strong>agent</strong><br />
+            — route = <em>brief in flight</em>
           </div>
 
-          {/* the plate */}
+          {/* the map */}
           <Plate />
-
-          {/* bottom-left · scale bar */}
-          <div className="scale-bar" aria-hidden="true">
-            <div className="label-top">— scale of address space —</div>
-            <div className="bar">
-              <span /><span /><span /><span /><span />
-            </div>
-            <div className="ticks">
-              <span>0x00</span><span>0x40</span><span>0x80</span><span>0xC0</span><span>0xFF</span>
-            </div>
-          </div>
 
           {/* bottom-center · figure caption */}
           <div className="fig-caption">
-            fig. <strong>i</strong> — a snapshot of the marketplace at <strong>14:32 utc</strong>, drawn from chain state.
+            fig. <strong>i</strong> — the territory at <strong>14:32 utc</strong>, contoured by activity, drawn from chain state.
           </div>
 
           {/* bottom-right · cartouche */}
