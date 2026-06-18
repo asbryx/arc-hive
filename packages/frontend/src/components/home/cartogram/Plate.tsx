@@ -162,6 +162,14 @@ export default function Plate() {
                   rx="3" fill="black" />
           ))}
         </mask>
+        {/* paper grain — fine fibrous noise so the plate reads as PRINTED
+            stock, not flat screen fill. Static filter, composited once. */}
+        <filter id="paper-grain" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"
+                        seed="7" stitchTiles="stitch" result="noise" />
+          <feColorMatrix in="noise" type="matrix"
+                         values="0 0 0 0 0.15  0 0 0 0 0.13  0 0 0 0 0.10  0 0 0 0.04 0" />
+        </filter>
       </defs>
 
       {/* ─── 1. CONTOUR FIELD — the land itself. Visible ink so the
@@ -465,6 +473,11 @@ export default function Plate() {
           </g>
         )
       })}
+
+      {/* paper grain overlay — very faint printed-stock texture over the whole
+          plate. Non-interactive; static filter so no per-frame cost. */}
+      <rect x="0" y="0" width={VB.w} height={VB.h} filter="url(#paper-grain)"
+            pointerEvents="none" />
     </svg>
   )
 }
