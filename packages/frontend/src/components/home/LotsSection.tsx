@@ -142,8 +142,10 @@ export default function LotsSection() {
         ref={containerRef}
         style={{ height: layout.height ? `${layout.height}px` : undefined }}
       >
-        {filtered.map((l, i) => {
-          const tile = layout.tiles[i]
+        {filtered.map((l) => {
+          // tiles come back sorted by weight (not input order), so match by
+          // id — NOT by index, or the biggest tile lands on the wrong lot.
+          const tile = layout.tiles.find(t => t.id === l.jobId)
           if (!tile) return null
           return <Lot key={l.jobId} lot={l} tile={tile} />
         })}
