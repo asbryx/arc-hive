@@ -16,11 +16,14 @@ import type { TreemapTile } from '@/lib/squarifiedTreemap'
 
 type SizeBucket = 'feature' | 'tall' | 'standard' | 'compact' | 'thin'
 
-function bucketFor(area: number, h: number): SizeBucket {
-  // Height gates the bucket independent of area: a short tile must use a
-  // lean layout (fewer title lines, tighter padding) or content overflows.
-  if (h < 172) return 'thin'
-  if (h < 210) return 'compact'
+function bucketFor(area: number, w: number, h: number): SizeBucket {
+  // Both dimensions gate the bucket independent of area. A short OR narrow
+  // tile must use a lean layout (fewer title lines, no summary, tight
+  // padding) — otherwise text wraps into more lines than the tile can hold
+  // and the price footer overflows the bottom.
+  const small = Math.min(w, h)
+  if (h < 172 || small < 140) return 'thin'
+  if (h < 210 || small < 175) return 'compact'
   if (area >= 60000) return 'feature'
   if (area >= 34000) return 'tall'
   if (area >= 22000) return 'standard'
@@ -35,7 +38,7 @@ function formatAgo(min: number) {
 
 export default function Lot({ lot, tile }: { lot: LotData; tile: TreemapTile }) {
   const area = tile.w * tile.h
-  const bucket = bucketFor(area, tile.h)
+  const bucket = bucketFor(area, tile.w, tile.h)
   const className = ['lot', `size-${bucket}`, `cat-${lot.category}`].join(' ')
   const cat = lot.category === 'translation' ? 'TRANSLATION' : lot.category.toUpperCase()
   const style: React.CSSProperties = {

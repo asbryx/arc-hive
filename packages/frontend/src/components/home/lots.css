@@ -207,10 +207,11 @@
   opacity: 0.78;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
   min-width: 0;
 }
+.lot.size-feature .summary { -webkit-line-clamp: 3; }
 .lot.size-compact .summary,
 .lot.size-thin    .summary { display: none; }
 .lot.size-thin    .activity { display: none; }
