@@ -22,7 +22,7 @@
 import { useMemo } from 'react'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import {
-  sampleDensityField, contourAt, segsToSmoothPaths,
+  sampleDensityField, contourAt, segsToSmoothPaths, bakeHillshade,
 } from '@/lib/contourField'
 import {
   VB, PORT, ROUTES, SETTLEMENTS, buildPopulation, ROUTE_LABELS, KNOCKOUT_BOXES, isLabeled,
@@ -94,7 +94,7 @@ function Glyph({ kind, capital }: { kind: Settlement['glyph']; capital?: boolean
 export default function Plate() {
   const reduced = useReducedMotion()
 
-  const { contours, coastline, stipple } = useMemo(() => {
+  const { contours, coastline, stipple, hillshade } = useMemo(() => {
     // The ~1,284-agent population IS the terrain. Each agent splats a small
     // gaussian; where the crowd clusters, the land rises. The named
     // settlements add weight so they crown the highlands they sit on.
@@ -115,6 +115,13 @@ export default function Plate() {
     const contours = levels.map(l => segsToSmoothPaths(contourAt(field, l), 18))
     const coastline = segsToSmoothPaths(contourAt(field, 0.04 * max), 18)
 
+    // hillshade relief — baked ONCE to a raster (NW light, cartographic
+    // convention) so the terrain reads as raised land (2.5D) under the
+    // contour ink. Pure compute, cached in this memo, never per-frame.
+    const hillshade = bakeHillshade(field, {
+      azimuth: 315, altitude: 45, zFactor: 1.5, scale: 1, strength: 0.5,
+    })
+
     // the population itself is the dust layer — radius from weight, capped
     // away from glyphs/labels by simple proximity so dust never sits on text.
     // Subsample to ~640 dots: full 1,284 repaints a huge element count every
@@ -128,7 +135,7 @@ export default function Plate() {
       .filter(p => !clear.some(c => Math.hypot(c.x - p.x, c.y - p.y) < c.r))
       .map(p => ({ x: p.x, y: p.y, r: 0.7 + p.weight * 1.8 }))
 
-    return { contours, coastline, stipple }
+    return { contours, coastline, stipple, hillshade }
   }, [])
 
   return (
@@ -160,6 +167,13 @@ export default function Plate() {
       {/* ─── 1. CONTOUR FIELD — the land itself. Visible ink so the
               topography actually reads; higher contours darker = highland. */}
       <g mask="url(#label-knockout)">
+      {/* hillshade relief raster — baked NW-lit terrain under the ink, so the
+          land reads as raised (2.5D). Rendered once, cached in the memo. */}
+      {hillshade && (
+        <image href={hillshade} x="0" y="0" width={VB.w} height={VB.h}
+               preserveAspectRatio="none" style={{ mixBlendMode: 'multiply' }}
+               opacity="0.9" />
+      )}
       <g fill="none" stroke="var(--ink-3)" strokeLinecap="round" strokeLinejoin="round">
         {contours.map((d, i) => (
           <path key={i} d={d}

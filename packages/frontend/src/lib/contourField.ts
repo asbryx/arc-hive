@@ -278,3 +278,119 @@ export function segsToSmoothPaths(segs: Seg[], quant = 1): string {
   }
   return d
 }
+
+/* ─── hillshade relief (2.5D depth, baked to a raster) ─── */
+
+export interface HillshadeOptions {
+  /** light azimuth in degrees (0 = from north/top, 315 = NW, the cartographic default). */
+  azimuth?: number
+  /** light altitude in degrees above the horizon (higher = flatter shading). */
+  altitude?: number
+  /** vertical exaggeration of the terrain before shading. */
+  zFactor?: number
+  /** output raster scale (px per grid cell). 1 = one pixel per cell. */
+  scale?: number
+  /** overall shading strength 0..1 (how dark the shadows get). */
+  strength?: number
+}
+
+/**
+ * Bake a hillshade relief of a SampledField to a PNG data URL.
+ *
+ * Classic cartographic relief: a virtual sun (default NW, the convention)
+ * lights the terrain; slopes facing the light go pale, slopes facing away
+ * go dark. The eye reads this instantly as raised land — "2.5D" depth on
+ * flat paper, exactly how printed topographic atlases have done it for a
+ * century. Tinted to the plate palette (warm cream highlight → cool ink
+ * shadow) so it reads as printed ink, not a grey DEM.
+ *
+ * Pure compute over the existing elevation grid; call ONCE in a useMemo and
+ * cache — it never needs to run per frame. Returns '' if no canvas (SSR).
+ */
+export function bakeHillshade(field: SampledField, opts: HillshadeOptions = {}): string {
+  if (typeof document === 'undefined') return ''
+  const {
+    azimuth = 315, altitude = 45, zFactor = 1.4, scale = 1, strength = 0.55,
+  } = opts
+
+  const { grid, nx, ny, cell, max } = field
+  if (max <= 0) return ''
+
+  const W = Math.max(1, Math.round(nx * scale))
+  const H = Math.max(1, Math.round(ny * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return ''
+
+  const img = ctx.createImageData(W, H)
+  const data = img.data
+
+  const azRad = (azimuth * Math.PI) / 180
+  const altRad = (altitude * Math.PI) / 180
+  // light vector
+  const lx = Math.cos(altRad) * Math.sin(azRad)
+  const ly = -Math.cos(altRad) * Math.cos(azRad)
+  const lz = Math.sin(altRad)
+
+  // normalise elevation so zFactor is palette-independent
+  const zScale = (zFactor * 60) / max
+
+  for (let py = 0; py < H; py++) {
+    const gy = (py / scale)
+    const r = Math.min(ny - 1, Math.max(1, Math.round(gy)))
+    for (let px = 0; px < W; px++) {
+      const gx = (px / scale)
+      const c = Math.min(nx - 1, Math.max(1, Math.round(gx)))
+
+      // central-difference gradient (Horn's method, 3x3 would be smoother but
+      // this is plenty for a soft wash)
+      const zL = grid[r][c - 1] * zScale
+      const zR = grid[r][c + 1] * zScale
+      const zT = grid[r - 1][c] * zScale
+      const zB = grid[r + 1][c] * zScale
+      const dzdx = (zR - zL) / (2 * cell)
+      const dzdy = (zB - zT) / (2 * cell)
+
+      // surface normal
+      const nlen = Math.sqrt(dzdx * dzdx + dzdy * dzdy + 1)
+      const nxv = -dzdx / nlen
+      const nyv = -dzdy / nlen
+      const nzv = 1 / nlen
+
+      // lambertian shade 0..1
+      let shade = nxv * lx + nyv * ly + nzv * lz
+      shade = Math.max(0, Math.min(1, shade))
+
+      // elevation 0..1 at this pixel (for a faint hypsometric warmth on peaks)
+      const elev = Math.min(1, grid[r][c] / max)
+
+      // map shade → ink/cream. shade 1 = lit (warm cream), shade 0 = shadow (cool ink).
+      // blend toward neutral by `strength` so it's a wash, not a hard render.
+      const litR = 247, litG = 243, litB = 230   // warm cream highlight
+      const shR = 70,  shG = 84,  shB = 92        // cool slate-ink shadow
+      const t = (1 - shade) * strength
+      let rr = Math.round(litR * (1 - t) + shR * t)
+      let gg = Math.round(litG * (1 - t) + shG * t)
+      let bb = Math.round(litB * (1 - t) + shB * t)
+      // faint warm lift on high peaks (hypsometric)
+      rr = Math.min(255, rr + Math.round(elev * 8))
+      gg = Math.min(255, gg + Math.round(elev * 3))
+
+      // alpha: stronger over land, fade to transparent over the lowland void so
+      // it sits inside the coastline and doesn't tint the empty paper.
+      const alpha = Math.round(Math.min(1, elev * 2.2) * 235)
+
+      const idx = (py * W + px) * 4
+      data[idx] = rr
+      data[idx + 1] = gg
+      data[idx + 2] = bb
+      data[idx + 3] = alpha
+    }
+  }
+
+  ctx.putImageData(img, 0, 0)
+  return canvas.toDataURL('image/png')
+}
+
