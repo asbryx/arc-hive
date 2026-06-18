@@ -146,6 +146,33 @@ export default function Plate() {
     return { contours, coastline, stipple, hillshade }
   }, [])
 
+  // Memoize the STATIC terrain element tree (hillshade + contours + coastline +
+  // dust). It has no churn dependency, so React reuses this exact element on
+  // every churn tick — the reconciler skips the whole masked group (and its
+  // ~580 dust nodes), eliminating the per-tick re-render hitch. Only the small
+  // live layer (auras/routes/packets/sparks) reconciles on a tick.
+  const terrain = useMemo(() => (
+    <g mask="url(#label-knockout)">
+      {hillshade && (
+        <image href={hillshade} x="0" y="0" width={VB.w} height={VB.h}
+               preserveAspectRatio="none" style={{ mixBlendMode: 'multiply' }}
+               opacity="0.9" />
+      )}
+      <g fill="none" stroke="var(--ink-3)" strokeLinecap="round" strokeLinejoin="round">
+        {contours.map((d, i) => (
+          <path key={i} d={d} strokeWidth={1 + i * 0.22} opacity={0.42 + i * 0.07} />
+        ))}
+      </g>
+      <path d={coastline} fill="none" stroke="var(--ink-2)" strokeWidth="2.2"
+            strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+      <g fill="var(--dust)">
+        {stipple.map((s, i) => (
+          <circle key={i} cx={s.x} cy={s.y} r={s.r} opacity={0.22 + s.r * 0.12} />
+        ))}
+      </g>
+    </g>
+  ), [hillshade, contours, coastline, stipple])
+
   return (
     <svg
       className="map-svg"
@@ -180,38 +207,10 @@ export default function Plate() {
         </filter>
       </defs>
 
-      {/* ─── 1. CONTOUR FIELD — the land itself. Visible ink so the
-              topography actually reads; higher contours darker = highland. */}
-      <g mask="url(#label-knockout)">
-      {/* hillshade relief raster — baked NW-lit terrain under the ink, so the
-          land reads as raised (2.5D). Rendered once, cached in the memo. */}
-      {hillshade && (
-        <image href={hillshade} x="0" y="0" width={VB.w} height={VB.h}
-               preserveAspectRatio="none" style={{ mixBlendMode: 'multiply' }}
-               opacity="0.9" />
-      )}
-      <g fill="none" stroke="var(--ink-3)" strokeLinecap="round" strokeLinejoin="round">
-        {contours.map((d, i) => (
-          <path key={i} d={d}
-                strokeWidth={1 + i * 0.22}
-                opacity={0.42 + i * 0.07} />
-        ))}
-      </g>
-
-      {/* ─── 2. COASTLINE — bold contour, edge of settled space ─── */}
-      <path d={coastline} fill="none" stroke="var(--ink-2)" strokeWidth="2.2"
-            strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
-
-      {/* ─── 3. POPULATION STIPPLE — the ~1,284 agents themselves ───
-          Each dot is one agent at its address. Faint dust-tan, small, low
-          opacity so the crowd reads as ambient terrain texture and the
-          density (not any single dot) is what the eye picks up. */}
-      <g fill="var(--dust)">
-        {stipple.map((s, i) => (
-          <circle key={i} cx={s.x} cy={s.y} r={s.r} opacity={0.22 + s.r * 0.12} />
-        ))}
-      </g>
-      </g>{/* end label-knockout mask (contours + coastline + dust) */}
+      {/* ─── 1. STATIC TERRAIN (memoized) — hillshade relief + contours +
+              coastline + population dust. Reused across churn ticks so the
+              reconciler skips it; only the live layer below re-renders. */}
+      {terrain}
 
       {/* ─── 3.5 LIVING TERRAIN — activity auras ───
           Each working agent's hill BREATHES: slow rings rise + fade outward,
