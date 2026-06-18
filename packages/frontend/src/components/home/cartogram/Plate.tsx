@@ -103,7 +103,7 @@ export default function Plate() {
       x: s.x, y: s.y, weight: s.capital ? 2.4 : 1.5,
     }))
     const field = sampleDensityField({
-      w: VB.w, h: VB.h, cell: 8, bandwidth: 50,
+      w: VB.w, h: VB.h, cell: 8, bandwidth: 52,
       points: [...population, ...named],
     })
 

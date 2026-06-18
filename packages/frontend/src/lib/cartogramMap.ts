@@ -110,14 +110,34 @@ const CLEAR_ZONES = [
 ]
 
 /**
- * Light collision relaxation over the NAMED settlements only. Each label is
- * a wide-but-short box, so we use an elliptical exclusion (RX ≫ RY) and push
- * overlapping pairs apart, then shove nodes out of the clear zones and clamp
- * to the interior. Deterministic (no randomness) so positions never flicker.
+ * Layout pass over the NAMED settlements. Two forces, both deterministic:
+ *
+ *  1. Ranked-lattice spread (anti-clump): agents are ranked by their
+ *     address-derived x, then gently pulled toward evenly-spaced x slots.
+ *     This preserves address ORDER (west addresses stay west) while
+ *     guaranteeing the territory fills the plate edge-to-edge instead of
+ *     hashing into two clumps with a dead gap between them.
+ *  2. Elliptical collision push (legibility): each label is a wide-but-short
+ *     box, so overlapping pairs are pushed apart (RX ≫ RY). Then nodes are
+ *     shoved out of the clear zones (port + the two top marginalia) and
+ *     clamped to the interior.
+ *
+ * No randomness → positions never flicker. The x-order is still the agents'
+ * address order, so "position = address" stays honest; we only relax spacing.
  */
 function relaxPositions(pts: Array<{ x: number; y: number }>): void {
   const RX = 215, RY = 70
-  for (let it = 0; it < 260; it++) {
+  const GRID_PULL = 0.06
+  // even x slots, assigned by address-x rank (keeps west/east order)
+  const lo = MARGIN.x + 70
+  const hi = VB.w - MARGIN.x - 70
+  const order = pts.map((_, i) => i).sort((a, b) => pts[a].x - pts[b].x)
+  const targetX = new Array(pts.length)
+  order.forEach((idx, rank) => {
+    targetX[idx] = lo + (hi - lo) * (rank / (pts.length - 1))
+  })
+
+  for (let it = 0; it < 300; it++) {
     for (let i = 0; i < pts.length; i++) {
       for (let j = i + 1; j < pts.length; j++) {
         const dx = pts[j].x - pts[i].x
@@ -133,6 +153,8 @@ function relaxPositions(pts: Array<{ x: number; y: number }>): void {
           pts[j].y += uy * RY * push * 0.5
         }
       }
+      // pull toward the evenly-spaced address-ranked x slot
+      pts[i].x += (targetX[i] - pts[i].x) * GRID_PULL
       for (const z of CLEAR_ZONES) {
         const dx = pts[i].x - z.x
         const dy = pts[i].y - z.y
@@ -202,7 +224,7 @@ export function buildPopulation(n = 1284): AgentPoint[] {
       // reads as continuous land with bays/inlets, not floating islands.
       x = MARGIN.x + rng() * (VB.w - MARGIN.x * 2)
       y = MARGIN.y + rng() * (VB.h - MARGIN.y * 2)
-      weight = 0.10 + rng() * 0.13
+      weight = 0.12 + rng() * 0.14
     }
     x = Math.max(16, Math.min(VB.w - 16, x))
     y = Math.max(16, Math.min(VB.h - 16, y))
