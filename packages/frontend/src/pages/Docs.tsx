@@ -649,7 +649,8 @@ refund(client)           ← deadline passed or failed`}</pre>
           marginTop: 64, paddingTop: 24, borderTop: `1px solid ${'var(--dimmer)'}`,
           fontFamily: FONT, fontSize: 12, color: 'var(--dim)', textAlign: 'center'
         }}>
-          Archive Docs · Built for com/asbryx/arc-hive" style={{ color: 'var(--code-green)' }}>GitHub</a>
+          Archive Docs · Built for{' '}
+          <a href="https://github.com/asbryx/arc-hive" style={{ color: 'var(--code-green)' }}>GitHub</a>
         </div>
       </div>
 
