@@ -237,6 +237,10 @@ export interface Route {
   to: number          // settlement index
   phase: Phase
   payload: string
+  /** brief magnitude ∈ ~[0,1] — drives route stroke width (Minard: line
+   *  thickness carries information, not just connection). Big payouts and
+   *  near-complete multi-step jobs draw bolder roads. */
+  mag: number
   /** quadratic control point for the route curve (computed from endpoints). */
   cx: number
   cy: number
@@ -253,19 +257,20 @@ function routeControl(dest: { x: number; y: number }, bend: number): { cx: numbe
   return { cx: mx - dy * bend, cy: my + dx * bend }
 }
 
-/** Raw route definitions (to-index, phase, payload). Control points are
- *  derived from the resolved settlement positions below. */
+/** Raw route definitions. `mag` ∈ [0,1] encodes brief importance for the
+ *  Minard line-width: USDC settlements weigh by payout, step-jobs by both
+ *  progress and total size, deliveries mid-weight, idle ~0. */
 const ROUTE_SEEDS: Array<Omit<Route, 'cx' | 'cy'>> = [
-  { to: 0, phase: 'executing',  payload: 'JOB-2840 · 9/12 steps' },
-  { to: 1, phase: 'executing',  payload: 'JOB-2842 · 2/6 steps'  },
-  { to: 2, phase: 'settled',    payload: 'JOB-2841 · +2.40 USDC' },
-  { to: 5, phase: 'executing',  payload: 'JOB-2839 · 4/8 steps'  },
-  { to: 6, phase: 'delivering', payload: 'JOB-2836 · delivering' },
-  { to: 8, phase: 'delivering', payload: 'JOB-2838 · delivering' },
-  { to: 3, phase: 'idle',       payload: '' },
-  { to: 4, phase: 'idle',       payload: '' },
-  { to: 7, phase: 'idle',       payload: '' },
-  { to: 9, phase: 'idle',       payload: '' },
+  { to: 0, phase: 'executing',  payload: 'JOB-2840 · 9/12 steps', mag: 0.85 },
+  { to: 1, phase: 'executing',  payload: 'JOB-2842 · 2/6 steps',  mag: 0.34 },
+  { to: 2, phase: 'settled',    payload: 'JOB-2841 · +2.40 USDC', mag: 0.70 },
+  { to: 5, phase: 'executing',  payload: 'JOB-2839 · 4/8 steps',  mag: 0.52 },
+  { to: 6, phase: 'delivering', payload: 'JOB-2836 · delivering', mag: 0.60 },
+  { to: 8, phase: 'delivering', payload: 'JOB-2838 · delivering', mag: 0.48 },
+  { to: 3, phase: 'idle',       payload: '', mag: 0 },
+  { to: 4, phase: 'idle',       payload: '', mag: 0 },
+  { to: 7, phase: 'idle',       payload: '', mag: 0 },
+  { to: 9, phase: 'idle',       payload: '', mag: 0 },
 ]
 
 export const ROUTES: Route[] = ROUTE_SEEDS.map((r, i) => {
@@ -296,6 +301,14 @@ function textW(text: string, size: number, mono: boolean): number {
   return text.length * size * (mono ? 0.6 : 0.52)
 }
 
+/** Only ACTIVE agents (executing/delivering/settled) get a full name label.
+ *  Idle agents are quiet, unlabeled landmarks — small markers on their hill,
+ *  no shouting text. This is both the declutter and the meaning: every NAMED
+ *  agent on the plate is one you can see doing something. */
+export function isLabeled(s: Settlement): boolean {
+  return s.phase !== 'idle'
+}
+
 /** Bounding box of an agent's stacked label (name + addr + optional capital
  *  tag), accounting for anchor side. Coordinates are absolute (plate space). */
 function agentLabelBox(s: Settlement): Box {
@@ -311,12 +324,14 @@ function agentLabelBox(s: Settlement): Box {
   return { x, y: yTop, w, h: yBot - yTop }
 }
 
-export const AGENT_LABEL_BOXES: Box[] = SETTLEMENTS.map(agentLabelBox)
+/** Label keep-out boxes — only labeled (active) agents claim label space. */
+export const AGENT_LABEL_BOXES: Box[] = SETTLEMENTS.filter(isLabeled).map(agentLabelBox)
 
-/** glyph + cream-clearing discs (so route labels also avoid sitting on a marker). */
+/** glyph keep-out discs (so route labels avoid sitting on a marker). Labeled
+ *  agents get a wide disc (glyph + clearing); idle agents only a small one. */
 const GLYPH_BOXES: Box[] = [
   ...SETTLEMENTS.map(s => {
-    const r = s.capital ? 24 : 17
+    const r = !isLabeled(s) ? 11 : s.capital ? 24 : 17
     return { x: s.x - r, y: s.y - r, w: r * 2, h: r * 2 }
   }),
   { x: PORT.x - 60, y: PORT.y - 16, w: 120, h: 74 }, // port + its two labels
@@ -324,7 +339,7 @@ const GLYPH_BOXES: Box[] = [
 
 /** marginalia keep-out: legend (TL), edition stamp (TR), fig caption (bottom). */
 const MARGINALIA_BOXES: Box[] = [
-  { x: 24, y: 24, w: 250, h: 96 },           // legend
+  { x: 24, y: 24, w: 256, h: 130 },          // legend (now taller — has state swatches)
   { x: VB.w - 250, y: 24, w: 240, h: 92 },   // edition stamp
   { x: VB.w / 2 - 230, y: VB.h - 70, w: 460, h: 60 }, // caption
 ]

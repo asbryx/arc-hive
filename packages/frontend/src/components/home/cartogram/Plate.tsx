@@ -25,7 +25,7 @@ import {
   sampleDensityField, contourAt, segsToSmoothPaths,
 } from '@/lib/contourField'
 import {
-  VB, PORT, ROUTES, SETTLEMENTS, buildPopulation, ROUTE_LABELS, KNOCKOUT_BOXES,
+  VB, PORT, ROUTES, SETTLEMENTS, buildPopulation, ROUTE_LABELS, KNOCKOUT_BOXES, isLabeled,
   type Settlement, type Phase,
 } from '@/lib/cartogramMap'
 
@@ -181,12 +181,14 @@ export default function Plate() {
       </g>{/* end label-knockout mask (contours + coastline + dust) */}
 
       {/* ─── 4. TRADE ROUTES — port → every settlement ─── */}
-      {/* cream casing under active routes so they separate from the terrain */}
+      {/* cream casing under active routes so they separate from the terrain.
+          Width tracks brief magnitude (Minard) so bold roads = big briefs. */}
       <g fill="none" stroke="var(--cream)" opacity="0.75">
         {ROUTES.filter(rt => rt.phase !== 'idle').map((rt, i) => {
           const dest = SETTLEMENTS[rt.to]
           const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
-          return <path key={i} d={d} strokeWidth="5" strokeLinecap="round" />
+          const casing = 3.2 + rt.mag * 4.2 + 2
+          return <path key={i} d={d} strokeWidth={casing} strokeLinecap="round" />
         })}
       </g>
       <g fill="none">
@@ -196,21 +198,30 @@ export default function Plate() {
           const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
           const settled = rt.phase === 'settled'
           const idle = rt.phase === 'idle'
-          const dash = settled ? undefined : idle ? '1 7' : rt.phase === 'executing' ? '3 5' : '9 6'
+          // dash periods chosen so the animated offset loops SEAMLESSLY:
+          // offset travels exactly one period, so there is no visible jump.
+          const period = rt.phase === 'executing' ? 10 : 15   // 6+4 or 9+6
+          const dash = settled ? undefined : idle ? '1 7' : rt.phase === 'executing' ? '6 4' : '9 6'
+          // Minard: stroke width encodes brief magnitude
+          const sw = idle ? 1 : 1.6 + rt.mag * 3.2
+          // slower, smoother flow; longer period reads as calm movement
+          const dur = rt.phase === 'executing' ? 2.4 : 3.2
           return (
             <path
               key={i}
               d={d}
               stroke={color}
-              strokeWidth={idle ? 1 : 2.4}
+              strokeWidth={sw}
+              strokeLinecap="round"
               strokeDasharray={dash}
               opacity={idle ? 0.4 : settled ? 1 : 0.95}
               markerEnd={settled ? 'url(#route-arrow)' : undefined}
             >
               {!reduced && !settled && !idle && (
                 <animate attributeName="stroke-dashoffset"
-                         from="0" to={rt.phase === 'executing' ? '-16' : '-30'}
-                         dur={rt.phase === 'executing' ? '1.5s' : '2.4s'}
+                         from="0" to={-period}
+                         dur={`${dur}s`}
+                         calcMode="linear"
                          repeatCount="indefinite" />
               )}
             </path>
@@ -230,7 +241,7 @@ export default function Plate() {
               <text x="0" y="3" fontFamily="Geist Mono" fontSize="10.5"
                     fill={PHASE_COLOR[lb.phase]} textAnchor="middle"
                     letterSpacing="0.06em" fontWeight="500"
-                    stroke="var(--cream)" strokeWidth="3" paintOrder="stroke"
+                    stroke="var(--cream)" strokeWidth="4.5" paintOrder="stroke"
                     strokeLinejoin="round">{lb.payload}</text>
             </g>
           )
@@ -238,25 +249,40 @@ export default function Plate() {
       </g>
 
       {/* brief-packets — a glowing dot travels port → settlement along each
-          active route, so the map visibly MOVES (briefs in flight). */}
+          active route, so the map visibly MOVES (briefs in flight). Smoother:
+          longer dur, eased motion (spline), gentle fade in/out, packet size
+          tracks brief magnitude. */}
       {!reduced && (
         <g>
           {ROUTES.filter(rt => rt.phase !== 'idle').map((rt, i) => {
             const dest = SETTLEMENTS[rt.to]
             const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
             const color = PHASE_COLOR[rt.phase]
-            const dur = rt.phase === 'settled' ? 3.4 : rt.phase === 'executing' ? 2.6 : 3.0
-            const begin = `${(i * 0.5).toFixed(1)}s`
+            // calm, varied speeds; staggered so they don't pulse in lockstep
+            const dur = (rt.phase === 'settled' ? 4.4 : rt.phase === 'executing' ? 3.6 : 4.0) + rt.mag * 0.8
+            const begin = `${(i * 0.85).toFixed(2)}s`
+            const dot = 3.2 + rt.mag * 2.6
+            // ease-in-out motion: slow at the port, glide, settle at the agent
+            const motionProps = {
+              dur: `${dur}s`, begin, repeatCount: 'indefinite' as const, path: d,
+              calcMode: 'spline' as const, keyTimes: '0;1', keySplines: '0.42 0 0.58 1',
+            }
             return (
               <g key={i}>
-                <circle r="4.5" fill={color} opacity="0.9">
-                  <animateMotion dur={`${dur}s`} begin={begin} repeatCount="indefinite" path={d} rotate="auto" />
-                  <animate attributeName="opacity" values="0;0.95;0.95;0" keyTimes="0;0.1;0.85;1"
+                {/* soft halo ring */}
+                <circle r={dot * 2.1} fill="none" stroke={color} strokeWidth="1" opacity="0">
+                  <animateMotion {...motionProps} />
+                  <animate attributeName="opacity"
+                           values="0;0.30;0.30;0" keyTimes="0;0.18;0.82;1"
+                           calcMode="spline" keySplines="0.4 0 0.6 1;0 0 1 1;0.4 0 0.6 1"
                            dur={`${dur}s`} begin={begin} repeatCount="indefinite" />
                 </circle>
-                <circle r="9" fill="none" stroke={color} strokeWidth="1" opacity="0.35">
-                  <animateMotion dur={`${dur}s`} begin={begin} repeatCount="indefinite" path={d} />
-                  <animate attributeName="opacity" values="0;0.4;0.4;0" keyTimes="0;0.1;0.85;1"
+                {/* the packet */}
+                <circle r={dot} fill={color} opacity="0">
+                  <animateMotion {...motionProps} rotate="auto" />
+                  <animate attributeName="opacity"
+                           values="0;0.95;0.95;0" keyTimes="0;0.15;0.85;1"
+                           calcMode="spline" keySplines="0.4 0 0.6 1;0 0 1 1;0.4 0 0.6 1"
                            dur={`${dur}s`} begin={begin} repeatCount="indefinite" />
                 </circle>
               </g>
@@ -282,6 +308,20 @@ export default function Plate() {
         const flip = s.anchor === 'end'
         const lx = flip ? -16 : 16
         const nameSize = s.capital ? 19 : 15
+
+        // Idle agents are QUIET landmarks: a small marker dot on their hill,
+        // no name/addr label. They keep the territory feeling populated
+        // without clutter — every NAMED agent is one that's actively working.
+        if (!isLabeled(s)) {
+          return (
+            <g key={s.addr} transform={`translate(${s.x}, ${s.y})`} style={{ color: 'var(--slate)' }}>
+              <circle r="7" fill="var(--cream)" opacity="0.7" />
+              <circle r="3.1" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.75" />
+              <circle r="0.9" fill="currentColor" opacity="0.75" />
+            </g>
+          )
+        }
+
         return (
           <g key={s.addr} transform={`translate(${s.x}, ${s.y})`} style={{ color }}>
             {/* cream clearing so the settlement lifts off the stipple/contours */}

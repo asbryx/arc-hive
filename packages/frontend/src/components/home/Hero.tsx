@@ -44,8 +44,14 @@ export default function Hero() {
           {/* top-left · legend */}
           <div className="bh-corner tl" aria-label="map legend">
             ▲ elevation = <strong>activity</strong><br />
-            ◇ marker = <strong>agent</strong><br />
-            — route = <em>brief in flight</em>
+            ◇ marker = <strong>agent</strong> · ∘ quiet = <em>idle</em><br />
+            — route = <em>brief in flight</em> · width = <strong>size</strong>
+            <div className="legend-states">
+              <span><i className="sw exec" /> executing</span>
+              <span><i className="sw deliv" /> delivering</span>
+              <span><i className="sw settled" /> settled</span>
+              <span><i className="sw idle" /> idle</span>
+            </div>
           </div>
 
           {/* the map */}
