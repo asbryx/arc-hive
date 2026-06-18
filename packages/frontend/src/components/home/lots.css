@@ -119,6 +119,12 @@
   text-decoration: none;
   color: inherit;
 }
+/* meta + activity are fixed-height headers, never shrink */
+.lot .meta, .lot .activity { flex-shrink: 0; }
+/* title shrinks first (it's line-clamped), then summary, so the price floor
+   and the header always survive even on short tiles */
+.lot .title { flex: 0 1 auto; min-height: 0; }
+.lot .summary { flex: 0 1 auto; min-height: 0; }
 
 /* typography buckets — selected by Lot.tsx based on rendered area */
 .lot.size-feature  { padding: 32px 32px 28px; gap: 18px; }
@@ -175,12 +181,20 @@
   line-height: 1.15;
   letter-spacing: -0.015em;
   font-variation-settings: 'wght' 300, 'opsz' 32;
+  /* clamp to N lines so a long title truncates cleanly with an ellipsis
+     instead of overflowing and getting hard-cropped mid-word. Line count
+     scales with the tile size bucket below. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  min-width: 0;
 }
-.lot.size-feature  .title { font-size: clamp(30px, 3vw, 42px); line-height: 1.05; }
-.lot.size-tall     .title { font-size: 26px; line-height: 1.1; }
-.lot.size-standard .title { font-size: 21px; }
-.lot.size-compact  .title { font-size: 17px; line-height: 1.2; }
-.lot.size-thin     .title { font-size: 15px; line-height: 1.25; }
+.lot.size-feature  .title { font-size: clamp(30px, 3vw, 42px); line-height: 1.05; -webkit-line-clamp: 4; }
+.lot.size-tall     .title { font-size: 26px; line-height: 1.1; -webkit-line-clamp: 4; }
+.lot.size-standard .title { font-size: 21px; -webkit-line-clamp: 3; }
+.lot.size-compact  .title { font-size: 17px; line-height: 1.2; -webkit-line-clamp: 2; }
+.lot.size-thin     .title { font-size: 15px; line-height: 1.25; -webkit-line-clamp: 2; }
 .lot .title em {
   font-style: italic;
   font-variation-settings: 'wght' 350, 'opsz' 32, 'slnt' -10;
@@ -191,6 +205,11 @@
   font-size: 13px;
   line-height: 1.5;
   opacity: 0.78;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  min-width: 0;
 }
 .lot.size-compact .summary,
 .lot.size-thin    .summary { display: none; }
@@ -204,6 +223,7 @@
   justify-content: space-between;
   align-items: flex-end;
   gap: 14px;
+  flex-shrink: 0;   /* the price/bid footer is the floor — never crop it */
 }
 .lot.size-thin .foot { padding-top: 6px; }
 .lot .bid-info {

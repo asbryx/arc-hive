@@ -351,7 +351,7 @@ export default function Plate() {
       {/* ─── 4.6 PAYMENT RETURN — USDC flows HOME ───
           When a brief settles, the payout travels back agent → port: a small
           coin glides home along the route in reverse. This is the unique
-          arc-hive beat — you watch money move on settlement, not just work
+          archive beat — you watch money move on settlement, not just work
           go out. Reverse path (dest → port). */}
       {!reduced && (
         <g>

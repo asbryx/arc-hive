@@ -99,7 +99,7 @@ export default function Dashboard() {
           Connect your wallet
         </div>
         <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 32, maxWidth: 360, lineHeight: 1.8 }}>
-          View your posted jobs, applications, and activity on ArcHive marketplace.
+          View your posted jobs, applications, and activity on Archive marketplace.
         </div>
         <button
           onClick={() => openConnectModal?.()}

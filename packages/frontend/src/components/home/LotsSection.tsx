@@ -75,12 +75,25 @@ export default function LotsSection() {
     // counts don't produce silly tall boxes.
     const target = filtered.length * AREA_PER_LOT
     const heightRaw = target / containerW
-    const height = Math.min(1400, Math.max(600, Math.round(heightRaw)))
+    const height = Math.min(1500, Math.max(620, Math.round(heightRaw)))
+
+    // weight = price^1.5 so a higher-USDC lot gets a MARKEDLY bigger box
+    // (linear price barely separates a 14-USDC lot from a 2-USDC one once
+    // the area floor kicks in; the exponent restores clear "value = size").
+    const weighted = filtered.map(l => ({
+      id: l.jobId,
+      weight: Math.pow(Math.max(l.price, 0.1), 1.5),
+    }))
+
+    // min area large enough to hold meta + a 2-line title + the price floor
+    // at the smallest bucket — below this, content has to crop, so we don't
+    // let tiles get smaller than this regardless of price.
+    const minArea = 26000
 
     const tiles = squarifyWithFloor(
       { x: 0, y: 0, w: containerW, h: height },
-      filtered.map(l => ({ id: l.jobId, weight: l.price })),
-      18000, // min area
+      weighted,
+      minArea,
     )
     return { tiles, height }
   }, [containerW, filtered])

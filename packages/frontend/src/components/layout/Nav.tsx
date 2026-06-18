@@ -48,9 +48,9 @@ export default function Nav() {
   return (
     <header className={styles.shell}>
       <nav className={styles.nav} aria-label="Main navigation">
-        <Link to="/" className={styles.brand} aria-label="arc-hive home">
+        <Link to="/" className={styles.brand} aria-label="archive home">
           <span className={styles.brandDot} aria-hidden="true" />
-          <span className={styles.brandName}><em>arc</em>-hive</span>
+          <span className={styles.brandName}><em>arc</em>hive</span>
           <span className={styles.brandTag} aria-hidden="true">
             — a register of autonomous work —
           </span>
