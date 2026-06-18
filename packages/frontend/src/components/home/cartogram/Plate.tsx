@@ -22,10 +22,10 @@
 import { useMemo } from 'react'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import {
-  sampleField, contourAt, segsToSmoothPaths,
+  sampleDensityField, contourAt, segsToSmoothPaths,
 } from '@/lib/contourField'
 import {
-  VB, PORT, ROUTES, SETTLEMENTS, buildPeaks, buildStipple,
+  VB, PORT, ROUTES, SETTLEMENTS, buildPopulation,
   type Settlement, type Phase,
 } from '@/lib/cartogramMap'
 
@@ -95,21 +95,35 @@ export default function Plate() {
   const reduced = useReducedMotion()
 
   const { contours, coastline, stipple } = useMemo(() => {
-    const peaks = buildPeaks()
-    const field = sampleField({ w: VB.w, h: VB.h, cell: 20, peaks })
+    // The ~1,284-agent population IS the terrain. Each agent splats a small
+    // gaussian; where the crowd clusters, the land rises. The named
+    // settlements add weight so they crown the highlands they sit on.
+    const population = buildPopulation()
+    const named = SETTLEMENTS.map(s => ({
+      x: s.x, y: s.y, weight: s.capital ? 2.4 : 1.5,
+    }))
+    const field = sampleDensityField({
+      w: VB.w, h: VB.h, cell: 8, bandwidth: 44,
+      points: [...population, ...named],
+    })
 
     // contour levels as fractions of max elevation. The lowest is the
     // coastline; the rest are interior topo lines. Segments are chained +
     // smoothed so contours read as clean nested loops, not jagged dashes.
     const max = field.max
-    const levels = [0.08, 0.16, 0.26, 0.38, 0.52, 0.68, 0.84].map(f => f * max)
+    const levels = [0.05, 0.10, 0.17, 0.26, 0.38, 0.53, 0.71].map(f => f * max)
     const contours = levels.map(l => segsToSmoothPaths(contourAt(field, l), 18))
-    const coastline = segsToSmoothPaths(contourAt(field, 0.08 * max), 18)
+    const coastline = segsToSmoothPaths(contourAt(field, 0.05 * max), 18)
 
-    // population stipple, denser on high ground
-    const keepClear = SETTLEMENTS.map(s => ({ x: s.x, y: s.y, r: 34 }))
-    keepClear.push({ x: PORT.x, y: PORT.y, r: 40 })
-    const stipple = buildStipple(300, (x, y) => Math.min(1, field.at(x, y) / max), keepClear)
+    // the population itself is the dust layer — radius from weight, capped
+    // away from glyphs/labels by simple proximity so dust never sits on text.
+    const clear = [
+      ...SETTLEMENTS.map(s => ({ x: s.x, y: s.y, r: 30 })),
+      { x: PORT.x, y: PORT.y, r: 36 },
+    ]
+    const stipple = population
+      .filter(p => !clear.some(c => Math.hypot(c.x - p.x, c.y - p.y) < c.r))
+      .map(p => ({ x: p.x, y: p.y, r: 0.6 + p.weight * 1.7 }))
 
     return { contours, coastline, stipple }
   }, [])
@@ -144,12 +158,13 @@ export default function Plate() {
       <path d={coastline} fill="none" stroke="var(--ink-2)" strokeWidth="2.2"
             strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
 
-      {/* ─── 3. POPULATION STIPPLE — recessive background texture ───
-          Faint dust-tan, small, low opacity. It must read as ambient
-          terrain texture, NOT compete with the routes + settlements. */}
-      <g fill="var(--dust)" opacity="0.5">
+      {/* ─── 3. POPULATION STIPPLE — the ~1,284 agents themselves ───
+          Each dot is one agent at its address. Faint dust-tan, small, low
+          opacity so the crowd reads as ambient terrain texture and the
+          density (not any single dot) is what the eye picks up. */}
+      <g fill="var(--dust)">
         {stipple.map((s, i) => (
-          <circle key={i} cx={s.x} cy={s.y} r={s.r * 0.8} opacity={0.35 + s.r * 0.12} />
+          <circle key={i} cx={s.x} cy={s.y} r={s.r} opacity={0.22 + s.r * 0.12} />
         ))}
       </g>
 

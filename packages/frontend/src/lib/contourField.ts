@@ -65,6 +65,69 @@ export function sampleField(cfg: FieldConfig): SampledField {
   }
 }
 
+/* ─── density field (kernel density estimate over agent points) ─── */
+
+export interface AgentPoint { x: number; y: number; weight: number }
+
+/**
+ * Build the elevation field as a kernel-density estimate over agent points.
+ *
+ * THIS is what makes the plate read as TERRAIN instead of ripples. Each
+ * agent splats a small gaussian (standard deviation `bandwidth`, scaled by
+ * its weight) onto the grid. The summed field is naturally multi-modal:
+ * dense address regions become highlands, sparse regions become lowland
+ * sea. No single dome, no concentric rings — the land's shape emerges from
+ * where the population actually is.
+ *
+ * Splatting is bounded to ~3σ per point so 1,284 agents stay cheap (runs
+ * once in a useMemo). The continuous `at()` sampler is O(n) per call — use
+ * it sparingly (e.g. a few settlement elevations), not in a tight loop.
+ */
+export function sampleDensityField(cfg: {
+  w: number; h: number; cell: number; points: AgentPoint[]; bandwidth: number
+}): SampledField {
+  const { w, h, cell, points, bandwidth } = cfg
+  const nx = Math.ceil(w / cell)
+  const ny = Math.ceil(h / cell)
+  const grid: number[][] = Array.from({ length: ny + 1 }, () => new Array(nx + 1).fill(0))
+  const inv2s2 = 1 / (2 * bandwidth * bandwidth)
+  const reach = bandwidth * 3
+  const reach2 = reach * reach
+
+  for (const p of points) {
+    const c0 = Math.max(0, Math.floor((p.x - reach) / cell))
+    const c1 = Math.min(nx, Math.ceil((p.x + reach) / cell))
+    const r0 = Math.max(0, Math.floor((p.y - reach) / cell))
+    const r1 = Math.min(ny, Math.ceil((p.y + reach) / cell))
+    for (let r = r0; r <= r1; r++) {
+      const gy = r * cell
+      const dy = gy - p.y
+      for (let c = c0; c <= c1; c++) {
+        const gx = c * cell
+        const dx = gx - p.x
+        grid[r][c] += p.weight * Math.exp(-(dx * dx + dy * dy) * inv2s2)
+      }
+    }
+  }
+
+  let max = 0
+  for (const row of grid) for (const v of row) if (v > max) max = v
+
+  const at = (x: number, y: number) => {
+    let v = 0
+    for (const p of points) {
+      const dx = x - p.x
+      const dy = y - p.y
+      const d2 = dx * dx + dy * dy
+      if (d2 > reach2) continue
+      v += p.weight * Math.exp(-d2 * inv2s2)
+    }
+    return v
+  }
+
+  return { grid, nx, ny, cell, max, at }
+}
+
 /* ─── marching squares ─── */
 
 // edge crossing helpers: linear interpolation where value == level
