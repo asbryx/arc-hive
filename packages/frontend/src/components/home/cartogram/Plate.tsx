@@ -25,7 +25,7 @@ import {
   sampleDensityField, contourAt, segsToSmoothPaths,
 } from '@/lib/contourField'
 import {
-  VB, PORT, ROUTES, SETTLEMENTS, buildPopulation,
+  VB, PORT, ROUTES, SETTLEMENTS, buildPopulation, ROUTE_LABELS, KNOCKOUT_BOXES,
   type Settlement, type Phase,
 } from '@/lib/cartogramMap'
 
@@ -142,10 +142,21 @@ export default function Plate() {
                 markerWidth="7" markerHeight="7" orient="auto">
           <path d="M -6 -5 L 6 0 L -6 5 Z" fill="var(--marsh)" />
         </marker>
+        {/* label knockout — white shows the layer, black rects hide it under
+            text so contour lines + dust break cleanly around every label
+            (a real printed-plate label mask, not an opaque cream box). */}
+        <mask id="label-knockout">
+          <rect x="0" y="0" width={VB.w} height={VB.h} fill="white" />
+          {KNOCKOUT_BOXES.map((b, i) => (
+            <rect key={i} x={b.x - 3} y={b.y - 2} width={b.w + 6} height={b.h + 4}
+                  rx="3" fill="black" />
+          ))}
+        </mask>
       </defs>
 
       {/* ─── 1. CONTOUR FIELD — the land itself. Visible ink so the
               topography actually reads; higher contours darker = highland. */}
+      <g mask="url(#label-knockout)">
       <g fill="none" stroke="var(--ink-3)" strokeLinecap="round" strokeLinejoin="round">
         {contours.map((d, i) => (
           <path key={i} d={d}
@@ -167,6 +178,7 @@ export default function Plate() {
           <circle key={i} cx={s.x} cy={s.y} r={s.r} opacity={0.22 + s.r * 0.12} />
         ))}
       </g>
+      </g>{/* end label-knockout mask (contours + coastline + dust) */}
 
       {/* ─── 4. TRADE ROUTES — port → every settlement ─── */}
       {/* cream casing under active routes so they separate from the terrain */}
@@ -206,20 +218,20 @@ export default function Plate() {
         })}
       </g>
 
-      {/* route payload labels — at route midpoint, horizontal, cream halo.
-          idle routes carry no payload, so skip them. */}
+      {/* route payload labels — de-conflicted: each slides along its route to
+          the least-crowded spot (see cartogramMap.placeRouteLabels). A faint
+          cream halo keeps them legible where they cross a colored route line. */}
       <g>
-        {ROUTES.filter(rt => rt.payload).map((rt, i) => {
-          const dest = SETTLEMENTS[rt.to]
-          const mx = 0.25 * PORT.x + 0.5 * rt.cx + 0.25 * dest.x
-          const my = 0.25 * PORT.y + 0.5 * rt.cy + 0.25 * dest.y
-          const w = rt.payload.length * 6.0
+        {ROUTE_LABELS.map((lb, i) => {
+          const cx = lb.x + lb.w / 2
+          const cy = lb.y + lb.h / 2
           return (
-            <g key={i} transform={`translate(${mx}, ${my})`}>
-              <rect x={-w / 2 - 4} y={-8} width={w + 8} height={15} fill="var(--cream)" opacity="0.92" />
+            <g key={i} transform={`translate(${cx}, ${cy})`}>
               <text x="0" y="3" fontFamily="Geist Mono" fontSize="10.5"
-                    fill={PHASE_COLOR[rt.phase]} textAnchor="middle"
-                    letterSpacing="0.06em" fontWeight="500">{rt.payload}</text>
+                    fill={PHASE_COLOR[lb.phase]} textAnchor="middle"
+                    letterSpacing="0.06em" fontWeight="500"
+                    stroke="var(--cream)" strokeWidth="3" paintOrder="stroke"
+                    strokeLinejoin="round">{lb.payload}</text>
             </g>
           )
         })}

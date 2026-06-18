@@ -274,3 +274,132 @@ export const ROUTES: Route[] = ROUTE_SEEDS.map((r, i) => {
   const { cx, cy } = routeControl(dest, bend)
   return { ...r, cx, cy }
 })
+
+/* ─── label layout / de-confliction ───────────────────────────────────────
+ *
+ * Two text systems share the plate: agent labels (anchored to each glyph)
+ * and route-job labels (the "JOB-2840 · 9/12 steps" tags). Agent labels are
+ * tied to position; route labels can SLIDE along their own curve. So we:
+ *   1. compute every agent label's bounding box (anchor flips L/R),
+ *   2. slide each route label along its Bézier to the spot with the least
+ *      overlap against agent boxes + already-placed route boxes + the
+ *      marginalia corners,
+ *   3. expose all boxes as KNOCKOUT_BOXES so contours/dust can be masked out
+ *      from under text (a real printed-plate "label mask", not a white box).
+ * Pure + deterministic — runs once at module load. */
+
+export interface Box { x: number; y: number; w: number; h: number }
+export interface PlacedRouteLabel extends Box { payload: string; phase: Phase }
+
+/** rough text width in svg units (monospace ≈ 0.6em, serif italic ≈ 0.52em). */
+function textW(text: string, size: number, mono: boolean): number {
+  return text.length * size * (mono ? 0.6 : 0.52)
+}
+
+/** Bounding box of an agent's stacked label (name + addr + optional capital
+ *  tag), accounting for anchor side. Coordinates are absolute (plate space). */
+function agentLabelBox(s: Settlement): Box {
+  const nameSize = s.capital ? 19 : 15
+  const nameW = textW(s.name, nameSize, false)
+  const addrW = textW(`${s.addr} · ${s.score.toFixed(2)}`, 10, true)
+  const capW = s.capital ? textW('CAPITAL · TOP OF FIELD', 9, true) : 0
+  const w = Math.max(nameW, addrW, capW) + 8
+  const gap = 12
+  const x = s.anchor === 'end' ? s.x - gap - w : s.x + gap
+  const yTop = s.y - (s.capital ? 36 : 16)
+  const yBot = s.y + 28
+  return { x, y: yTop, w, h: yBot - yTop }
+}
+
+export const AGENT_LABEL_BOXES: Box[] = SETTLEMENTS.map(agentLabelBox)
+
+/** glyph + cream-clearing discs (so route labels also avoid sitting on a marker). */
+const GLYPH_BOXES: Box[] = [
+  ...SETTLEMENTS.map(s => {
+    const r = s.capital ? 24 : 17
+    return { x: s.x - r, y: s.y - r, w: r * 2, h: r * 2 }
+  }),
+  { x: PORT.x - 60, y: PORT.y - 16, w: 120, h: 74 }, // port + its two labels
+]
+
+/** marginalia keep-out: legend (TL), edition stamp (TR), fig caption (bottom). */
+const MARGINALIA_BOXES: Box[] = [
+  { x: 24, y: 24, w: 250, h: 96 },           // legend
+  { x: VB.w - 250, y: 24, w: 240, h: 92 },   // edition stamp
+  { x: VB.w / 2 - 230, y: VB.h - 70, w: 460, h: 60 }, // caption
+]
+
+function overlapArea(a: Box, b: Box): number {
+  const ox = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x))
+  const oy = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y))
+  return ox * oy
+}
+
+/** quadratic Bézier point at parameter t. */
+function bezier(t: number, p0: number, c: number, p1: number): number {
+  const u = 1 - t
+  return u * u * p0 + 2 * u * t * c + t * t * p1
+}
+
+/**
+ * Place each route-job label by sliding it along its route to the position
+ * that minimises overlap with everything else. Greedy, deterministic order
+ * (settled → executing → delivering) so the most important labels claim the
+ * clearest space first.
+ */
+function placeRouteLabels(): PlacedRouteLabel[] {
+  const phaseRank: Record<Phase, number> = { settled: 0, executing: 1, delivering: 2, idle: 3 }
+  const labelled = ROUTES
+    .filter(r => r.payload)
+    .sort((a, b) => phaseRank[a.phase] - phaseRank[b.phase])
+
+  const placed: PlacedRouteLabel[] = []
+  const fixed = [...AGENT_LABEL_BOXES, ...GLYPH_BOXES, ...MARGINALIA_BOXES]
+
+  for (const rt of labelled) {
+    const dest = SETTLEMENTS[rt.to]
+    const w = textW(rt.payload, 10.5, true) + 10
+    const h = 15
+    let best: PlacedRouteLabel | null = null
+    let bestScore = Infinity
+
+    // sweep along the curve, with small perpendicular offsets
+    for (let ti = 0; ti <= 16; ti++) {
+      const t = 0.26 + (ti / 16) * 0.48          // t ∈ [0.26, 0.74]
+      const bx = bezier(t, PORT.x, rt.cx, dest.x)
+      const by = bezier(t, PORT.y, rt.cy, dest.y)
+      // perpendicular direction (tangent rotated 90°)
+      const tx = 2 * (1 - t) * (rt.cx - PORT.x) + 2 * t * (dest.x - rt.cx)
+      const ty = 2 * (1 - t) * (rt.cy - PORT.y) + 2 * t * (dest.y - rt.cy)
+      const tl = Math.hypot(tx, ty) || 1
+      const px = -ty / tl, py = tx / tl
+      for (const off of [0, -15, 15, -28, 28]) {
+        const cx = bx + px * off
+        const cy = by + py * off
+        const box: Box = { x: cx - w / 2, y: cy - h / 2, w, h }
+        // keep inside the plate
+        if (box.x < 20 || box.x + box.w > VB.w - 20 || box.y < 18 || box.y + box.h > VB.h - 18) continue
+        let score = 0
+        for (const f of fixed) score += overlapArea(box, f) * 1.0
+        for (const p of placed) score += overlapArea(box, p) * 1.4
+        score += Math.abs(off) * 0.15           // prefer on-the-line
+        score += Math.abs(t - 0.5) * 12         // prefer mid-route
+        if (score < bestScore) {
+          bestScore = score
+          best = { ...box, payload: rt.payload, phase: rt.phase }
+        }
+      }
+    }
+    if (best) placed.push(best)
+  }
+  return placed
+}
+
+export const ROUTE_LABELS: PlacedRouteLabel[] = placeRouteLabels()
+
+/** Every text box on the plate — fed to the SVG mask so contour lines and
+ *  dust are knocked out from under text (printed-plate label mask). */
+export const KNOCKOUT_BOXES: Box[] = [
+  ...AGENT_LABEL_BOXES,
+  ...ROUTE_LABELS.map(l => ({ x: l.x, y: l.y, w: l.w, h: l.h })),
+]
