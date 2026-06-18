@@ -117,13 +117,16 @@ export default function Plate() {
 
     // the population itself is the dust layer — radius from weight, capped
     // away from glyphs/labels by simple proximity so dust never sits on text.
+    // Subsample to ~640 dots: full 1,284 repaints a huge element count every
+    // animation frame and tanks fps; ~640 reads identically as texture.
     const clear = [
       ...SETTLEMENTS.map(s => ({ x: s.x, y: s.y, r: 30 })),
       { x: PORT.x, y: PORT.y, r: 36 },
     ]
     const stipple = population
+      .filter((_, idx) => idx % 2 === 0)
       .filter(p => !clear.some(c => Math.hypot(c.x - p.x, c.y - p.y) < c.r))
-      .map(p => ({ x: p.x, y: p.y, r: 0.6 + p.weight * 1.7 }))
+      .map(p => ({ x: p.x, y: p.y, r: 0.7 + p.weight * 1.8 }))
 
     return { contours, coastline, stipple }
   }, [])
@@ -181,28 +184,33 @@ export default function Plate() {
       </g>{/* end label-knockout mask (contours + coastline + dust) */}
 
       {/* ─── 3.5 LIVING TERRAIN — activity auras ───
-          Each working agent's hill BREATHES: slow concentric rings rise and
-          fade outward from the marker, so "elevation = activity" becomes
-          visible in motion — the land pulses where work is happening.
-          Cheap (per-node SMIL), calm, reduced-motion gated. */}
+          Each working agent's hill BREATHES: slow rings rise + fade outward,
+          so "elevation = activity" becomes visible in motion. Uses
+          animateTransform scale (GPU-composited) instead of animating r —
+          animating the radius forces a full geometry repaint every frame and
+          tanks the framerate; scaling a unit circle does not. */}
       {!reduced && (
         <g fill="none">
           {SETTLEMENTS.filter(s => s.phase === 'executing' || s.phase === 'delivering').map((s, i) => {
             const color = PHASE_COLOR[s.phase]
-            const period = s.phase === 'executing' ? 3.2 : 4.2
-            const r0 = s.capital ? 18 : 13
-            const r1 = s.capital ? 46 : 34
+            const period = s.phase === 'executing' ? 3.4 : 4.4
+            const base = s.capital ? 20 : 15
+            const grow = s.capital ? 2.5 : 2.3
             return (
               <g key={s.addr} transform={`translate(${s.x}, ${s.y})`} style={{ color }}>
-                {[0, 1, 2].map(k => (
-                  <circle key={k} r={r0} stroke={color} strokeWidth="1.2" opacity="0">
-                    <animate attributeName="r" from={r0} to={r1}
-                             dur={`${period}s`} begin={`${(i * 0.4 + k * (period / 3)).toFixed(2)}s`}
-                             calcMode="spline" keySplines="0.33 0 0.67 1" repeatCount="indefinite" />
-                    <animate attributeName="opacity" values="0;0.34;0" keyTimes="0;0.25;1"
-                             dur={`${period}s`} begin={`${(i * 0.4 + k * (period / 3)).toFixed(2)}s`}
-                             repeatCount="indefinite" />
-                  </circle>
+                {[0, 1].map(k => (
+                  <g key={k}>
+                    <circle r={base} stroke={color} strokeWidth="1.2" opacity="0"
+                            style={{ willChange: 'transform, opacity' }}>
+                      <animateTransform attributeName="transform" type="scale"
+                                        from="0.5" to={grow}
+                                        dur={`${period}s`} begin={`${(i * 0.5 + k * (period / 2)).toFixed(2)}s`}
+                                        calcMode="spline" keySplines="0.33 0 0.67 1" repeatCount="indefinite" />
+                      <animate attributeName="opacity" values="0;0.32;0" keyTimes="0;0.22;1"
+                               dur={`${period}s`} begin={`${(i * 0.5 + k * (period / 2)).toFixed(2)}s`}
+                               repeatCount="indefinite" />
+                    </circle>
+                  </g>
                 ))}
               </g>
             )
@@ -211,21 +219,19 @@ export default function Plate() {
       )}
 
       {/* ─── 3.6 SETTLE-RIPPLE — a settled agent just got paid ───
-          A single bold ring blooms outward and fades on a long cycle: the
-          marketplace event you can SEE happen on the land. */}
+          One bold ring blooms + fades on a long cycle (scale, not r). */}
       {!reduced && (
         <g fill="none">
           {SETTLEMENTS.filter(s => s.phase === 'settled').map((s) => (
             <g key={s.addr} transform={`translate(${s.x}, ${s.y})`}>
-              {[0, 1].map(k => (
-                <circle key={k} r="14" stroke="var(--marsh)" strokeWidth="1.8" opacity="0">
-                  <animate attributeName="r" from="14" to="62"
-                           dur="5s" begin={`${(k * 2.5).toFixed(1)}s`}
-                           calcMode="spline" keySplines="0.2 0 0.4 1" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0;0.5;0" keyTimes="0;0.15;1"
-                           dur="5s" begin={`${(k * 2.5).toFixed(1)}s`} repeatCount="indefinite" />
-                </circle>
-              ))}
+              <circle r="16" stroke="var(--marsh)" strokeWidth="1.8" opacity="0"
+                      style={{ willChange: 'transform, opacity' }}>
+                <animateTransform attributeName="transform" type="scale"
+                                  from="0.6" to="4"
+                                  dur="5s" calcMode="spline" keySplines="0.2 0 0.4 1" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0;0.5;0" keyTimes="0;0.15;1"
+                         dur="5s" repeatCount="indefinite" />
+              </circle>
             </g>
           ))}
         </g>
@@ -383,11 +389,12 @@ export default function Plate() {
       <g transform={`translate(${PORT.x}, ${PORT.y})`} style={{ color: 'var(--ink)' }}>
         {/* heartbeat — the port is the living heart where briefs land + pay */}
         {!reduced && (
-          <circle r="13" fill="none" stroke="var(--ink-2)" strokeWidth="1.4" opacity="0">
-            <animate attributeName="r" values="13;30" dur="2.6s"
-                     calcMode="spline" keySplines="0.3 0 0.5 1" repeatCount="indefinite" />
+          <circle r="13" fill="none" stroke="var(--ink-2)" strokeWidth="1.4" opacity="0"
+                  style={{ willChange: 'transform, opacity' }}>
+            <animateTransform attributeName="transform" type="scale" values="1;2.3"
+                              dur="2.8s" calcMode="spline" keySplines="0.3 0 0.5 1" repeatCount="indefinite" />
             <animate attributeName="opacity" values="0;0.4;0" keyTimes="0;0.2;1"
-                     dur="2.6s" repeatCount="indefinite" />
+                     dur="2.8s" repeatCount="indefinite" />
           </circle>
         )}
         <circle r="13" fill="var(--cream)" stroke="currentColor" strokeWidth="1.6" />
