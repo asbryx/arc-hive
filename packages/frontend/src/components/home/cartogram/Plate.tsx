@@ -28,6 +28,7 @@ import {
   VB, PORT, ROUTES, SETTLEMENTS, buildPopulation, ROUTE_LABELS, KNOCKOUT_BOXES, isLabeled,
   type Settlement, type Phase,
 } from '@/lib/cartogramMap'
+import { useCartogramChurn } from './useCartogramChurn'
 
 const PHASE_COLOR: Record<Phase, string> = {
   executing:  'var(--hot)',
@@ -93,6 +94,13 @@ function Glyph({ kind, capital }: { kind: Settlement['glyph']; capital?: boolean
 
 export default function Plate() {
   const reduced = useReducedMotion()
+  const churn = useCartogramChurn(!reduced)
+
+  /** effective phase for a settlement index — churn overrides the static seed
+   *  so the active set turns over per "block" while terrain stays cached. */
+  const effPhase = (i: number): Phase =>
+    reduced ? SETTLEMENTS[i].phase : (churn.phases[i] ?? SETTLEMENTS[i].phase)
+  const isSpark = (i: number): boolean => churn.sparks.includes(i)
 
   const { contours, coastline, stipple, hillshade } = useMemo(() => {
     // The ~1,284-agent population IS the terrain. Each agent splats a small
@@ -213,9 +221,11 @@ export default function Plate() {
           tanks the framerate; scaling a unit circle does not. */}
       {!reduced && (
         <g fill="none">
-          {SETTLEMENTS.filter(s => s.phase === 'executing' || s.phase === 'delivering').map((s, i) => {
-            const color = PHASE_COLOR[s.phase]
-            const period = s.phase === 'executing' ? 3.4 : 4.4
+          {SETTLEMENTS.map((s, i) => ({ s, i, ph: effPhase(i) }))
+            .filter(({ ph }) => ph === 'executing' || ph === 'delivering')
+            .map(({ s, i, ph }) => {
+            const color = PHASE_COLOR[ph]
+            const period = ph === 'executing' ? 3.4 : 4.4
             const base = s.capital ? 20 : 15
             const grow = s.capital ? 2.5 : 2.3
             return (
@@ -244,7 +254,9 @@ export default function Plate() {
           One bold ring blooms + fades on a long cycle (scale, not r). */}
       {!reduced && (
         <g fill="none">
-          {SETTLEMENTS.filter(s => s.phase === 'settled').map((s) => (
+          {SETTLEMENTS.map((s, i) => ({ s, i, ph: effPhase(i) }))
+            .filter(({ ph }) => ph === 'settled')
+            .map(({ s }) => (
             <g key={s.addr} transform={`translate(${s.x}, ${s.y})`}>
               <circle r="16" stroke="var(--marsh)" strokeWidth="1.8" opacity="0"
                       style={{ willChange: 'transform, opacity' }}>
@@ -259,11 +271,37 @@ export default function Plate() {
         </g>
       )}
 
+      {/* ─── 3.7 SPARKS — an idle landmark briefly takes a brief ───
+          The "different agent does the work" signal: a quiet (unlabeled) agent
+          lights up for one block, then cools. Shows turnover without moving any
+          label. Aura only — calm, one at a time. */}
+      {!reduced && (
+        <g fill="none">
+          {churn.sparks.map(idx => {
+            const s = SETTLEMENTS[idx]
+            if (!s) return null
+            return (
+              <g key={`spark-${s.addr}`} transform={`translate(${s.x}, ${s.y})`} style={{ color: 'var(--hot)' }}>
+                <circle r="6" fill="var(--hot)" opacity="0">
+                  <animate attributeName="opacity" values="0;0.85;0.6" keyTimes="0;0.3;1" dur="1.2s" fill="freeze" />
+                </circle>
+                <circle r="14" stroke="var(--hot)" strokeWidth="1.2" opacity="0"
+                        style={{ willChange: 'transform, opacity' }}>
+                  <animateTransform attributeName="transform" type="scale" from="0.5" to="2.4"
+                                    dur="3.2s" calcMode="spline" keySplines="0.33 0 0.67 1" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0;0.4;0" keyTimes="0;0.25;1" dur="3.2s" repeatCount="indefinite" />
+                </circle>
+              </g>
+            )
+          })}
+        </g>
+      )}
+
       {/* ─── 4. TRADE ROUTES — port → every settlement ─── */}
       {/* cream casing under active routes so they separate from the terrain.
           Width tracks brief magnitude (Minard) so bold roads = big briefs. */}
       <g fill="none" stroke="var(--cream)" opacity="0.75">
-        {ROUTES.filter(rt => rt.phase !== 'idle').map((rt, i) => {
+        {ROUTES.filter(rt => effPhase(rt.to) !== 'idle').map((rt, i) => {
           const dest = SETTLEMENTS[rt.to]
           const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
           const casing = 3.2 + rt.mag * 4.2 + 2
@@ -273,18 +311,19 @@ export default function Plate() {
       <g fill="none">
         {ROUTES.map((rt, i) => {
           const dest = SETTLEMENTS[rt.to]
-          const color = PHASE_COLOR[rt.phase]
+          const ph = effPhase(rt.to)
+          const color = PHASE_COLOR[ph]
           const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
-          const settled = rt.phase === 'settled'
-          const idle = rt.phase === 'idle'
+          const settled = ph === 'settled'
+          const idle = ph === 'idle'
           // dash periods chosen so the animated offset loops SEAMLESSLY:
           // offset travels exactly one period, so there is no visible jump.
-          const period = rt.phase === 'executing' ? 10 : 15   // 6+4 or 9+6
-          const dash = settled ? undefined : idle ? '1 7' : rt.phase === 'executing' ? '6 4' : '9 6'
+          const period = ph === 'executing' ? 10 : 15   // 6+4 or 9+6
+          const dash = settled ? undefined : idle ? '1 7' : ph === 'executing' ? '6 4' : '9 6'
           // Minard: stroke width encodes brief magnitude
           const sw = idle ? 1 : 1.6 + rt.mag * 3.2
           // slower, smoother flow; longer period reads as calm movement
-          const dur = rt.phase === 'executing' ? 2.4 : 3.2
+          const dur = ph === 'executing' ? 2.4 : 3.2
           return (
             <path
               key={i}
@@ -333,12 +372,13 @@ export default function Plate() {
           tracks brief magnitude. */}
       {!reduced && (
         <g>
-          {ROUTES.filter(rt => rt.phase !== 'idle').map((rt, i) => {
+          {ROUTES.filter(rt => effPhase(rt.to) !== 'idle' && effPhase(rt.to) !== 'settled').map((rt, i) => {
             const dest = SETTLEMENTS[rt.to]
+            const ph = effPhase(rt.to)
             const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
-            const color = PHASE_COLOR[rt.phase]
+            const color = PHASE_COLOR[ph]
             // calm, varied speeds; staggered so they don't pulse in lockstep
-            const dur = (rt.phase === 'settled' ? 4.4 : rt.phase === 'executing' ? 3.6 : 4.0) + rt.mag * 0.8
+            const dur = (ph === 'executing' ? 3.6 : 4.0) + rt.mag * 0.8
             const begin = `${(i * 0.85).toFixed(2)}s`
             const dot = 3.2 + rt.mag * 2.6
             // ease-in-out motion: slow at the port, glide, settle at the agent
@@ -377,7 +417,7 @@ export default function Plate() {
           go out. Reverse path (dest → port). */}
       {!reduced && (
         <g>
-          {ROUTES.filter(rt => rt.phase === 'settled').map((rt, i) => {
+          {ROUTES.filter(rt => effPhase(rt.to) === 'settled').map((rt, i) => {
             const dest = SETTLEMENTS[rt.to]
             // reverse: start at the agent, curve back to the port
             const d = `M${dest.x} ${dest.y} Q${rt.cx} ${rt.cy} ${PORT.x} ${PORT.y}`
@@ -429,8 +469,8 @@ export default function Plate() {
       </g>
 
       {/* ─── 6. SETTLEMENTS — named agents on the highlands ─── */}
-      {SETTLEMENTS.map(s => {
-        const color = PHASE_COLOR[s.phase]
+      {SETTLEMENTS.map((s, si) => {
+        const color = PHASE_COLOR[effPhase(si)]
         const flip = s.anchor === 'end'
         const lx = flip ? -16 : 16
         const nameSize = s.capital ? 19 : 15
