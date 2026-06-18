@@ -30,11 +30,11 @@ const FILTER_LABELS: Record<FilterValue, string> = {
 }
 
 /** target pixel-area density. Larger = taller container, fewer tiles per pixel. */
-const AREA_PER_LOT = 36000   // ≈ 220 × 165 average tile
+const AREA_PER_LOT = 52000   // ≈ 250 × 208 average tile — room for full content
 
 export default function LotsSection() {
   const [filter, setFilter] = useState<FilterValue>('all')
-  const { data } = useOpenLots(22)
+  const { data } = useOpenLots(15)
   const lots = data?.lots ?? []
   const totals = data?.totals
   const filtered = filter === 'all' ? lots : lots.filter(l => l.category === filter)
@@ -75,7 +75,7 @@ export default function LotsSection() {
     // counts don't produce silly tall boxes.
     const target = filtered.length * AREA_PER_LOT
     const heightRaw = target / containerW
-    const height = Math.min(1500, Math.max(620, Math.round(heightRaw)))
+    const height = Math.min(1600, Math.max(680, Math.round(heightRaw)))
 
     // weight = price^1.5 so a higher-USDC lot gets a MARKEDLY bigger box
     // (linear price barely separates a 14-USDC lot from a 2-USDC one once
@@ -86,9 +86,9 @@ export default function LotsSection() {
     }))
 
     // min area large enough to hold meta + a 2-line title + the price floor
-    // at the smallest bucket — below this, content has to crop, so we don't
-    // let tiles get smaller than this regardless of price.
-    const minArea = 26000
+    // even on a wide-short tile (~160px tall × 215 wide). Below this content
+    // would crop, so no tile goes smaller regardless of price.
+    const minArea = 34000
 
     const tiles = squarifyWithFloor(
       { x: 0, y: 0, w: containerW, h: height },
