@@ -310,17 +310,20 @@ export function isLabeled(s: Settlement): boolean {
 }
 
 /** Bounding box of an agent's stacked label (name + addr + optional capital
- *  tag), accounting for anchor side. Coordinates are absolute (plate space). */
+ *  tag), accounting for anchor side. Coordinates are absolute (plate space).
+ *  The capital gets extra padding so the fan of routes radiating from it
+ *  keeps clear of the most important label. */
 function agentLabelBox(s: Settlement): Box {
   const nameSize = s.capital ? 19 : 15
   const nameW = textW(s.name, nameSize, false)
   const addrW = textW(`${s.addr} · ${s.score.toFixed(2)}`, 10, true)
   const capW = s.capital ? textW('CAPITAL · TOP OF FIELD', 9, true) : 0
-  const w = Math.max(nameW, addrW, capW) + 8
-  const gap = 12
+  const pad = s.capital ? 22 : 8
+  const w = Math.max(nameW, addrW, capW) + pad
+  const gap = s.capital ? 16 : 12
   const x = s.anchor === 'end' ? s.x - gap - w : s.x + gap
-  const yTop = s.y - (s.capital ? 36 : 16)
-  const yBot = s.y + 28
+  const yTop = s.y - (s.capital ? 42 : 16)
+  const yBot = s.y + (s.capital ? 34 : 28)
   return { x, y: yTop, w, h: yBot - yTop }
 }
 

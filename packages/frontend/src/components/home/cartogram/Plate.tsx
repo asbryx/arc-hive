@@ -325,17 +325,23 @@ export default function Plate() {
         return (
           <g key={s.addr} transform={`translate(${s.x}, ${s.y})`} style={{ color }}>
             {/* cream clearing so the settlement lifts off the stipple/contours */}
-            <circle r={s.capital ? 22 : 15} fill="var(--cream)" opacity="0.78" />
+            <circle r={s.capital ? 22 : 15} fill="var(--cream)" opacity="0.82" />
             <Glyph kind={s.glyph} capital={s.capital} />
             {s.capital && (
-              <text x={lx} y={-26} fontFamily="Geist Mono" fontSize="9" fill="var(--hot)"
-                    textAnchor={s.anchor} letterSpacing="0.16em" fontWeight="500">CAPITAL · TOP OF FIELD</text>
+              <text x={lx} y={-27} fontFamily="Geist Mono" fontSize="9" fill="var(--hot)"
+                    textAnchor={s.anchor} letterSpacing="0.16em" fontWeight="600"
+                    stroke="var(--cream)" strokeWidth="3.5" paintOrder="stroke"
+                    strokeLinejoin="round">CAPITAL · TOP OF FIELD</text>
             )}
             <text x={lx} y={s.capital ? 2 : 3} fontFamily="Fraunces" fontSize={nameSize}
-                  fontWeight={s.capital ? 400 : 350} fill="var(--ink)" fontStyle="italic"
-                  textAnchor={s.anchor} letterSpacing="-0.01em">{s.name}</text>
+                  fontWeight={s.capital ? 500 : 400} fill="var(--ink)" fontStyle="italic"
+                  textAnchor={s.anchor} letterSpacing="-0.01em"
+                  stroke="var(--cream)" strokeWidth={s.capital ? 4.5 : 3.5} paintOrder="stroke"
+                  strokeLinejoin="round">{s.name}</text>
             <text x={lx} y={s.capital ? 22 : 20} fontFamily="Geist Mono" fontSize="10"
-                  fill="var(--ink-3)" textAnchor={s.anchor} letterSpacing="0.06em">
+                  fill="var(--ink-2)" textAnchor={s.anchor} letterSpacing="0.06em"
+                  stroke="var(--cream)" strokeWidth="3.5" paintOrder="stroke"
+                  strokeLinejoin="round">
               {s.addr} · {s.score.toFixed(2)}
             </text>
           </g>
