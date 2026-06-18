@@ -77,18 +77,20 @@ export default function LotsSection() {
     const heightRaw = target / containerW
     const height = Math.min(1600, Math.max(680, Math.round(heightRaw)))
 
-    // weight = price^1.5 so a higher-USDC lot gets a MARKEDLY bigger box
-    // (linear price barely separates a 14-USDC lot from a 2-USDC one once
-    // the area floor kicks in; the exponent restores clear "value = size").
+    // weight = price^1.8 so the highest-USDC lot is clearly THE dominant
+    // block, not just marginally bigger — this is what makes it read as a
+    // value treemap rather than an even grid.
     const weighted = filtered.map(l => ({
       id: l.jobId,
-      weight: Math.pow(Math.max(l.price, 0.1), 1.5),
+      weight: Math.pow(Math.max(l.price, 0.1), 1.8),
     }))
 
-    // min area large enough to hold meta + a 2-line title + the price floor
-    // even on a wide-short tile (~160px tall × 215 wide). Below this content
-    // would crop, so no tile goes smaller regardless of price.
-    const minArea = 34000
+    // Low area floor: just enough that the smallest tile still fits the lean
+    // 'thin' layout (ref + clamped title + price). Keeping this LOW preserves
+    // the treemap's dynamic range — a high floor flattens every tile to the
+    // same size and the chart goes monotone. Content adapts to size via the
+    // height/width-gated buckets, so we don't need a big floor to avoid crops.
+    const minArea = 15000
 
     const tiles = squarifyWithFloor(
       { x: 0, y: 0, w: containerW, h: height },
