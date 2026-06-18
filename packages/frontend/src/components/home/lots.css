@@ -190,11 +190,11 @@
   overflow: hidden;
   min-width: 0;
 }
-.lot.size-feature  .title { font-size: clamp(30px, 3vw, 42px); line-height: 1.05; -webkit-line-clamp: 4; }
-.lot.size-tall     .title { font-size: 26px; line-height: 1.1; -webkit-line-clamp: 4; }
-.lot.size-standard .title { font-size: 21px; -webkit-line-clamp: 3; }
-.lot.size-compact  .title { font-size: 17px; line-height: 1.2; -webkit-line-clamp: 2; }
-.lot.size-thin     .title { font-size: 14px; line-height: 1.2; -webkit-line-clamp: 2; }
+.lot.size-feature  .title { font-size: clamp(28px, 2.6vw, 38px); line-height: 1.08; -webkit-line-clamp: 5; }
+.lot.size-tall     .title { font-size: 24px; line-height: 1.12; -webkit-line-clamp: 5; }
+.lot.size-standard .title { font-size: 19px; line-height: 1.18; -webkit-line-clamp: 5; }
+.lot.size-compact  .title { font-size: 15px; line-height: 1.22; -webkit-line-clamp: 4; }
+.lot.size-thin     .title { font-size: 13px; line-height: 1.25; -webkit-line-clamp: 4; }
 .lot .title em {
   font-style: italic;
   font-variation-settings: 'wght' 350, 'opsz' 32, 'slnt' -10;

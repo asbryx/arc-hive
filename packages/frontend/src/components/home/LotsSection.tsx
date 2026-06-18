@@ -30,11 +30,11 @@ const FILTER_LABELS: Record<FilterValue, string> = {
 }
 
 /** target pixel-area density. Larger = taller container, fewer tiles per pixel. */
-const AREA_PER_LOT = 52000   // ≈ 250 × 208 average tile — room for full content
+const AREA_PER_LOT = 62000   // ≈ 270 × 230 average tile — room for full titles
 
 export default function LotsSection() {
   const [filter, setFilter] = useState<FilterValue>('all')
-  const { data } = useOpenLots(15)
+  const { data } = useOpenLots(12)
   const lots = data?.lots ?? []
   const totals = data?.totals
   const filtered = filter === 'all' ? lots : lots.filter(l => l.category === filter)
