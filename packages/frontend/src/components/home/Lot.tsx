@@ -17,10 +17,10 @@ import type { TreemapTile } from '@/lib/squarifiedTreemap'
 type SizeBucket = 'feature' | 'tall' | 'standard' | 'compact' | 'thin'
 
 function bucketFor(area: number, h: number): SizeBucket {
-  // Height gates the bucket independent of area: a wide-short tile must use a
-  // compact layout (fewer title lines) or its content overflows the bottom.
-  if (h < 150) return 'thin'
-  if (h < 190) return 'compact'
+  // Height gates the bucket independent of area: a short tile must use a
+  // lean layout (fewer title lines, tighter padding) or content overflows.
+  if (h < 172) return 'thin'
+  if (h < 210) return 'compact'
   if (area >= 60000) return 'feature'
   if (area >= 34000) return 'tall'
   if (area >= 22000) return 'standard'

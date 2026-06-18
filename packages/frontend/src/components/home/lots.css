@@ -130,8 +130,8 @@
 .lot.size-feature  { padding: 32px 32px 28px; gap: 18px; }
 .lot.size-tall     { padding: 28px 28px 24px; gap: 16px; }
 .lot.size-standard { padding: 22px 22px 18px; gap: 12px; }
-.lot.size-compact  { padding: 18px 18px 14px; gap: 10px; }
-.lot.size-thin     { padding: 14px 14px 12px; gap: 6px; }
+.lot.size-compact  { padding: 16px 16px 13px; gap: 8px; }
+.lot.size-thin     { padding: 12px 13px 10px; gap: 4px; }
 
 /* category coloring (resting) */
 .lot.cat-code        { background: var(--code-bg);     color: var(--code-fg); }
@@ -194,7 +194,7 @@
 .lot.size-tall     .title { font-size: 26px; line-height: 1.1; -webkit-line-clamp: 4; }
 .lot.size-standard .title { font-size: 21px; -webkit-line-clamp: 3; }
 .lot.size-compact  .title { font-size: 17px; line-height: 1.2; -webkit-line-clamp: 2; }
-.lot.size-thin     .title { font-size: 15px; line-height: 1.25; -webkit-line-clamp: 2; }
+.lot.size-thin     .title { font-size: 14px; line-height: 1.2; -webkit-line-clamp: 2; }
 .lot .title em {
   font-style: italic;
   font-variation-settings: 'wght' 350, 'opsz' 32, 'slnt' -10;
