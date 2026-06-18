@@ -225,6 +225,16 @@
   align-items: flex-end;
   gap: 14px;
   flex-shrink: 0;   /* the price/bid footer is the floor — never crop it */
+  min-width: 0;
+}
+/* on narrow tiles the side-by-side bid-info + big price can't both fit on
+   one row, so the price was clipping off the RIGHT edge. Stack them: price
+   gets the full tile width. */
+.lot.size-compact .foot,
+.lot.size-thin    .foot {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 .lot.size-thin .foot { padding-top: 6px; }
 .lot .bid-info {
@@ -245,12 +255,13 @@
   font-feature-settings: 'tnum' 1;
   font-variation-settings: 'wght' 300, 'opsz' 32;
   line-height: 1;
+  white-space: nowrap;
 }
 .lot.size-feature  .price { font-size: 52px; }
 .lot.size-tall     .price { font-size: 44px; }
 .lot.size-standard .price { font-size: 36px; }
-.lot.size-compact  .price { font-size: 28px; }
-.lot.size-thin     .price { font-size: 22px; }
+.lot.size-compact  .price { font-size: 26px; }
+.lot.size-thin     .price { font-size: 20px; }
 .lot .price small {
   font-family: var(--mono);
   font-size: 9px;
