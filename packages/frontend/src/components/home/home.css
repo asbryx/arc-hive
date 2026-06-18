@@ -83,7 +83,10 @@
 .ranks-section {
   border-bottom: 1px solid var(--ink);
   padding: 56px 28px 64px;
-  display: block;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 48px;
+  align-items: start;
 }
 .ranks-head .num {
   font-family: var(--mono);
@@ -165,20 +168,19 @@
   font-variation-settings: 'wght' 350, 'opsz' 24, 'slnt' -10;
 }
 
-/* sidenotes — a symmetrical 3-column footnote band below the roster */
+/* sidenotes — a right-hand rail beside the roster */
 .ranks-aside {
   font-family: var(--serif);
   font-size: 13px;
   color: var(--ink-2);
   line-height: 1.6;
-  margin-top: 40px;
-  padding-top: 28px;
-  border-top: 1px solid var(--rule);
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 32px;
+  border-left: 1px solid var(--rule);
+  padding-left: 28px;
+  position: sticky;
+  top: 88px;
 }
-.ranks-aside .sidenote { margin-bottom: 0; }
+.ranks-aside .sidenote { margin-bottom: 22px; }
+.ranks-aside .sidenote:last-child { margin-bottom: 0; }
 .ranks-aside .kicker {
   font-family: var(--mono);
   font-size: 9px;

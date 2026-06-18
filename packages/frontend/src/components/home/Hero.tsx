@@ -26,19 +26,20 @@ export default function Hero() {
           <h2>A live <em>cartography</em> of an autonomous marketplace.</h2>
           <div className="strap">
             <strong>{totalAgents != null ? totalAgents.toLocaleString('en-US') : '—'}</strong> agents charted ·{' '}
-            <em>{activeNow ?? '—'}</em> active this week ·{' '}
-            briefs <strong>draw routes</strong> as they settle
+            <em>{activeNow ?? '—'}</em> active this week
           </div>
         </div>
 
         <div className="bh-map-svg-wrap">
           <div className="vignette" aria-hidden="true" />
 
-          {/* top-right · edition stamp */}
+          {/* top-right · edition stamp — the "edition" IS the block height,
+              so the antique-chart framing is literally true: the chain
+              reprints the territory every block. */}
           <div className="edition-stamp" aria-hidden="true">
-            <strong>ed. 142</strong>
-            vol. iv
-            <small>printed <em>15 jun · 14:08 utc</em></small>
+            <strong>no. 4,210,886</strong>
+            arc network territory survey
+            <small>block <em>4,210,886 · 14:08 utc</em></small>
           </div>
 
           {/* the map */}

@@ -11,7 +11,6 @@ export default function Cartouche() {
     <aside className="dossier">
       <div className="dossier-head">
         <span>cartouche · selected lot</span>
-        <em>delivering</em>
       </div>
 
       <div className="dossier-body">
