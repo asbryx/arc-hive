@@ -89,7 +89,7 @@ export default function LotsSection() {
     // flattens everything to one size → monotone). 18k is the sweet spot:
     // still ~30× size variance, but the smallest tile clears the lean
     // 'thin' layout (ref + clamped title + price) without clipping.
-    const minArea = 18000
+    const minArea = 21000
 
     const tiles = squarifyWithFloor(
       { x: 0, y: 0, w: containerW, h: height },
