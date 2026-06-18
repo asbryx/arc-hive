@@ -22,7 +22,7 @@
 import { useMemo } from 'react'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import {
-  sampleDensityField, contourAt, segsToSmoothPaths, bakeHillshade,
+  sampleDensityField, contourAt, segsToSmoothPaths,
 } from '@/lib/contourField'
 import {
   VB, PORT, ROUTES, SETTLEMENTS, buildPopulation, ROUTE_LABELS, KNOCKOUT_BOXES, isLabeled,
@@ -102,7 +102,7 @@ export default function Plate() {
     reduced ? SETTLEMENTS[i].phase : (churn.phases[i] ?? SETTLEMENTS[i].phase)
   const isSpark = (i: number): boolean => churn.sparks.includes(i)
 
-  const { contours, coastline, stipple, hillshade } = useMemo(() => {
+  const { contours, coastline, stipple } = useMemo(() => {
     // The ~1,284-agent population IS the terrain. Each agent splats a small
     // gaussian; where the crowd clusters, the land rises. The named
     // settlements add weight so they crown the highlands they sit on.
@@ -123,13 +123,6 @@ export default function Plate() {
     const contours = levels.map(l => segsToSmoothPaths(contourAt(field, l), 18))
     const coastline = segsToSmoothPaths(contourAt(field, 0.04 * max), 18)
 
-    // hillshade relief — baked ONCE to a raster (NW light, cartographic
-    // convention) so the terrain reads as raised land (2.5D) under the
-    // contour ink. Pure compute, cached in this memo, never per-frame.
-    const hillshade = bakeHillshade(field, {
-      azimuth: 315, altitude: 45, zFactor: 1.5, scale: 1, strength: 0.5,
-    })
-
     // the population itself is the dust layer — radius from weight, capped
     // away from glyphs/labels by simple proximity so dust never sits on text.
     // Subsample to ~640 dots: full 1,284 repaints a huge element count every
@@ -143,7 +136,7 @@ export default function Plate() {
       .filter(p => !clear.some(c => Math.hypot(c.x - p.x, c.y - p.y) < c.r))
       .map(p => ({ x: p.x, y: p.y, r: 0.7 + p.weight * 1.8 }))
 
-    return { contours, coastline, stipple, hillshade }
+    return { contours, coastline, stipple }
   }, [])
 
   // Memoize the STATIC terrain element tree (hillshade + contours + coastline +
@@ -153,11 +146,6 @@ export default function Plate() {
   // live layer (auras/routes/packets/sparks) reconciles on a tick.
   const terrain = useMemo(() => (
     <g mask="url(#label-knockout)">
-      {hillshade && (
-        <image href={hillshade} x="0" y="0" width={VB.w} height={VB.h}
-               preserveAspectRatio="none" style={{ mixBlendMode: 'multiply' }}
-               opacity="0.9" />
-      )}
       <g fill="none" stroke="var(--ink-3)" strokeLinecap="round" strokeLinejoin="round">
         {contours.map((d, i) => (
           <path key={i} d={d} strokeWidth={1 + i * 0.22} opacity={0.42 + i * 0.07} />
@@ -171,7 +159,7 @@ export default function Plate() {
         ))}
       </g>
     </g>
-  ), [hillshade, contours, coastline, stipple])
+  ), [contours, coastline, stipple])
 
   return (
     <svg
@@ -293,6 +281,35 @@ export default function Plate() {
               </g>
             )
           })}
+        </g>
+      )}
+
+      {/* ─── 3.8 TRANSITION FLASH — the moment a brief changes hands ───
+          When an agent advances its lifecycle this tick, a bold ring snaps out
+          from it + a quick color-burst, so the state change is SEEN, not
+          silent. Keyed by tick so it replays on every transition. */}
+      {!reduced && churn.flash >= 0 && SETTLEMENTS[churn.flash] && (
+        <g key={`flash-${churn.tick}`}
+           transform={`translate(${SETTLEMENTS[churn.flash].x}, ${SETTLEMENTS[churn.flash].y})`}
+           style={{ color: PHASE_COLOR[effPhase(churn.flash)] }} fill="none">
+          {/* bold snap ring */}
+          <circle r="10" stroke="currentColor" strokeWidth="2.4" opacity="0"
+                  style={{ willChange: 'transform, opacity' }}>
+            <animateTransform attributeName="transform" type="scale" from="0.4" to="3.6"
+                              dur="1.1s" calcMode="spline" keySplines="0.16 1 0.3 1" fill="freeze" />
+            <animate attributeName="opacity" values="0;0.9;0" keyTimes="0;0.15;1" dur="1.1s" fill="freeze" />
+          </circle>
+          {/* second echo ring */}
+          <circle r="10" stroke="currentColor" strokeWidth="1.4" opacity="0"
+                  style={{ willChange: 'transform, opacity' }}>
+            <animateTransform attributeName="transform" type="scale" from="0.4" to="2.4"
+                              dur="1.1s" begin="0.12s" calcMode="spline" keySplines="0.16 1 0.3 1" fill="freeze" />
+            <animate attributeName="opacity" values="0;0.7;0" keyTimes="0;0.2;1" dur="1.1s" begin="0.12s" fill="freeze" />
+          </circle>
+          {/* solid core burst */}
+          <circle r="5" fill="currentColor" stroke="none" opacity="0">
+            <animate attributeName="opacity" values="0;1;0" keyTimes="0;0.2;1" dur="0.9s" fill="freeze" />
+          </circle>
         </g>
       )}
 
@@ -489,8 +506,10 @@ export default function Plate() {
 
         return (
           <g key={s.addr} transform={`translate(${s.x}, ${s.y})`} style={{ color }}>
-            {/* cream clearing so the settlement lifts off the stipple/contours */}
-            <circle r={s.capital ? 22 : 15} fill="var(--cream)" opacity="0.82" />
+            {/* faint seat just under the glyph so the marker reads clearly —
+                small + soft, not an opaque panel (the label knockout already
+                clears contours/dust under the text). */}
+            <circle r={s.capital ? 12 : 9} fill="var(--cream)" opacity="0.45" />
             <Glyph kind={s.glyph} capital={s.capital} />
             {s.capital && (
               <text x={lx} y={-27} fontFamily="Geist Mono" fontSize="9" fill="var(--hot)"

@@ -44,11 +44,6 @@ export default function Hero() {
 
           {/* the map */}
           <Plate />
-
-          {/* bottom-center · figure caption */}
-          <div className="fig-caption">
-            fig. <strong>i</strong> — the territory at <strong>14:32 utc</strong>, contoured by activity, drawn from chain state.
-          </div>
         </div>
 
         {/* legend — a marginalia strip BELOW the plate (off the terrain, as a
