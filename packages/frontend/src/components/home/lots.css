@@ -233,7 +233,8 @@
 }
 /* on narrow tiles the side-by-side bid-info + big price can't both fit on
    one row, so the price was clipping off the RIGHT edge. Stack them: price
-   gets the full tile width. */
+   gets the full tile width. (tall tiles can be narrow too — include them.) */
+.lot.size-tall    .foot,
 .lot.size-compact .foot,
 .lot.size-thin    .foot {
   flex-direction: column;
