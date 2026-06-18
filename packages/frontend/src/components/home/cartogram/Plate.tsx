@@ -103,7 +103,7 @@ export default function Plate() {
       x: s.x, y: s.y, weight: s.capital ? 2.4 : 1.5,
     }))
     const field = sampleDensityField({
-      w: VB.w, h: VB.h, cell: 8, bandwidth: 44,
+      w: VB.w, h: VB.h, cell: 8, bandwidth: 50,
       points: [...population, ...named],
     })
 
@@ -111,9 +111,9 @@ export default function Plate() {
     // coastline; the rest are interior topo lines. Segments are chained +
     // smoothed so contours read as clean nested loops, not jagged dashes.
     const max = field.max
-    const levels = [0.05, 0.10, 0.17, 0.26, 0.38, 0.53, 0.71].map(f => f * max)
+    const levels = [0.04, 0.09, 0.16, 0.25, 0.37, 0.52, 0.70].map(f => f * max)
     const contours = levels.map(l => segsToSmoothPaths(contourAt(field, l), 18))
-    const coastline = segsToSmoothPaths(contourAt(field, 0.05 * max), 18)
+    const coastline = segsToSmoothPaths(contourAt(field, 0.04 * max), 18)
 
     // the population itself is the dust layer — radius from weight, capped
     // away from glyphs/labels by simple proximity so dust never sits on text.

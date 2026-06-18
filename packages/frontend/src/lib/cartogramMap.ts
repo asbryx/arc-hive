@@ -184,7 +184,7 @@ export function buildPopulation(n = 1284): AgentPoint[] {
 
   for (let i = 0; i < n; i++) {
     let x: number, y: number, weight: number
-    if (rng() < 0.6) {
+    if (rng() < 0.45) {
       // cluster around a named settlement, chosen with probability ∝ score
       let t = rng() * totalScore
       let k = 0
@@ -193,14 +193,16 @@ export function buildPopulation(n = 1284): AgentPoint[] {
         if (t <= 0) break
       }
       const s = named[k]
-      const sigma = s.capital ? 132 : 78 + (s.score - 7.4) * 30
+      const sigma = s.capital ? 138 : 84 + (s.score - 7.4) * 32
       x = s.x + g() * sigma
       y = s.y + g() * sigma * 0.7   // squashed: terrain reads wider than tall
       weight = 0.14 + rng() * 0.16
     } else {
+      // scattered background population — fills the lowland so the territory
+      // reads as continuous land with bays/inlets, not floating islands.
       x = MARGIN.x + rng() * (VB.w - MARGIN.x * 2)
       y = MARGIN.y + rng() * (VB.h - MARGIN.y * 2)
-      weight = 0.07 + rng() * 0.11
+      weight = 0.10 + rng() * 0.13
     }
     x = Math.max(16, Math.min(VB.w - 16, x))
     y = Math.max(16, Math.min(VB.h - 16, y))
