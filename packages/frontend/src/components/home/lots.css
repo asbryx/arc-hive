@@ -191,11 +191,11 @@
   overflow: hidden;
   min-width: 0;
 }
-.lot.size-feature  .title { font-size: clamp(28px, 2.6vw, 38px); line-height: 1.08; -webkit-line-clamp: 5; }
-.lot.size-tall     .title { font-size: 24px; line-height: 1.12; -webkit-line-clamp: 5; }
-.lot.size-standard .title { font-size: 19px; line-height: 1.18; -webkit-line-clamp: 5; }
-.lot.size-compact  .title { font-size: 15px; line-height: 1.22; -webkit-line-clamp: 4; }
-.lot.size-thin     .title { font-size: 13px; line-height: 1.25; -webkit-line-clamp: 4; }
+.lot.size-feature  .title { font-size: clamp(28px, 2.6vw, 38px); line-height: 1.08; -webkit-line-clamp: 5; max-height: 5.4em; }
+.lot.size-tall     .title { font-size: 24px; line-height: 1.12; -webkit-line-clamp: 5; max-height: 5.6em; }
+.lot.size-standard .title { font-size: 19px; line-height: 1.18; -webkit-line-clamp: 5; max-height: 5.9em; }
+.lot.size-compact  .title { font-size: 15px; line-height: 1.22; -webkit-line-clamp: 4; max-height: 4.88em; }
+.lot.size-thin     .title { font-size: 13px; line-height: 1.25; -webkit-line-clamp: 4; max-height: 5em; }
 .lot .title em {
   font-style: italic;
   font-variation-settings: 'wght' 350, 'opsz' 32, 'slnt' -10;
@@ -213,6 +213,9 @@
   min-width: 0;
 }
 .lot.size-feature .summary { -webkit-line-clamp: 3; }
+/* summary is the first thing to go on tight tiles — only the largest
+   (feature/standard) tiles can afford it without crowding the price. */
+.lot.size-tall    .summary,
 .lot.size-compact .summary,
 .lot.size-thin    .summary { display: none; }
 .lot.size-thin    .activity { display: none; }
