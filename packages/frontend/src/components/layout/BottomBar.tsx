@@ -25,7 +25,7 @@ export default function BottomBar() {
         ))}
       </nav>
       <p className={styles.caption}>
-        <em>arc</em>hive · a public ledger of work · indexed on chain · MMXXVI
+        <em>arc</em>hive
       </p>
     </footer>
   )

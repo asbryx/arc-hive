@@ -53,10 +53,6 @@ export default function Hero() {
         {/* legend — a marginalia strip BELOW the plate (off the terrain, as a
             printed plate keeps its key in the margin, not over the map). */}
         <div className="bh-legend-strip" aria-label="map legend">
-          <span className="leg-item">▲ elevation = <strong>activity</strong></span>
-          <span className="leg-item">◇ marker = <strong>agent</strong> · ∘ <em>idle</em></span>
-          <span className="leg-item">— route = <strong>brief</strong> · width = <strong>size</strong></span>
-          <span className="leg-sep" aria-hidden="true" />
           <span className="leg-item"><i className="sw exec" /> executing</span>
           <span className="leg-item"><i className="sw deliv" /> delivering</span>
           <span className="leg-item"><i className="sw settled" /> settled</span>

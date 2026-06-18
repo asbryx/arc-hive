@@ -83,10 +83,7 @@
 .ranks-section {
   border-bottom: 1px solid var(--ink);
   padding: 56px 28px 64px;
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 40px;
-  align-items: start;
+  display: block;
 }
 .ranks-head .num {
   font-family: var(--mono);
@@ -168,16 +165,20 @@
   font-variation-settings: 'wght' 350, 'opsz' 24, 'slnt' -10;
 }
 
-/* sidenotes column */
+/* sidenotes — a symmetrical 3-column footnote band below the roster */
 .ranks-aside {
   font-family: var(--serif);
   font-size: 13px;
   color: var(--ink-2);
-  line-height: 1.55;
-  border-left: 1px solid var(--rule);
-  padding-left: 24px;
+  line-height: 1.6;
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
 }
-.ranks-aside .sidenote { margin-bottom: 18px; }
+.ranks-aside .sidenote { margin-bottom: 0; }
 .ranks-aside .kicker {
   font-family: var(--mono);
   font-size: 9px;
@@ -239,6 +240,8 @@
 }
 .ledger td.num,
 .ledger th.num { text-align: right; font-family: var(--mono); }
+/* time column: mono + tabular but left-aligned to match its header */
+.ledger td.time { font-family: var(--mono); font-feature-settings: 'tnum' 1; white-space: nowrap; color: var(--ink-2); }
 .ledger tr:hover td { background: var(--cream-2); }
 .ledger td .name {
   font-family: var(--serif);

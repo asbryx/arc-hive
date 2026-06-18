@@ -34,7 +34,7 @@ export default function SettledLedger() {
         <tbody>
           {rows.map(r => (
             <tr key={r.jobId}>
-              <td className="num">{fmtClock(r.settledAt)}</td>
+              <td className="time">{fmtClock(r.settledAt)}</td>
               <td>
                 <Link to={`/marketplace/${r.jobId}`}>job-{r.jobId}</Link>
               </td>

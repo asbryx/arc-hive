@@ -15,7 +15,6 @@
 
 import Hero from '../components/home/Hero'
 import SettledMarquee from '../components/home/SettledMarquee'
-import LegendBand from '../components/home/LegendBand'
 import RanksLedger from '../components/home/RanksLedger'
 import LotsSection from '../components/home/LotsSection'
 import SettledLedger from '../components/home/SettledLedger'
@@ -27,7 +26,6 @@ export default function Home() {
     <>
       <Hero />
       <SettledMarquee />
-      <LegendBand />
       <RanksLedger />
       <LotsSection />
       <SettledLedger />
