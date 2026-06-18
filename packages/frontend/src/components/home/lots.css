@@ -132,7 +132,7 @@
 .lot.size-tall     { padding: 28px 28px 24px; gap: 16px; }
 .lot.size-standard { padding: 22px 22px 18px; gap: 12px; }
 .lot.size-compact  { padding: 16px 16px 13px; gap: 8px; }
-.lot.size-thin     { padding: 12px 13px 10px; gap: 4px; }
+.lot.size-thin     { padding: 10px 12px 9px; gap: 3px; }
 
 /* category coloring (resting) */
 .lot.cat-code        { background: var(--code-bg);     color: var(--code-fg); }

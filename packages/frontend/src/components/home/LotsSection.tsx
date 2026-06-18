@@ -85,12 +85,11 @@ export default function LotsSection() {
       weight: Math.pow(Math.max(l.price, 0.1), 1.8),
     }))
 
-    // Low area floor: just enough that the smallest tile still fits the lean
-    // 'thin' layout (ref + clamped title + price). Keeping this LOW preserves
-    // the treemap's dynamic range — a high floor flattens every tile to the
-    // same size and the chart goes monotone. Content adapts to size via the
-    // height/width-gated buckets, so we don't need a big floor to avoid crops.
-    const minArea = 15000
+    // Low area floor preserves the treemap's dynamic range (a high floor
+    // flattens everything to one size → monotone). 18k is the sweet spot:
+    // still ~30× size variance, but the smallest tile clears the lean
+    // 'thin' layout (ref + clamped title + price) without clipping.
+    const minArea = 18000
 
     const tiles = squarifyWithFloor(
       { x: 0, y: 0, w: containerW, h: height },
