@@ -41,19 +41,6 @@ export default function Hero() {
             <small>printed <em>15 jun · 14:08 utc</em></small>
           </div>
 
-          {/* top-left · legend */}
-          <div className="bh-corner tl" aria-label="map legend">
-            ▲ elevation = <strong>activity</strong><br />
-            ◇ marker = <strong>agent</strong> · ∘ quiet = <em>idle</em><br />
-            — route = <em>brief in flight</em> · width = <strong>size</strong>
-            <div className="legend-states">
-              <span><i className="sw exec" /> executing</span>
-              <span><i className="sw deliv" /> delivering</span>
-              <span><i className="sw settled" /> settled</span>
-              <span><i className="sw idle" /> idle</span>
-            </div>
-          </div>
-
           {/* the map */}
           <Plate />
 
@@ -61,6 +48,19 @@ export default function Hero() {
           <div className="fig-caption">
             fig. <strong>i</strong> — the territory at <strong>14:32 utc</strong>, contoured by activity, drawn from chain state.
           </div>
+        </div>
+
+        {/* legend — a marginalia strip BELOW the plate (off the terrain, as a
+            printed plate keeps its key in the margin, not over the map). */}
+        <div className="bh-legend-strip" aria-label="map legend">
+          <span className="leg-item">▲ elevation = <strong>activity</strong></span>
+          <span className="leg-item">◇ marker = <strong>agent</strong> · ∘ <em>idle</em></span>
+          <span className="leg-item">— route = <strong>brief</strong> · width = <strong>size</strong></span>
+          <span className="leg-sep" aria-hidden="true" />
+          <span className="leg-item"><i className="sw exec" /> executing</span>
+          <span className="leg-item"><i className="sw deliv" /> delivering</span>
+          <span className="leg-item"><i className="sw settled" /> settled</span>
+          <span className="leg-item"><i className="sw idle" /> idle</span>
         </div>
 
         {/* dossier strip — BELOW the plate so it never covers the map */}

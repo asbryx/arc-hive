@@ -180,6 +180,57 @@ export default function Plate() {
       </g>
       </g>{/* end label-knockout mask (contours + coastline + dust) */}
 
+      {/* ─── 3.5 LIVING TERRAIN — activity auras ───
+          Each working agent's hill BREATHES: slow concentric rings rise and
+          fade outward from the marker, so "elevation = activity" becomes
+          visible in motion — the land pulses where work is happening.
+          Cheap (per-node SMIL), calm, reduced-motion gated. */}
+      {!reduced && (
+        <g fill="none">
+          {SETTLEMENTS.filter(s => s.phase === 'executing' || s.phase === 'delivering').map((s, i) => {
+            const color = PHASE_COLOR[s.phase]
+            const period = s.phase === 'executing' ? 3.2 : 4.2
+            const r0 = s.capital ? 18 : 13
+            const r1 = s.capital ? 46 : 34
+            return (
+              <g key={s.addr} transform={`translate(${s.x}, ${s.y})`} style={{ color }}>
+                {[0, 1, 2].map(k => (
+                  <circle key={k} r={r0} stroke={color} strokeWidth="1.2" opacity="0">
+                    <animate attributeName="r" from={r0} to={r1}
+                             dur={`${period}s`} begin={`${(i * 0.4 + k * (period / 3)).toFixed(2)}s`}
+                             calcMode="spline" keySplines="0.33 0 0.67 1" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="0;0.34;0" keyTimes="0;0.25;1"
+                             dur={`${period}s`} begin={`${(i * 0.4 + k * (period / 3)).toFixed(2)}s`}
+                             repeatCount="indefinite" />
+                  </circle>
+                ))}
+              </g>
+            )
+          })}
+        </g>
+      )}
+
+      {/* ─── 3.6 SETTLE-RIPPLE — a settled agent just got paid ───
+          A single bold ring blooms outward and fades on a long cycle: the
+          marketplace event you can SEE happen on the land. */}
+      {!reduced && (
+        <g fill="none">
+          {SETTLEMENTS.filter(s => s.phase === 'settled').map((s) => (
+            <g key={s.addr} transform={`translate(${s.x}, ${s.y})`}>
+              {[0, 1].map(k => (
+                <circle key={k} r="14" stroke="var(--marsh)" strokeWidth="1.8" opacity="0">
+                  <animate attributeName="r" from="14" to="62"
+                           dur="5s" begin={`${(k * 2.5).toFixed(1)}s`}
+                           calcMode="spline" keySplines="0.2 0 0.4 1" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0;0.5;0" keyTimes="0;0.15;1"
+                           dur="5s" begin={`${(k * 2.5).toFixed(1)}s`} repeatCount="indefinite" />
+                </circle>
+              ))}
+            </g>
+          ))}
+        </g>
+      )}
+
       {/* ─── 4. TRADE ROUTES — port → every settlement ─── */}
       {/* cream casing under active routes so they separate from the terrain.
           Width tracks brief magnitude (Minard) so bold roads = big briefs. */}
@@ -291,8 +342,54 @@ export default function Plate() {
         </g>
       )}
 
+      {/* ─── 4.6 PAYMENT RETURN — USDC flows HOME ───
+          When a brief settles, the payout travels back agent → port: a small
+          coin glides home along the route in reverse. This is the unique
+          arc-hive beat — you watch money move on settlement, not just work
+          go out. Reverse path (dest → port). */}
+      {!reduced && (
+        <g>
+          {ROUTES.filter(rt => rt.phase === 'settled').map((rt, i) => {
+            const dest = SETTLEMENTS[rt.to]
+            // reverse: start at the agent, curve back to the port
+            const d = `M${dest.x} ${dest.y} Q${rt.cx} ${rt.cy} ${PORT.x} ${PORT.y}`
+            const dur = 3.0
+            const begin = `${(1.4 + i * 0.6).toFixed(2)}s`
+            const mp = {
+              dur: `${dur}s`, begin, repeatCount: 'indefinite' as const, path: d,
+              calcMode: 'spline' as const, keyTimes: '0;1', keySplines: '0.4 0 0.6 1',
+            }
+            return (
+              <g key={i}>
+                <circle r="6" fill="var(--ochre)" stroke="var(--cream)" strokeWidth="1.4" opacity="0">
+                  <animateMotion {...mp} />
+                  <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1"
+                           dur={`${dur}s`} begin={begin} repeatCount="indefinite" />
+                </circle>
+                <text fontFamily="Geist Mono" fontSize="7.5" fontWeight="700"
+                      fill="var(--cream)" textAnchor="middle" dy="2.6" opacity="0"
+                      style={{ pointerEvents: 'none' }}>
+                  $
+                  <animateMotion {...mp} />
+                  <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1"
+                           dur={`${dur}s`} begin={begin} repeatCount="indefinite" />
+                </text>
+              </g>
+            )
+          })}
+        </g>
+      )}
       {/* ─── 5. PORT — client gateway on the west coast ─── */}
       <g transform={`translate(${PORT.x}, ${PORT.y})`} style={{ color: 'var(--ink)' }}>
+        {/* heartbeat — the port is the living heart where briefs land + pay */}
+        {!reduced && (
+          <circle r="13" fill="none" stroke="var(--ink-2)" strokeWidth="1.4" opacity="0">
+            <animate attributeName="r" values="13;30" dur="2.6s"
+                     calcMode="spline" keySplines="0.3 0 0.5 1" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0;0.4;0" keyTimes="0;0.2;1"
+                     dur="2.6s" repeatCount="indefinite" />
+          </circle>
+        )}
         <circle r="13" fill="var(--cream)" stroke="currentColor" strokeWidth="1.6" />
         <circle r="5" fill="currentColor" />
         <circle r="20" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="2 4" opacity="0.5" />
