@@ -121,9 +121,10 @@
 }
 /* meta + activity are fixed-height headers, never shrink */
 .lot .meta, .lot .activity { flex-shrink: 0; }
-/* title shrinks first (it's line-clamped), then summary, so the price floor
-   and the header always survive even on short tiles */
-.lot .title { flex: 0 1 auto; min-height: 0; }
+/* title takes the LEFTOVER space between header and the price footer and
+   clamps to whatever fits there (flex-basis 0 so it never reserves its own
+   intrinsic multi-line height and pushes the price out). summary likewise. */
+.lot .title { flex: 1 1 0; min-height: 0; }
 .lot .summary { flex: 0 1 auto; min-height: 0; }
 
 /* typography buckets — selected by Lot.tsx based on rendered area */
