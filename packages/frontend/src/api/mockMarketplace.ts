@@ -219,7 +219,12 @@ function makeBriefs(): Brief[] {
   return out
 }
 
-const POOL = makeBriefs()
+let _pool: Brief[] | null = null
+function pool(): Brief[] {
+  if (_pool) return _pool
+  try { _pool = makeBriefs() } catch (e) { console.error('[mockMarketplace] makeBriefs failed:', e); _pool = [] }
+  return _pool
+}
 
 /** Build the lifecycle detail for a single brief (bids, timeline, etc.). */
 function buildDetail(b: Brief): Brief {
@@ -332,7 +337,7 @@ export function useOpenBriefs(params: ListParams = {}) {
   return useQuery<{ briefs: Brief[]; total: number; pages: number }>({
     queryKey: ['mock', 'open-briefs', category, search, sort, page, limit],
     queryFn: async () => {
-      let rows = POOL.slice()
+      let rows = pool().slice()
       if (category) rows = rows.filter(b => b.category === category)
       if (search) {
         const q = search.toLowerCase()
@@ -363,7 +368,7 @@ export function useBrief(id: number | string) {
     queryKey: ['mock', 'brief', id],
     queryFn: async () => {
       const n = typeof id === 'string' ? parseInt(id, 10) : id
-      const b = POOL.find(x => x.id === n || x.lotNo === n)
+      const b = pool().find(x => x.id === n || x.lotNo === n)
       return b ? buildDetail(b) : null
     },
     staleTime: Infinity,
