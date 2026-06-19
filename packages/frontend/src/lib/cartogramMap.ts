@@ -91,23 +91,15 @@ interface SettlementSeed {
 
 const SETTLEMENT_SEEDS: SettlementSeed[] = [
   { name: 'Lyra Synthwright', addr: '0xA8C3', score: 9.42, phase: 'executing',  glyph: 'star',  capital: true },
-  { name: 'Osric Wynn',       addr: '0x1F44', score: 8.22, phase: 'executing',  glyph: 'tri'   },
   { name: 'Carter & Vale',    addr: '0x4C91', score: 8.71, phase: 'settled',    glyph: 'cross' },
-  { name: 'Verity & Bell',    addr: '0x7E02', score: 7.94, phase: 'idle',       glyph: 'ring'  },
-  { name: 'Quill Marlowe',    addr: '0x2B66', score: 7.55, phase: 'idle',       glyph: 'ring'  },
   { name: 'Thorne Ledger',    addr: '0x12FA', score: 8.43, phase: 'executing',  glyph: 'tri'   },
-  { name: 'Mira Tolle',       addr: '0x9D7C', score: 8.05, phase: 'delivering', glyph: 'lens'  },
-  { name: 'Halden Court',     addr: '0x55AB', score: 7.81, phase: 'idle',       glyph: 'keep'  },
-  { name: 'Iris Voss',        addr: '0x88BD', score: 7.68, phase: 'delivering', glyph: 'lens'  },
-  { name: 'Selden Roe',       addr: '0x7A10', score: 7.40, phase: 'idle',       glyph: 'keep'  },
   { name: 'Bly & Marsh',      addr: '0x3D8E', score: 8.34, phase: 'executing',  glyph: 'cross' },
-  { name: 'Orin Castle',      addr: '0xC417', score: 7.88, phase: 'delivering', glyph: 'tri'   },
-  { name: 'Wren Albright',    addr: '0x6F23', score: 8.12, phase: 'executing',  glyph: 'star'  },
-  { name: 'Pike & Sour',      addr: '0x9B51', score: 7.62, phase: 'settled',    glyph: 'cross' },
-  { name: 'Calder Voss',      addr: '0x2E70', score: 7.49, phase: 'idle',       glyph: 'ring'  },
-  { name: 'Nim Hawthorne',    addr: '0xD905', score: 7.97, phase: 'idle',       glyph: 'keep'  },
+  { name: 'Osric Wynn',       addr: '0x1F44', score: 8.22, phase: 'executing',  glyph: 'tri'   },
   { name: 'Sable & Crane',    addr: '0x41BC', score: 8.18, phase: 'delivering', glyph: 'lens'  },
-  { name: 'Edda Pole',        addr: '0x8C39', score: 7.33, phase: 'idle',       glyph: 'keep'  },
+  { name: 'Wren Albright',    addr: '0x6F23', score: 8.12, phase: 'executing',  glyph: 'star'  },
+  { name: 'Mira Tolle',       addr: '0x9D7C', score: 8.05, phase: 'delivering', glyph: 'lens'  },
+  { name: 'Nim Hawthorne',    addr: '0xD905', score: 7.97, phase: 'delivering', glyph: 'keep'  },
+  { name: 'Verity & Bell',    addr: '0x7E02', score: 7.94, phase: 'settled',    glyph: 'ring'  },
 ]
 
 /** zones the labels must avoid: the two top marginalia corners
@@ -274,23 +266,15 @@ function routeControl(dest: { x: number; y: number }, bend: number): { cx: numbe
  *  progress and total size, deliveries mid-weight, idle ~0. */
 const ROUTE_SEEDS: Array<Omit<Route, 'cx' | 'cy'>> = [
   { to: 0, phase: 'executing',  payload: 'JOB-2840 · 9/12 steps', mag: 0.85 },
-  { to: 1, phase: 'executing',  payload: 'JOB-2842 · 2/6 steps',  mag: 0.34 },
-  { to: 2, phase: 'settled',    payload: 'JOB-2841 · +2.40 USDC', mag: 0.70 },
-  { to: 5, phase: 'executing',  payload: 'JOB-2839 · 4/8 steps',  mag: 0.52 },
-  { to: 6, phase: 'delivering', payload: 'JOB-2836 · delivering', mag: 0.60 },
-  { to: 8, phase: 'delivering', payload: 'JOB-2838 · delivering', mag: 0.48 },
-  { to: 10, phase: 'executing', payload: 'JOB-2844 · 3/5 steps',  mag: 0.58 },
-  { to: 11, phase: 'delivering',payload: 'JOB-2843 · delivering', mag: 0.44 },
-  { to: 12, phase: 'executing', payload: 'JOB-2845 · 6/9 steps',  mag: 0.66 },
-  { to: 13, phase: 'settled',   payload: 'JOB-2837 · +1.85 USDC', mag: 0.50 },
-  { to: 16, phase: 'delivering',payload: 'JOB-2846 · delivering', mag: 0.55 },
-  { to: 3, phase: 'idle',       payload: '', mag: 0 },
-  { to: 4, phase: 'idle',       payload: '', mag: 0 },
-  { to: 7, phase: 'idle',       payload: '', mag: 0 },
-  { to: 9, phase: 'idle',       payload: '', mag: 0 },
-  { to: 14, phase: 'idle',      payload: '', mag: 0 },
-  { to: 15, phase: 'idle',      payload: '', mag: 0 },
-  { to: 17, phase: 'idle',      payload: '', mag: 0 },
+  { to: 1, phase: 'settled',    payload: 'JOB-2841 · +2.40 USDC', mag: 0.70 },
+  { to: 2, phase: 'executing',  payload: 'JOB-2839 · 4/8 steps',  mag: 0.52 },
+  { to: 3, phase: 'executing',  payload: 'JOB-2844 · 3/5 steps',  mag: 0.58 },
+  { to: 4, phase: 'executing',  payload: 'JOB-2842 · 2/6 steps',  mag: 0.34 },
+  { to: 5, phase: 'delivering', payload: 'JOB-2836 · delivering', mag: 0.60 },
+  { to: 6, phase: 'executing',  payload: 'JOB-2845 · 6/9 steps',  mag: 0.66 },
+  { to: 7, phase: 'delivering', payload: 'JOB-2838 · delivering', mag: 0.48 },
+  { to: 8, phase: 'delivering', payload: 'JOB-2843 · delivering', mag: 0.44 },
+  { to: 9, phase: 'settled',    payload: 'JOB-2837 · +1.85 USDC', mag: 0.50 },
 ]
 
 export const ROUTES: Route[] = ROUTE_SEEDS.map((r, i) => {
