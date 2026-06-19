@@ -1,13 +1,27 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from './client'
+import { useMockStats } from './mockStats'
+
+/**
+ * useStats — real API on prod, mock on preview.
+ *
+ * Preview deploys don't have DATABASE_URL, so /api/stats 500s and the hero
+ * strap shows "—". Setting VITE_USE_MOCK_STATS=true (the preview default)
+ * swaps in deterministic mockup numbers so the design reads complete. Prod
+ * leaves it unset → real API. See api/mockStats.ts.
+ */
+const USE_MOCK_STATS = import.meta.env.VITE_USE_MOCK_STATS === 'true'
 
 export function useStats() {
-  return useQuery({
+  const mock = useMockStats()
+  const real = useQuery({
     queryKey: ['stats'],
     queryFn: api.getStats,
     refetchInterval: 15_000,
+    enabled: !USE_MOCK_STATS,
   })
+  return USE_MOCK_STATS ? mock : real
 }
 
 export function useMarketplaceStats() {
