@@ -25,20 +25,91 @@ import {
   sampleDensityField, contourAt, segsToSmoothPaths,
 } from '@/lib/contourField'
 import {
-  VB, PORT, buildPopulation, KNOCKOUT_BOXES,
+  VB, PORT, ROUTES, SETTLEMENTS, buildPopulation, ROUTE_LABELS, KNOCKOUT_BOXES, isLabeled,
+  type Settlement, type Phase,
 } from '@/lib/cartogramMap'
-import { KEEP, AGENTS } from '@/lib/cartogramAgents'
-import MovementLayer from './MovementLayer'
+import { useCartogramChurn } from './useCartogramChurn'
+
+const PHASE_COLOR: Record<Phase, string> = {
+  executing:  'var(--hot)',
+  delivering: 'var(--marsh)',
+  settled:    'var(--marsh)',
+  idle:       'var(--slate)',
+}
+
+/* settlement glyphs — small survey markers */
+function Glyph({ kind, capital }: { kind: Settlement['glyph']; capital?: boolean }) {
+  const s = capital ? 1.5 : 1
+  const sw = 1.6
+  switch (kind) {
+    case 'star':
+      return (
+        <g transform={`scale(${s})`}>
+          <circle r="9" fill="var(--cream)" stroke="currentColor" strokeWidth={sw} />
+          <circle r="3" fill="currentColor" />
+          <line x1="0" y1="-13" x2="0" y2="-9" stroke="currentColor" strokeWidth={sw} />
+          <line x1="0" y1="9" x2="0" y2="13" stroke="currentColor" strokeWidth={sw} />
+          <line x1="-13" y1="0" x2="-9" y2="0" stroke="currentColor" strokeWidth={sw} />
+          <line x1="9" y1="0" x2="13" y2="0" stroke="currentColor" strokeWidth={sw} />
+        </g>
+      )
+    case 'cross':
+      return (
+        <g transform={`scale(${s})`}>
+          <rect x="-7" y="-7" width="14" height="14" fill="var(--cream)" stroke="currentColor" strokeWidth={sw} />
+          <line x1="-7" y1="-7" x2="7" y2="7" stroke="currentColor" strokeWidth={sw} />
+          <line x1="7" y1="-7" x2="-7" y2="7" stroke="currentColor" strokeWidth={sw} />
+        </g>
+      )
+    case 'tri':
+      return (
+        <g transform={`scale(${s})`}>
+          <polygon points="0,-9 8,6 -8,6" fill="var(--cream)" stroke="currentColor" strokeWidth={sw} />
+          <circle r="2.4" fill="currentColor" />
+        </g>
+      )
+    case 'lens':
+      return (
+        <g transform={`scale(${s})`}>
+          <path d="M -9 0 Q 0 -8 9 0 Q 0 8 -9 0 Z" fill="var(--cream)" stroke="currentColor" strokeWidth={sw} />
+          <circle r="2" fill="currentColor" />
+        </g>
+      )
+    case 'keep':
+      return (
+        <g transform={`scale(${s})`}>
+          <polygon points="-8,-7 8,-7 8,5 0,9 -8,5" fill="var(--cream)" stroke="currentColor" strokeWidth={sw} />
+        </g>
+      )
+    case 'ring':
+    default:
+      return (
+        <g transform={`scale(${s})`}>
+          <circle r="8" fill="var(--cream)" stroke="currentColor" strokeWidth={sw} />
+          <circle r="3" fill="none" stroke="currentColor" strokeWidth={sw} />
+        </g>
+      )
+  }
+}
 
 export default function Plate() {
   const reduced = useReducedMotion()
+  const churn = useCartogramChurn(!reduced)
+
+  /** effective phase for a settlement index — churn overrides the static seed
+   *  so the active set turns over per "block" while terrain stays cached. */
+  const effPhase = (i: number): Phase =>
+    reduced ? SETTLEMENTS[i].phase : (churn.phases[i] ?? SETTLEMENTS[i].phase)
+  const isSpark = (i: number): boolean => churn.sparks.includes(i)
 
   const { contours, coastline, stipple } = useMemo(() => {
     // The ~1,284-agent population IS the terrain. Each agent splats a small
-    // gaussian; where the crowd clusters, the land rises. Agent work-sites add
-    // weight so the highlands sit where agents actually work.
+    // gaussian; where the crowd clusters, the land rises. The named
+    // settlements add weight so they crown the highlands they sit on.
     const population = buildPopulation()
-    const named = AGENTS.map(a => ({ x: a.site.x, y: a.site.y, weight: 1.6 }))
+    const named = SETTLEMENTS.map(s => ({
+      x: s.x, y: s.y, weight: s.capital ? 2.4 : 1.5,
+    }))
     const field = sampleDensityField({
       w: VB.w, h: VB.h, cell: 8, bandwidth: 52,
       points: [...population, ...named],
@@ -53,12 +124,12 @@ export default function Plate() {
     const coastline = segsToSmoothPaths(contourAt(field, 0.04 * max), 18)
 
     // the population itself is the dust layer — radius from weight, capped
-    // away from the anchors (port, keep, agent sites) so dust never sits on
-    // markers/text. ~640 dots reads identically as texture without the cost.
+    // away from glyphs/labels by simple proximity so dust never sits on text.
+    // Subsample to ~640 dots: full 1,284 repaints a huge element count every
+    // animation frame and tanks fps; ~640 reads identically as texture.
     const clear = [
-      { x: PORT.x, y: PORT.y, r: 40 },
-      { x: KEEP.x, y: KEEP.y, r: 110 },   // keep + its garrison cluster
-      ...AGENTS.map(a => ({ x: a.site.x, y: a.site.y, r: 26 })),
+      ...SETTLEMENTS.map(s => ({ x: s.x, y: s.y, r: 30 })),
+      { x: PORT.x, y: PORT.y, r: 36 },
     ]
     const stipple = population
       .filter((_, idx) => idx % 2 === 0)
@@ -129,11 +200,337 @@ export default function Plate() {
               reconciler skips it; only the live layer below re-renders. */}
       {terrain}
 
-      {/* ─── LIVING LAYER — the "Keep and the Field" movement system ───
-          Agents sortie out of the Keep to work-sites and return; trails follow
-          them; only agents currently out are labelled. Replaces the old static
-          settlements/routes. See MovementLayer + useAgentJourneys. */}
-      <MovementLayer reduced={reduced} />
+      {/* ─── 3.5 LIVING TERRAIN — activity auras ───
+          Each working agent's hill BREATHES: slow rings rise + fade outward,
+          so "elevation = activity" becomes visible in motion. Uses
+          animateTransform scale (GPU-composited) instead of animating r —
+          animating the radius forces a full geometry repaint every frame and
+          tanks the framerate; scaling a unit circle does not. */}
+      {!reduced && (
+        <g fill="none">
+          {SETTLEMENTS.map((s, i) => ({ s, i, ph: effPhase(i) }))
+            .filter(({ ph }) => ph === 'executing' || ph === 'delivering')
+            .map(({ s, i, ph }) => {
+            const color = PHASE_COLOR[ph]
+            const period = ph === 'executing' ? 3.4 : 4.4
+            const base = s.capital ? 20 : 15
+            const grow = s.capital ? 2.5 : 2.3
+            return (
+              <g key={s.addr} transform={`translate(${s.x}, ${s.y})`} style={{ color }}>
+                {[0, 1].map(k => (
+                  <g key={k}>
+                    <circle r={base} stroke={color} strokeWidth="1.2" opacity="0"
+                            style={{ willChange: 'transform, opacity' }}>
+                      <animateTransform attributeName="transform" type="scale"
+                                        from="0.5" to={grow}
+                                        dur={`${period}s`} begin={`${(i * 0.5 + k * (period / 2)).toFixed(2)}s`}
+                                        calcMode="spline" keySplines="0.33 0 0.67 1" repeatCount="indefinite" />
+                      <animate attributeName="opacity" values="0;0.32;0" keyTimes="0;0.22;1"
+                               dur={`${period}s`} begin={`${(i * 0.5 + k * (period / 2)).toFixed(2)}s`}
+                               repeatCount="indefinite" />
+                    </circle>
+                  </g>
+                ))}
+              </g>
+            )
+          })}
+        </g>
+      )}
+
+      {/* ─── 3.6 SETTLE-RIPPLE — a settled agent just got paid ───
+          One bold ring blooms + fades on a long cycle (scale, not r). */}
+      {!reduced && (
+        <g fill="none">
+          {SETTLEMENTS.map((s, i) => ({ s, i, ph: effPhase(i) }))
+            .filter(({ ph }) => ph === 'settled')
+            .map(({ s }) => (
+            <g key={s.addr} transform={`translate(${s.x}, ${s.y})`}>
+              <circle r="16" stroke="var(--marsh)" strokeWidth="1.8" opacity="0"
+                      style={{ willChange: 'transform, opacity' }}>
+                <animateTransform attributeName="transform" type="scale"
+                                  from="0.6" to="4"
+                                  dur="5s" calcMode="spline" keySplines="0.2 0 0.4 1" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0;0.5;0" keyTimes="0;0.15;1"
+                         dur="5s" repeatCount="indefinite" />
+              </circle>
+            </g>
+          ))}
+        </g>
+      )}
+
+      {/* ─── 3.7 SPARKS — an idle landmark briefly takes a brief ───
+          The "different agent does the work" signal: a quiet (unlabeled) agent
+          lights up for one block, then cools. Shows turnover without moving any
+          label. Aura only — calm, one at a time. */}
+      {!reduced && (
+        <g fill="none">
+          {churn.sparks.map(idx => {
+            const s = SETTLEMENTS[idx]
+            if (!s) return null
+            return (
+              <g key={`spark-${s.addr}`} transform={`translate(${s.x}, ${s.y})`} style={{ color: 'var(--hot)' }}>
+                <circle r="6" fill="var(--hot)" opacity="0">
+                  <animate attributeName="opacity" values="0;0.85;0.6" keyTimes="0;0.3;1" dur="1.2s" fill="freeze" />
+                </circle>
+                <circle r="14" stroke="var(--hot)" strokeWidth="1.2" opacity="0"
+                        style={{ willChange: 'transform, opacity' }}>
+                  <animateTransform attributeName="transform" type="scale" from="0.5" to="2.4"
+                                    dur="3.2s" calcMode="spline" keySplines="0.33 0 0.67 1" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0;0.4;0" keyTimes="0;0.25;1" dur="3.2s" repeatCount="indefinite" />
+                </circle>
+              </g>
+            )
+          })}
+        </g>
+      )}
+
+      {/* ─── 3.8 TRANSITION FLASH — the moment a brief changes hands ───
+          When an agent advances its lifecycle this tick, a bold ring snaps out
+          from it + a quick color-burst, so the state change is SEEN, not
+          silent. Keyed by tick so it replays on every transition. */}
+      {!reduced && churn.flash >= 0 && SETTLEMENTS[churn.flash] && (
+        <g key={`flash-${churn.tick}`}
+           transform={`translate(${SETTLEMENTS[churn.flash].x}, ${SETTLEMENTS[churn.flash].y})`}
+           style={{ color: PHASE_COLOR[effPhase(churn.flash)] }} fill="none">
+          {/* bold snap ring */}
+          <circle r="10" stroke="currentColor" strokeWidth="2.4" opacity="0"
+                  style={{ willChange: 'transform, opacity' }}>
+            <animateTransform attributeName="transform" type="scale" from="0.4" to="3.6"
+                              dur="1.1s" calcMode="spline" keySplines="0.16 1 0.3 1" fill="freeze" />
+            <animate attributeName="opacity" values="0;0.9;0" keyTimes="0;0.15;1" dur="1.1s" fill="freeze" />
+          </circle>
+          {/* second echo ring */}
+          <circle r="10" stroke="currentColor" strokeWidth="1.4" opacity="0"
+                  style={{ willChange: 'transform, opacity' }}>
+            <animateTransform attributeName="transform" type="scale" from="0.4" to="2.4"
+                              dur="1.1s" begin="0.12s" calcMode="spline" keySplines="0.16 1 0.3 1" fill="freeze" />
+            <animate attributeName="opacity" values="0;0.7;0" keyTimes="0;0.2;1" dur="1.1s" begin="0.12s" fill="freeze" />
+          </circle>
+          {/* solid core burst */}
+          <circle r="5" fill="currentColor" stroke="none" opacity="0">
+            <animate attributeName="opacity" values="0;1;0" keyTimes="0;0.2;1" dur="0.9s" fill="freeze" />
+          </circle>
+        </g>
+      )}
+
+      {/* ─── 4. TRADE ROUTES — port → every settlement ─── */}
+      {/* cream casing under active routes so they separate from the terrain.
+          Width tracks brief magnitude (Minard) so bold roads = big briefs. */}
+      <g fill="none" stroke="var(--cream)" opacity="0.75">
+        {ROUTES.filter(rt => effPhase(rt.to) !== 'idle').map((rt, i) => {
+          const dest = SETTLEMENTS[rt.to]
+          const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
+          const casing = 3.2 + rt.mag * 4.2 + 2
+          return <path key={i} d={d} strokeWidth={casing} strokeLinecap="round" />
+        })}
+      </g>
+      <g fill="none">
+        {ROUTES.map((rt, i) => {
+          const dest = SETTLEMENTS[rt.to]
+          const ph = effPhase(rt.to)
+          const color = PHASE_COLOR[ph]
+          const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
+          const settled = ph === 'settled'
+          const idle = ph === 'idle'
+          // dash periods chosen so the animated offset loops SEAMLESSLY:
+          // offset travels exactly one period, so there is no visible jump.
+          const period = ph === 'executing' ? 10 : 15   // 6+4 or 9+6
+          const dash = settled ? undefined : idle ? '1 7' : ph === 'executing' ? '6 4' : '9 6'
+          // Minard: stroke width encodes brief magnitude
+          const sw = idle ? 1 : 1.6 + rt.mag * 3.2
+          // slower, smoother flow; longer period reads as calm movement
+          const dur = ph === 'executing' ? 2.4 : 3.2
+          return (
+            <path
+              key={i}
+              d={d}
+              stroke={color}
+              strokeWidth={sw}
+              strokeLinecap="round"
+              strokeDasharray={dash}
+              opacity={idle ? 0.4 : settled ? 1 : 0.95}
+              markerEnd={settled ? 'url(#route-arrow)' : undefined}
+            >
+              {!reduced && !settled && !idle && (
+                <animate attributeName="stroke-dashoffset"
+                         from="0" to={-period}
+                         dur={`${dur}s`}
+                         calcMode="linear"
+                         repeatCount="indefinite" />
+              )}
+            </path>
+          )
+        })}
+      </g>
+
+      {/* route payload labels — de-conflicted: each slides along its route to
+          the least-crowded spot (see cartogramMap.placeRouteLabels). A faint
+          cream halo keeps them legible where they cross a colored route line. */}
+      <g>
+        {ROUTE_LABELS.map((lb, i) => {
+          const cx = lb.x + lb.w / 2
+          const cy = lb.y + lb.h / 2
+          return (
+            <g key={i} transform={`translate(${cx}, ${cy})`}>
+              <text x="0" y="3" fontFamily="Geist Mono" fontSize="10.5"
+                    fill={PHASE_COLOR[lb.phase]} textAnchor="middle"
+                    letterSpacing="0.06em" fontWeight="500"
+                    stroke="var(--cream)" strokeWidth="4.5" paintOrder="stroke"
+                    strokeLinejoin="round">{lb.payload}</text>
+            </g>
+          )
+        })}
+      </g>
+
+      {/* brief-packets — a glowing dot travels port → settlement along each
+          active route, so the map visibly MOVES (briefs in flight). Smoother:
+          longer dur, eased motion (spline), gentle fade in/out, packet size
+          tracks brief magnitude. */}
+      {!reduced && (
+        <g>
+          {ROUTES.filter(rt => effPhase(rt.to) !== 'idle' && effPhase(rt.to) !== 'settled').map((rt, i) => {
+            const dest = SETTLEMENTS[rt.to]
+            const ph = effPhase(rt.to)
+            const d = `M${PORT.x} ${PORT.y} Q${rt.cx} ${rt.cy} ${dest.x} ${dest.y}`
+            const color = PHASE_COLOR[ph]
+            // calm, varied speeds; staggered so they don't pulse in lockstep
+            const dur = (ph === 'executing' ? 3.6 : 4.0) + rt.mag * 0.8
+            const begin = `${(i * 0.85).toFixed(2)}s`
+            const dot = 3.2 + rt.mag * 2.6
+            // ease-in-out motion: slow at the port, glide, settle at the agent
+            const motionProps = {
+              dur: `${dur}s`, begin, repeatCount: 'indefinite' as const, path: d,
+              calcMode: 'spline' as const, keyTimes: '0;1', keySplines: '0.42 0 0.58 1',
+            }
+            return (
+              <g key={i}>
+                {/* soft halo ring */}
+                <circle r={dot * 2.1} fill="none" stroke={color} strokeWidth="1" opacity="0">
+                  <animateMotion {...motionProps} />
+                  <animate attributeName="opacity"
+                           values="0;0.30;0.30;0" keyTimes="0;0.18;0.82;1"
+                           calcMode="spline" keySplines="0.4 0 0.6 1;0 0 1 1;0.4 0 0.6 1"
+                           dur={`${dur}s`} begin={begin} repeatCount="indefinite" />
+                </circle>
+                {/* the packet */}
+                <circle r={dot} fill={color} opacity="0">
+                  <animateMotion {...motionProps} rotate="auto" />
+                  <animate attributeName="opacity"
+                           values="0;0.95;0.95;0" keyTimes="0;0.15;0.85;1"
+                           calcMode="spline" keySplines="0.4 0 0.6 1;0 0 1 1;0.4 0 0.6 1"
+                           dur={`${dur}s`} begin={begin} repeatCount="indefinite" />
+                </circle>
+              </g>
+            )
+          })}
+        </g>
+      )}
+
+      {/* ─── 4.6 PAYMENT RETURN — USDC flows HOME ───
+          When a brief settles, the payout travels back agent → port: a small
+          coin glides home along the route in reverse. This is the unique
+          archive beat — you watch money move on settlement, not just work
+          go out. Reverse path (dest → port). */}
+      {!reduced && (
+        <g>
+          {ROUTES.filter(rt => effPhase(rt.to) === 'settled').map((rt, i) => {
+            const dest = SETTLEMENTS[rt.to]
+            // reverse: start at the agent, curve back to the port
+            const d = `M${dest.x} ${dest.y} Q${rt.cx} ${rt.cy} ${PORT.x} ${PORT.y}`
+            const dur = 3.0
+            const begin = `${(1.4 + i * 0.6).toFixed(2)}s`
+            const mp = {
+              dur: `${dur}s`, begin, repeatCount: 'indefinite' as const, path: d,
+              calcMode: 'spline' as const, keyTimes: '0;1', keySplines: '0.4 0 0.6 1',
+            }
+            return (
+              <g key={i}>
+                <circle r="6" fill="var(--ochre)" stroke="var(--cream)" strokeWidth="1.4" opacity="0">
+                  <animateMotion {...mp} />
+                  <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1"
+                           dur={`${dur}s`} begin={begin} repeatCount="indefinite" />
+                </circle>
+                <text fontFamily="Geist Mono" fontSize="7.5" fontWeight="700"
+                      fill="var(--cream)" textAnchor="middle" dy="2.6" opacity="0"
+                      style={{ pointerEvents: 'none' }}>
+                  $
+                  <animateMotion {...mp} />
+                  <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1"
+                           dur={`${dur}s`} begin={begin} repeatCount="indefinite" />
+                </text>
+              </g>
+            )
+          })}
+        </g>
+      )}
+      {/* ─── 5. PORT — client gateway on the west coast ─── */}
+      <g transform={`translate(${PORT.x}, ${PORT.y})`} style={{ color: 'var(--ink)' }}>
+        {/* heartbeat — the port is the living heart where briefs land + pay */}
+        {!reduced && (
+          <circle r="13" fill="none" stroke="var(--ink-2)" strokeWidth="1.4" opacity="0"
+                  style={{ willChange: 'transform, opacity' }}>
+            <animateTransform attributeName="transform" type="scale" values="1;2.3"
+                              dur="2.8s" calcMode="spline" keySplines="0.3 0 0.5 1" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0;0.4;0" keyTimes="0;0.2;1"
+                     dur="2.8s" repeatCount="indefinite" />
+          </circle>
+        )}
+        <circle r="13" fill="var(--cream)" stroke="currentColor" strokeWidth="1.6" />
+        <circle r="5" fill="currentColor" />
+        <circle r="20" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="2 4" opacity="0.5" />
+        <text x="0" y="38" fontFamily="Geist Mono" fontSize="11" fill="var(--ink)"
+              textAnchor="middle" letterSpacing="0.16em" fontWeight="500">CLIENT PORT</text>
+        <text x="0" y="53" fontFamily="Fraunces" fontSize="12" fill="var(--ink-3)"
+              textAnchor="middle" fontStyle="italic">briefs make landfall here</text>
+      </g>
+
+      {/* ─── 6. SETTLEMENTS — named agents on the highlands ─── */}
+      {SETTLEMENTS.map((s, si) => {
+        const color = PHASE_COLOR[effPhase(si)]
+        const flip = s.anchor === 'end'
+        const lx = flip ? -16 : 16
+        const nameSize = s.capital ? 19 : 15
+
+        // Idle agents are QUIET landmarks: a small marker dot on their hill,
+        // no name/addr label. They keep the territory feeling populated
+        // without clutter — every NAMED agent is one that's actively working.
+        if (!isLabeled(s)) {
+          return (
+            <g key={s.addr} transform={`translate(${s.x}, ${s.y})`} style={{ color: 'var(--slate)' }}>
+              <circle r="7" fill="var(--cream)" opacity="0.7" />
+              <circle r="3.1" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.75" />
+              <circle r="0.9" fill="currentColor" opacity="0.75" />
+            </g>
+          )
+        }
+
+        return (
+          <g key={s.addr} transform={`translate(${s.x}, ${s.y})`} style={{ color }}>
+            {/* faint seat just under the glyph so the marker reads clearly —
+                small + soft, not an opaque panel (the label knockout already
+                clears contours/dust under the text). */}
+            <circle r={s.capital ? 12 : 9} fill="var(--cream)" opacity="0.45" />
+            <Glyph kind={s.glyph} capital={s.capital} />
+            {s.capital && (
+              <text x={lx} y={-27} fontFamily="Geist Mono" fontSize="9" fill="var(--hot)"
+                    textAnchor={s.anchor} letterSpacing="0.16em" fontWeight="600"
+                    stroke="var(--cream)" strokeWidth="3.5" paintOrder="stroke"
+                    strokeLinejoin="round">CAPITAL · TOP OF FIELD</text>
+            )}
+            <text x={lx} y={s.capital ? 2 : 3} fontFamily="Fraunces" fontSize={nameSize}
+                  fontWeight={s.capital ? 500 : 400} fill="var(--ink)" fontStyle="italic"
+                  textAnchor={s.anchor} letterSpacing="-0.01em"
+                  stroke="var(--cream)" strokeWidth={s.capital ? 4.5 : 3.5} paintOrder="stroke"
+                  strokeLinejoin="round">{s.name}</text>
+            <text x={lx} y={s.capital ? 22 : 20} fontFamily="Geist Mono" fontSize="10"
+                  fill="var(--ink-2)" textAnchor={s.anchor} letterSpacing="0.06em"
+                  stroke="var(--cream)" strokeWidth="3.5" paintOrder="stroke"
+                  strokeLinejoin="round">
+              {s.addr} · {s.score.toFixed(2)}
+            </text>
+          </g>
+        )
+      })}
 
       {/* paper grain overlay — very faint printed-stock texture over the whole
           plate. Non-interactive; static filter so no per-frame cost. */}
