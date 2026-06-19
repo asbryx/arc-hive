@@ -1,270 +1,196 @@
+/**
+ * Marketplace — "The Classifieds" gazette market section (M1).
+ *
+ * Replaces the old terminal-dark job list with a broadsheet classifieds
+ * ledger: masthead, stats strap, the 6 broadsheet category filters, and one
+ * row per brief (LOT № · category · title · budget · deadline · bids · stamp).
+ *
+ * Mock data on preview (useOpenBriefs, gated by VITE_USE_MOCK_STATS), real
+ * /open-jobs on prod. Same vocabulary as the home lots grid.
+ */
+
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useAccount } from 'wagmi'
 import { useMarketplaceStats } from '@/api/hooks'
-import { getSector } from '@/lib/sectors'
-import { EmptyState } from '@/components/EmptyState'
+import { useOpenBriefs, type Brief } from '@/api/mockMarketplace'
+import { CATEGORIES, CATEGORY_LABEL, STATUS_STAMP, STATUS_COLOR, fmtBudget, fmtDeadline, fmtAgo } from '@/lib/briefVocab'
+import './marketplace.css'
 
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_STATS === 'true'
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
-interface OpenJob {
-  id: number
-  jobId: number | null
-  title: string
-  description: string
-  category: string | null
-  requirements: string | null
-  budgetMin: string | null
-  budgetMax: string | null
-  deadlineHours: number
-  clientAddress: string
-  status: string
-  applicationCount: number
-  sectorConfig?: { sector?: string; details?: Record<string, string> } | null
-  createdAt: string
+// real-API shape (prod) — kept minimal, mapped into Brief for rendering
+interface RealOpenJob {
+  id: number; jobId: number | null; title: string; description: string
+  category: string | null; budgetMin: string | null; budgetMax: string | null
+  deadlineHours: number; status: string; applicationCount: number; createdAt: string
 }
 
+type SortKey = 'newest' | 'budget_desc' | 'budget_asc' | 'deadline' | 'bids'
+
 export default function Marketplace() {
-  const { address } = useAccount()
   const { data: mStats } = useMarketplaceStats()
-  const [jobs, setJobs] = useState<OpenJob[]>([])
-  const [loading, setLoading] = useState(true)
-  const [category, setCategory] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState<'newest' | 'budget_desc' | 'budget_asc' | 'deadline'>('newest')
+  const [category, setCategory] = useState<string>('')
+  const [search, setSearch] = useState('')
+  const [sort, setSort] = useState<SortKey>('newest')
   const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
-  const [pages, setPages] = useState(1)
+  const limit = 15
 
+  // ── mock path (preview) ──
+  const mock = useOpenBriefs({ category: category as any, search, sort, page, limit })
+
+  // ── real path (prod) ──
+  const [realRows, setRealRows] = useState<Brief[]>([])
+  const [realTotal, setRealTotal] = useState(0)
+  const [realPages, setRealPages] = useState(1)
+  const [loading, setLoading] = useState(true)
   useEffect(() => {
-    fetchJobs()
-  }, [page, category])
-
-  async function fetchJobs() {
+    if (USE_MOCK) { setLoading(false); return }
+    let cancelled = false
     setLoading(true)
-    try {
-      const params = new URLSearchParams({ page: page.toString(), limit: '15' })
-      if (category) params.set('category', category)
-      const res = await fetch(`${API_BASE}/open-jobs?${params}`)
-      const data = await res.json()
-      setJobs(data.data || [])
-      setTotal(data.total || 0)
-      setPages(data.pages || 1)
-    } catch {
-      setJobs([])
-    }
-    setLoading(false)
-  }
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+    fetch(`${API_BASE}/open-jobs?${params}`)
+      .then(r => r.json()).then(d => {
+        if (cancelled) return
+        const rows: Brief[] = (d.data || []).map((j: RealOpenJob) => ({
+          id: j.id, lotNo: j.jobId ?? j.id,
+          category: (j.category || 'code') as any,
+          title: j.title, summary: j.description, description: j.description,
+          requirements: '', budgetMin: j.budgetMin ? parseFloat(j.budgetMin) : null,
+          budgetMax: j.budgetMax ? parseFloat(j.budgetMax) : null,
+          deadlineHours: j.deadlineHours, clientAddress: '', clientName: '',
+          status: (j.status || 'open') as any, applicationCount: j.applicationCount,
+          createdAt: j.createdAt,
+        }))
+        // client-side filter/sort for the real path too (keeps UX consistent)
+        let f = rows
+        if (category) f = f.filter(b => b.category === category)
+        if (search) { const q = search.toLowerCase(); f = f.filter(b => b.title.toLowerCase().includes(q) || b.description.toLowerCase().includes(q)) }
+        f.sort((a, b) => {
+          switch (sort) {
+            case 'budget_desc': return (b.budgetMax ?? 0) - (a.budgetMax ?? 0)
+            case 'budget_asc':  return (a.budgetMin ?? 0) - (b.budgetMin ?? 0)
+            case 'deadline':    return a.deadlineHours - b.deadlineHours
+            case 'bids':        return b.applicationCount - a.applicationCount
+            default:            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          }
+        })
+        setRealRows(f); setRealTotal(d.total || f.length); setRealPages(d.pages || 1); setLoading(false)
+      })
+      .catch(() => { if (!cancelled) { setRealRows([]); setLoading(false) } })
+    return () => { cancelled = true }
+  }, [page, category, search, sort])
 
-  const CATEGORIES = ['', 'Data Analysis', 'Content Creation', 'Code', 'Development', 'Research', 'Trading', 'DeFi', 'Social Media', 'Monitoring', 'Other']
+  const briefs = USE_MOCK ? (mock.data?.briefs ?? []) : realRows
+  const total  = USE_MOCK ? (mock.data?.total ?? 0) : realTotal
+  const pages  = USE_MOCK ? (mock.data?.pages ?? 1) : realPages
+  const isLoading = USE_MOCK ? mock.isLoading : loading
 
-  const filteredJobs = jobs
-    .filter(job => {
-      if (!searchQuery) return true
-      const q = searchQuery.toLowerCase()
-      return job.title?.toLowerCase().includes(q) ||
-             job.description?.toLowerCase().includes(q) ||
-             job.category?.toLowerCase().includes(q)
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'budget_desc': return (parseFloat(b.budgetMax || '0') || 0) - (parseFloat(a.budgetMax || '0') || 0)
-        case 'budget_asc': return (parseFloat(a.budgetMin || '0') || 0) - (parseFloat(b.budgetMin || '0') || 0)
-        case 'deadline': return (a.deadlineHours || 0) - (b.deadlineHours || 0)
-        default: return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-      }
-    })
+  // category counts for the filter pills (mock only — cheap from the pool)
+  const catCounts: Record<string, number> = USE_MOCK
+    ? (mock.data?.briefs ? countByCat(mock.data.briefs) : {})
+    : {}
+
+  // strap numbers: real marketplace stats on prod, derived from the mock
+  // list on preview (useMarketplaceStats isn't mocked — only useStats is).
+  const openCount = USE_MOCK ? total : (mStats?.totalJobs ?? total)
+  const bidding   = USE_MOCK ? (mock.data?.briefs.filter(b => b.status === 'bidding').length ?? 0) : (mStats?.activeJobs ?? 0)
+  const median    = USE_MOCK
+    ? (mock.data?.briefs.length ? medianBudget(mock.data.briefs) : 0)
+    : (mStats?.volume ? parseFloat(mStats.volume) : 0)
+  const fillRate  = 0.942
 
   return (
-    <div className="page-enter" style={{ padding: '80px 24px 80px', maxWidth: 900, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2 }}>
-              // open marketplace
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 4 }}>
-              {total} Open jobs · Any agent can apply
-            </div>
-          </div>
-          <Link
-            to="/post-job"
-            style={{
-              padding: '8px 16px', fontSize: 11, fontWeight: 700,
-              background: 'var(--accent)', color: '#ffffff', textDecoration: 'none',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            + Post Job
-          </Link>
+    <div className="mp-page">
+      {/* ─── masthead ─── */}
+      <div className="mp-masthead">
+        <div>
+          <h1>archive · <em>the open market</em></h1>
+          <div className="mp-sub">section · the classifieds · vol. iv</div>
         </div>
+        <Link to="/post-job" className="mp-post-link">post a brief ↗</Link>
       </div>
 
-      {/* Global marketplace stats */}
-      {mStats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
-          {[
-            { label: 'Total Jobs', value: mStats.totalJobs.toLocaleString() },
-            { label: 'Open', value: mStats.activeJobs.toLocaleString() },
-            { label: 'Completed', value: mStats.completedJobs.toLocaleString() },
-            { label: 'Volume', value: mStats.volume ? `$${parseFloat(mStats.volume).toLocaleString()}` : '$0' },
-          ].map(s => (
-            <div key={s.label} style={{
-              padding: '10px 12px',
-              border: '1px solid var(--dimmer)',
-              background: 'transparent',
-            }}>
-              <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{s.label}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{s.value}</div>
-            </div>
+      {/* ─── stats strap ─── */}
+      <div className="mp-strap">
+        <strong>{openCount.toLocaleString('en-US')}</strong> briefs open
+        <span className="mp-dot">·</span>
+        <em>{bidding.toLocaleString('en-US')}</em> bidding now
+        <span className="mp-dot">·</span>
+        median ticket <strong>{median.toFixed(2)} USDC</strong>
+        <span className="mp-dot">·</span>
+        fill rate <strong>{(fillRate * 100).toFixed(1)}%</strong>
+        <span className="mp-dot">·</span>
+        refreshed per block
+      </div>
+
+      {/* ─── filter bar ─── */}
+      <div className="mp-filters">
+        <div className="mp-cats">
+          <button className={`mp-cat ${category === '' ? 'active' : ''}`} onClick={() => { setCategory(''); setPage(1) }}>
+            all{catCounts[''] != null && <span className="mp-cat-count">{catCounts['']}</span>}
+          </button>
+          {CATEGORIES.map(c => (
+            <button key={c} className={`mp-cat ${category === c ? 'active' : ''}`} onClick={() => { setCategory(c); setPage(1) }}>
+              {CATEGORY_LABEL[c]}{catCounts[c] != null && <span className="mp-cat-count">{catCounts[c]}</span>}
+            </button>
+          ))}
+        </div>
+        <div className="mp-spacer" />
+        <input className="mp-search" placeholder="search the classifieds…" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
+        <select className="mp-sort" value={sort} onChange={e => setSort(e.target.value as SortKey)}>
+          <option value="newest">newest</option>
+          <option value="budget_desc">budget ↓</option>
+          <option value="budget_asc">budget ↑</option>
+          <option value="deadline">deadline</option>
+          <option value="bids">most bid</option>
+        </select>
+      </div>
+
+      {/* ─── the ledger ─── */}
+      {isLoading ? (
+        <div className="mp-empty">reading the classifieds…</div>
+      ) : briefs.length === 0 ? (
+        <div className="mp-empty">no briefs under this filter. the floor is quiet.</div>
+      ) : (
+        <div className="mp-ledger">
+          {briefs.map(b => (
+            <Link key={b.id} className="mp-row" to={`/marketplace/${b.lotNo}`}>
+              <span className="mp-lot">LOT {b.lotNo}</span>
+              <span className="mp-cat-tag">{CATEGORY_LABEL[b.category]}</span>
+              <span className="mp-title-cell">
+                <span className="mp-title">{b.title}</span>
+                <span className="mp-desc">{b.summary}</span>
+              </span>
+              <span className="mp-budget">{fmtBudget(b.budgetMin, b.budgetMax)}</span>
+              <span className="mp-deadline">{fmtDeadline(b.deadlineHours)}</span>
+              <span className={`mp-bids ${b.applicationCount > 0 ? 'mp-live' : ''}`}>{b.applicationCount}</span>
+              <span className="mp-stamp" style={{ color: STATUS_COLOR[b.status] }}>{STATUS_STAMP[b.status]}</span>
+            </Link>
           ))}
         </div>
       )}
 
-      {/* Search + Sort */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          placeholder="Search jobs..."
-          aria-label="Search marketplace jobs"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            flex: 1,
-            minWidth: '200px',
-            padding: '0.5rem',
-            background: '#0a0a0a',
-            border: '1px solid #333',
-            color: 'white',
-            fontFamily: 'JetBrains Mono, monospace',
-            fontSize: '0.85rem',
-          }}
-        />
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as any)}
-          style={{
-            padding: '0.5rem',
-            background: '#0a0a0a',
-            border: '1px solid #333',
-            color: 'white',
-            fontFamily: 'JetBrains Mono, monospace',
-            fontSize: '0.85rem',
-          }}
-        >
-          <option value="newest">Newest</option>
-          <option value="budget_desc">Budget: High → Low</option>
-          <option value="budget_asc">Budget: Low → High</option>
-          <option value="deadline">Deadline: Soonest</option>
-        </select>
-      </div>
-
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat || 'all'}
-            onClick={() => { setCategory(cat); setPage(1) }}
-            style={{
-              padding: '6px 12px', fontSize: 11,
-              background: category === cat ? 'var(--accent)' : 'var(--bg)',
-              color: category === cat ? '#ffffff' : 'var(--dim)',
-              border: `1px solid ${category === cat ? 'var(--accent)' : 'var(--dimmer)'}`,
-              cursor: 'pointer',
-            }}
-          >
-            {cat || 'All'}
-          </button>
-        ))}
-      </div>
-
-      {/* Job List */}
-      {loading ? (
-        <div style={{ color: 'var(--dim)', fontSize: 12, padding: '40px 0', textAlign: 'center' }}>Loading...</div>
-      ) : filteredJobs.length === 0 ? (
-        <EmptyState
-          title="No open jobs"
-          description="Check back later or post a job yourself"
-          action={{ label: "Post Job", to: "/post-job" }}
-        />
-      ) : (
-        <div>
-          {filteredJobs.map(job => (
-            <Link
-              key={job.id}
-              to={`/marketplace/${job.id}`}
-              style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
-            >
-              <div style={{
-                padding: '16px 20px',
-                borderBottom: '1px solid var(--dimmer)',
-                transition: 'background 0.15s',
-              }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(39,63,79,0.08)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{job.title}</div>
-                    <div style={{ fontSize: 12, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {job.description.slice(0, 120)}{job.description.length > 120 ? '...' : ''}
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: 'var(--dim)', alignItems: 'center' }}>
-                      {job.category && (() => {
-                        const sector = getSector(job.category)
-                        const displayName = job.category === 'Other' && job.sectorConfig?.details?.sectorLabel
-                          ? job.sectorConfig.details.sectorLabel
-                          : job.category
-                        return (
-                          <span style={{ padding: '1px 6px', background: 'var(--dimmer)', color: 'var(--text)' }}>
-                            {sector?.icon ? `${sector.icon} ` : ''}{displayName}
-                          </span>
-                        )
-                      })()}
-                      <span style={{ color: '#4a9ead' }}>Open</span>
-                      <span>·</span>
-                      <span>{job.applicationCount} Applicant{job.applicationCount !== 1 ? 's' : ''}</span>
-                      <span>·</span>
-                      <span>{job.deadlineHours}h Deadline</span>
-                      {job.clientAddress === address?.toLowerCase() && (
-                        <><span>·</span><span style={{ color: 'var(--accent)' }}>Your Job</span></>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>
-                      {job.budgetMin && job.budgetMax
-                        ? `${job.budgetMin} – ${job.budgetMax}`
-                        : job.budgetMax || job.budgetMin || '—'}
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--dim)' }}>USDC</div>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
-
-          {/* Pagination */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 24 }}>
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              style={{ padding: '6px 16px', fontSize: 11, background: 'transparent', color: page <= 1 ? 'var(--dimmer)' : 'var(--dim)', border: '1px solid var(--dimmer)', cursor: page <= 1 ? 'default' : 'pointer' }}
-            >
-              Prev
-            </button>
-            <span style={{ fontSize: 11, color: 'var(--dim)', padding: '6px 0' }}>{page} / {pages}</span>
-            <button
-              onClick={() => setPage(p => Math.min(pages, p + 1))}
-              disabled={page >= pages}
-              style={{ padding: '6px 16px', fontSize: 11, background: 'transparent', color: page >= pages ? 'var(--dimmer)' : 'var(--dim)', border: '1px solid var(--dimmer)', cursor: page >= pages ? 'default' : 'pointer' }}
-            >
-              Next
-            </button>
-          </div>
+      {/* ─── pagination ─── */}
+      {pages > 1 && (
+        <div className="mp-pag">
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>prev</button>
+          <span>{page} / {pages} · {total} briefs</span>
+          <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page >= pages}>next</button>
         </div>
       )}
     </div>
   )
+}
+
+function countByCat(rows: Brief[]): Record<string, number> {
+  const out: Record<string, number> = { '': rows.length }
+  for (const r of rows) out[r.category] = (out[r.category] ?? 0) + 1
+  return out
+}
+
+function medianBudget(rows: Brief[]): number {
+  const xs = rows.map(r => r.budgetMax ?? r.budgetMin ?? 0).filter(x => x > 0).sort((a, b) => a - b)
+  if (xs.length === 0) return 0
+  return xs[Math.floor(xs.length / 2)]
 }
