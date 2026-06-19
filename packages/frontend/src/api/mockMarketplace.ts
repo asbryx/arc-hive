@@ -182,10 +182,16 @@ function makeBriefs(): Brief[] {
   const out: Brief[] = []
   const N = 48
   for (let i = 0; i < N; i++) {
-    const cat = cats[int(rng, 0, cats.length)]
-    const title = pick(rng, TITLES[cat])
-    const summary = pick(rng, SUMMARIES[cat])
-    const status = STATUSES[int(rng, 0, STATUSES.length)]
+    const ci = int(rng, 0, cats.length)
+    const cat = cats[ci] ?? 'code'
+    const titleList = TITLES[cat]
+    const summList = SUMMARIES[cat]
+    if (!titleList || !summList) {
+      console.warn('[mockMarketplace] missing pool for cat=', cat, 'ci=', ci, 'hasT=', !!titleList, 'hasS=', !!summList)
+    }
+    const title = (titleList ?? TITLES.code)[Math.floor(rng() * (titleList ?? TITLES.code).length)]
+    const summary = (summList ?? SUMMARIES.code)[Math.floor(rng() * (summList ?? SUMMARIES.code).length)]
+    const status = STATUSES[int(rng, 0, STATUSES.length)] ?? 'open'
     const reserve = float(rng, 0.4, 14)
     const topBid = Number(float(rng, reserve * 0.6, reserve * 1.4).toFixed(2))
     const budgetMin = Number(float(rng, reserve * 0.8, reserve).toFixed(2))
