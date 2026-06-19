@@ -133,16 +133,19 @@ const CLEAR_ZONES = [
  * which is the whole point of centering the port.
  */
 function buildOrbit(seeds: SettlementSeed[]): Array<{ x: number; y: number; angle: number }> {
-  const RX = 600, RY = 232            // ellipse radii (inner→outer scaled below)
+  const RX = 600, RY = 255            // ellipse radii (taller so the ring fills top + bottom)
   const cx = PORT.x, cy = PORT.y
 
-  // score → normalized 0..1 (min..max), then invert so HIGH score = small radius
+  // score → radius band. Keep it TIGHT (0.62–1.0) so the agents read as an
+  // actual RING around the hub, not a scatter — top-rated sit just slightly
+  // closer, low-rated just slightly further. Score is carried by the label +
+  // glyph weight; position only nudges. This keeps the ring even all the way
+  // around (no voids where an inner agent happens to land).
   const scores = seeds.map(s => s.score)
   const sMin = Math.min(...scores), sMax = Math.max(...scores)
   const radial = (score: number) => {
     const t = sMax > sMin ? (score - sMin) / (sMax - sMin) : 0.5
-    // high score (t→1) → inner (0.42), low score (t→0) → outer (1.0)
-    return 0.42 + (1 - t) * 0.58
+    return 0.62 + (1 - t) * 0.38
   }
 
   // ANGLE: distribute agents EVENLY around the full circle so the ring is
