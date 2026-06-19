@@ -145,26 +145,22 @@ function buildOrbit(seeds: SettlementSeed[]): Array<{ x: number; y: number; angl
     return 0.42 + (1 - t) * 0.58
   }
 
-  // angle from address hash, spread to [0, 2π)
-  const angles = seeds.map(s => ((seedFrom(s.addr + ':ang') & 0xffff) / 0x10000) * Math.PI * 2)
-
-  // angular de-clump: push neighbours apart so bearings are well separated.
-  // (sort by angle, relax minimum gap around the circle.)
-  const order = angles.map((_, i) => i).sort((a, b) => angles[a] - angles[b])
-  const minGap = (Math.PI * 2) / seeds.length * 0.62
-  for (let it = 0; it < 120; it++) {
-    for (let k = 0; k < order.length; k++) {
-      const i = order[k]
-      const j = order[(k + 1) % order.length]
-      let gap = angles[j] - angles[i]
-      if (gap < 0) gap += Math.PI * 2
-      if (gap < minGap) {
-        const push = (minGap - gap) * 0.25
-        angles[i] -= push
-        angles[j] += push
-      }
-    }
-  }
+  // ANGLE: distribute agents EVENLY around the full circle so the ring is
+  // balanced (raw address-hash angles clump). Address still decides each
+  // agent's slot ORDER (deterministic, identity-linked) — we sort by an
+  // address hash, then assign evenly-spaced bearings around the ellipse.
+  const slotOrder = seeds
+    .map((s, i) => ({ i, h: seedFrom(s.addr + ':ang') }))
+    .sort((a, b) => a.h - b.h)
+  const angles = new Array<number>(seeds.length)
+  const TWO_PI = Math.PI * 2
+  // start at -90° (top) and step evenly; tiny per-agent jitter from the hash so
+  // it's not mechanically perfect but still evenly spread.
+  slotOrder.forEach((o, rank) => {
+    const base = -Math.PI / 2 + (rank / seeds.length) * TWO_PI
+    const jitter = (((o.h >>> 8) & 0xff) / 0xff - 0.5) * (TWO_PI / seeds.length) * 0.4
+    angles[o.i] = base + jitter
+  })
 
   return seeds.map((s, i) => {
     const rad = radial(s.score)
