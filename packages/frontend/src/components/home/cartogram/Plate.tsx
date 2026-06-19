@@ -463,9 +463,9 @@ export default function Plate() {
           })}
         </g>
       )}
-      {/* ─── 5. PORT — client gateway on the west coast ─── */}
+      {/* ─── 5. PORT — the central hub where briefs enter; agents orbit it ─── */}
       <g transform={`translate(${PORT.x}, ${PORT.y})`} style={{ color: 'var(--ink)' }}>
-        {/* heartbeat — the port is the living heart where briefs land + pay */}
+        {/* heartbeat — the hub is the living heart where briefs land + pay */}
         {!reduced && (
           <circle r="13" fill="none" stroke="var(--ink-2)" strokeWidth="1.4" opacity="0"
                   style={{ willChange: 'transform, opacity' }}>
@@ -475,13 +475,15 @@ export default function Plate() {
                      dur="2.8s" repeatCount="indefinite" />
           </circle>
         )}
-        <circle r="13" fill="var(--cream)" stroke="currentColor" strokeWidth="1.6" />
-        <circle r="5" fill="currentColor" />
-        <circle r="20" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="2 4" opacity="0.5" />
-        <text x="0" y="38" fontFamily="Geist Mono" fontSize="11" fill="var(--ink)"
-              textAnchor="middle" letterSpacing="0.16em" fontWeight="500">CLIENT PORT</text>
-        <text x="0" y="53" fontFamily="Fraunces" fontSize="12" fill="var(--ink-3)"
-              textAnchor="middle" fontStyle="italic">briefs make landfall here</text>
+        <circle r="14" fill="var(--cream)" stroke="currentColor" strokeWidth="1.8" />
+        <circle r="5.5" fill="currentColor" />
+        <circle r="22" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="2 4" opacity="0.5" />
+        <text x="0" y="40" fontFamily="Geist Mono" fontSize="11" fill="var(--ink)"
+              textAnchor="middle" letterSpacing="0.16em" fontWeight="500"
+              stroke="var(--cream)" strokeWidth="3.5" paintOrder="stroke" strokeLinejoin="round">CLIENT PORT</text>
+        <text x="0" y="55" fontFamily="Fraunces" fontSize="12" fill="var(--ink-3)"
+              textAnchor="middle" fontStyle="italic"
+              stroke="var(--cream)" strokeWidth="3" paintOrder="stroke" strokeLinejoin="round">briefs make landfall here</text>
       </g>
 
       {/* ─── 6. SETTLEMENTS — named agents on the highlands ─── */}

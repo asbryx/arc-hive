@@ -36,8 +36,9 @@ import type { AgentPoint } from './contourField'
  *  preserveAspectRatio="…meet" and never crops or letterboxes badly. */
 export const VB = { w: 1600, h: 640 }
 
-/** the west-coast port where client briefs enter the territory. */
-export const PORT = { x: 140, y: 340 }
+/** the central hub where client briefs enter — dead center of the plate.
+ *  Agents orbit it; routes radiate outward as clean spokes. */
+export const PORT = { x: VB.w / 2, y: VB.h / 2 }
 
 /** interior margins for address→position mapping (keeps nodes off the edge). */
 const MARGIN = { x: 130, y: 92 }
@@ -109,87 +110,91 @@ const SETTLEMENT_SEEDS: SettlementSeed[] = [
   { name: 'Edda Pole',        addr: '0x8C39', score: 7.33, phase: 'idle',       glyph: 'keep'  },
 ]
 
-/** zones the labels must avoid: the port and the two top marginalia corners
+/** zones the labels must avoid: the two top marginalia corners
  *  (legend top-left, edition stamp top-right). */
 const CLEAR_ZONES = [
-  { x: PORT.x, y: PORT.y, r: 150 },  // CLIENT PORT + its label
-  { x: 150, y: 96, r: 150 },         // top-left legend
-  { x: 1480, y: 92, r: 140 },        // top-right edition stamp
+  { x: 150, y: 96, r: 120 },         // top-left legend
+  { x: 1480, y: 92, r: 110 },        // top-right edition stamp
 ]
 
 /**
- * Layout pass over the NAMED settlements. Two forces, both deterministic:
+ * Orbital layout — the port is the hub at center; agents ring around it.
  *
- *  1. Ranked-lattice spread (anti-clump): agents are ranked by their
- *     address-derived x, then gently pulled toward evenly-spaced x slots.
- *     This preserves address ORDER (west addresses stay west) while
- *     guaranteeing the territory fills the plate edge-to-edge instead of
- *     hashing into two clumps with a dead gap between them.
- *  2. Elliptical collision push (legibility): each label is a wide-but-short
- *     box, so overlapping pairs are pushed apart (RX ≫ RY). Then nodes are
- *     shoved out of the clear zones (port + the two top marginalia) and
- *     clamped to the interior.
+ *  · ANGLE comes from the address hash (deterministic → "position = identity":
+ *    an agent always sits at the same bearing from the hub).
+ *  · RADIUS comes from score: top-rated agents orbit CLOSER to the hub (the
+ *    best agents sit nearest the work), lower-rated further out.
+ *  · the ring is an ELLIPSE (wide ≫ tall) so agents spread across the 1600×640
+ *    plate instead of cramming top/bottom.
+ *  · a short angular-separation pass nudges agents apart in bearing so no two
+ *    share a spoke — routes fan cleanly, labels never collide.
  *
- * No randomness → positions never flicker. The x-order is still the agents'
- * address order, so "position = address" stays honest; we only relax spacing.
+ * Routes from the hub then radiate as spokes in all directions → no bundling,
+ * which is the whole point of centering the port.
  */
-function relaxPositions(pts: Array<{ x: number; y: number }>): void {
-  const RX = 215, RY = 70
-  const GRID_PULL = 0.06
-  // even x slots, assigned by address-x rank (keeps west/east order)
-  const lo = MARGIN.x + 70
-  const hi = VB.w - MARGIN.x - 70
-  const order = pts.map((_, i) => i).sort((a, b) => pts[a].x - pts[b].x)
-  const targetX = new Array(pts.length)
-  order.forEach((idx, rank) => {
-    targetX[idx] = lo + (hi - lo) * (rank / (pts.length - 1))
-  })
+function buildOrbit(seeds: SettlementSeed[]): Array<{ x: number; y: number; angle: number }> {
+  const RX = 600, RY = 232            // ellipse radii (inner→outer scaled below)
+  const cx = PORT.x, cy = PORT.y
 
-  for (let it = 0; it < 300; it++) {
-    for (let i = 0; i < pts.length; i++) {
-      for (let j = i + 1; j < pts.length; j++) {
-        const dx = pts[j].x - pts[i].x
-        const dy = pts[j].y - pts[i].y
-        const nd = Math.hypot(dx / RX, dy / RY)
-        if (nd > 0 && nd < 1) {
-          const push = (1 - nd) * 0.5
-          const ux = (dx / RX) / nd
-          const uy = (dy / RY) / nd
-          pts[i].x -= ux * RX * push * 0.5
-          pts[i].y -= uy * RY * push * 0.5
-          pts[j].x += ux * RX * push * 0.5
-          pts[j].y += uy * RY * push * 0.5
-        }
+  // score → normalized 0..1 (min..max), then invert so HIGH score = small radius
+  const scores = seeds.map(s => s.score)
+  const sMin = Math.min(...scores), sMax = Math.max(...scores)
+  const radial = (score: number) => {
+    const t = sMax > sMin ? (score - sMin) / (sMax - sMin) : 0.5
+    // high score (t→1) → inner (0.42), low score (t→0) → outer (1.0)
+    return 0.42 + (1 - t) * 0.58
+  }
+
+  // angle from address hash, spread to [0, 2π)
+  const angles = seeds.map(s => ((seedFrom(s.addr + ':ang') & 0xffff) / 0x10000) * Math.PI * 2)
+
+  // angular de-clump: push neighbours apart so bearings are well separated.
+  // (sort by angle, relax minimum gap around the circle.)
+  const order = angles.map((_, i) => i).sort((a, b) => angles[a] - angles[b])
+  const minGap = (Math.PI * 2) / seeds.length * 0.62
+  for (let it = 0; it < 120; it++) {
+    for (let k = 0; k < order.length; k++) {
+      const i = order[k]
+      const j = order[(k + 1) % order.length]
+      let gap = angles[j] - angles[i]
+      if (gap < 0) gap += Math.PI * 2
+      if (gap < minGap) {
+        const push = (minGap - gap) * 0.25
+        angles[i] -= push
+        angles[j] += push
       }
-      // pull toward the evenly-spaced address-ranked x slot
-      pts[i].x += (targetX[i] - pts[i].x) * GRID_PULL
-      for (const z of CLEAR_ZONES) {
-        const dx = pts[i].x - z.x
-        const dy = pts[i].y - z.y
-        const d = Math.hypot(dx, dy)
-        if (d < z.r) {
-          const u = d || 1
-          pts[i].x += (dx / u) * (z.r - d)
-          pts[i].y += (dy / u) * (z.r - d)
-        }
-      }
-      pts[i].x = Math.max(MARGIN.x, Math.min(VB.w - MARGIN.x, pts[i].x))
-      pts[i].y = Math.max(MARGIN.y, Math.min(VB.h - MARGIN.y, pts[i].y))
     }
   }
+
+  return seeds.map((s, i) => {
+    const rad = radial(s.score)
+    return {
+      x: cx + Math.cos(angles[i]) * RX * rad,
+      y: cy + Math.sin(angles[i]) * RY * rad,
+      angle: angles[i],
+    }
+  })
 }
 
-/** Resolve named settlements: address → position → relax → anchor. */
+/** Resolve named settlements: address+score → orbital position → outward anchor. */
 function buildSettlements(): Settlement[] {
-  const pts = SETTLEMENT_SEEDS.map(s => addrToPos(s.addr))
-  relaxPositions(pts)
-  return SETTLEMENT_SEEDS.map((s, i) => ({
-    ...s,
-    x: pts[i].x,
-    y: pts[i].y,
-    // labels flip left when the node sits in the eastern third
-    anchor: pts[i].x > VB.w * 0.6 ? 'end' : 'start',
-  }))
+  const orbit = buildOrbit(SETTLEMENT_SEEDS)
+  return SETTLEMENT_SEEDS.map((s, i) => {
+    let { x, y } = orbit[i]
+    // nudge out of the top marginalia corners if a node lands under them
+    for (const z of CLEAR_ZONES) {
+      const dx = x - z.x, dy = y - z.y
+      const d = Math.hypot(dx, dy)
+      if (d < z.r) { const u = d || 1; x += (dx / u) * (z.r - d); y += (dy / u) * (z.r - d) }
+    }
+    x = Math.max(MARGIN.x, Math.min(VB.w - MARGIN.x, x))
+    y = Math.max(MARGIN.y, Math.min(VB.h - MARGIN.y, y))
+    return {
+      ...s, x, y,
+      // labels anchor radially OUTWARD: right half points right, left half left
+      anchor: x >= PORT.x ? 'start' : 'end',
+    }
+  })
 }
 
 export const SETTLEMENTS: Settlement[] = buildSettlements()
@@ -291,7 +296,9 @@ const ROUTE_SEEDS: Array<Omit<Route, 'cx' | 'cy'>> = [
 
 export const ROUTES: Route[] = ROUTE_SEEDS.map((r, i) => {
   const dest = SETTLEMENTS[r.to]
-  const bend = (i % 2 === 0 ? 1 : -1) * 0.12
+  // near-straight spokes from the central hub; a tiny alternating bend keeps
+  // them from looking mechanical without letting them cross near the center.
+  const bend = (i % 2 === 0 ? 1 : -1) * 0.04
   const { cx, cy } = routeControl(dest, bend)
   return { ...r, cx, cy }
 })
