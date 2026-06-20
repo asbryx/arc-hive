@@ -87,25 +87,34 @@ const KEYWORD_CATEGORY: [RegExp, LotCategory][] = [
   [/monitor|alert|watch|track|uptime/i, 'Monitoring'],
 ]
 
-function classify(description: string | null): LotCategory {
+/**
+ * Classify a job into a lot category. Keyword match wins; otherwise fall back to
+ * a deterministic pick seeded by a per-job key (jobId) so that the many jobs that
+ * share a generic description (e.g. "ERC-8183 job") still spread realistically
+ * across categories instead of all collapsing into one bucket.
+ */
+function classify(description: string | null, seedKey: string | number = ''): LotCategory {
   const d = description || ''
   for (const [re, cat] of KEYWORD_CATEGORY) if (re.test(d)) return cat
-  return pick(mulberry32(seedFrom('cat:' + d)), LOT_CATEGORIES)
+  return pick(mulberry32(seedFrom('cat:' + String(seedKey) + ':' + d)), LOT_CATEGORIES)
 }
 
-function settleCategoryFor(description: string | null): SettlementEvent['category'] {
-  const c = classify(description)
-  // collapse the 10 lot categories into the 6 settlement categories
+function settleCategoryFor(description: string | null, seedKey: string | number = ''): SettlementEvent['category'] {
+  const d = description || ''
+  // Keyword-classify first; only generic descriptions reach the per-job spread.
+  for (const [re] of KEYWORD_CATEGORY) { if (re.test(d)) break }
+  const c = classify(description, seedKey)
   switch (c) {
-    case 'Code':
+    case 'Code': return 'code'
     case 'Development': return 'code'
-    case 'Research':
+    case 'Research': return 'research'
     case 'Data Analysis': return 'research'
-    case 'DeFi':
+    case 'DeFi': return 'audit'
     case 'Trading': return 'audit'
     case 'Content Creation': return 'copy'
     case 'Social Media': return 'brand'
-    default: return pick(mulberry32(seedFrom('sc:' + (description || ''))), SETTLE_CATEGORIES)
+    case 'Monitoring': return 'audit'
+    default: return pick(mulberry32(seedFrom('sc:' + String(seedKey) + ':' + d)), SETTLE_CATEGORIES)
   }
 }
 
@@ -145,7 +154,7 @@ function jobToSettlement(job: Job): SettlementEvent {
     agentName: houseName(provider),
     agentAddr: shortAddr(provider),
     agentScore: derivedScore(provider),
-    category: settleCategoryFor(job.description),
+    category: settleCategoryFor(job.description, job.jobId),
     amountUsdc: usdc(job.budget),
     settledAt: job.completedAt || job.createdAt,
     ageSeconds: ageSecondsFrom(job.completedAt || job.createdAt),
@@ -181,7 +190,7 @@ function jobToLot(job: Job): Lot {
   return {
     jobId: job.jobId,
     ref: `LOT ${job.jobId}`,
-    category: classify(job.description),
+    category: classify(job.description, job.jobId),
     title: lotTitle(job.description),
     summary: '', // real jobs have no separate summary; the title carries it
     postedMinutesAgo: ageMinutesFrom(job.createdAt),

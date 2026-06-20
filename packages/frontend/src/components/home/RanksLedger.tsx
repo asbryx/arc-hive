@@ -10,6 +10,7 @@
 
 import { Link } from 'react-router-dom'
 import { useLeaderboard } from '@/api/hooks'
+import { score10 } from '@/api/adapters/agents'
 import Sigil from '../Sigil'
 import { mulberry32, seedFrom } from '@/lib/seededRandom'
 
@@ -73,11 +74,11 @@ export default function RanksLedger() {
                     shortAddr(a.owner)
                   )}
                 </span>
-                <span className="addr">{shortAddr(a.owner)} · score {(a.score ?? 0).toFixed(2)}</span>
+                <span className="addr">{shortAddr(a.owner)} · score {score10(a.score).toFixed(2)}</span>
               </span>
               <Sparkline seedKey={a.owner} />
               <span className="score">
-                <em>{(a.score ?? 0).toFixed(2)}</em>
+                <em>{score10(a.score).toFixed(2)}</em>
               </span>
             </li>
           ))}
