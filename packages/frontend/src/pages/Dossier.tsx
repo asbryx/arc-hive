@@ -24,8 +24,11 @@ function fmtDaysAgo(d: number): string {
   if (d <= 0) return 'today'
   if (d === 1) return '1 day ago'
   if (d < 30) return `${d} days ago`
-  if (d < 365) return `${Math.floor(d / 30)} months ago`
-  return `${Math.floor(d / 365)}y ago`
+  const m = Math.floor(d / 30)
+  if (m === 1) return '1 month ago'
+  if (m < 12) return `${m} months ago`
+  const y = Math.floor(d / 365)
+  return y === 1 ? '1 year ago' : `${y}y ago`
 }
 
 export default function Dossier() {
