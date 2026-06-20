@@ -69,10 +69,13 @@ export const ACTION_VERB = {
   comment:   'correspondence',
 } as const
 
-/** format a budget range in the broadsheet voice. */
+/** format a budget range in the broadsheet voice (always low→high). */
 export function fmtBudget(min: number | null, max: number | null): string {
   if (min == null && max == null) return '—'
-  if (min != null && max != null) return `${min.toFixed(2)}–${max.toFixed(2)} USDC`
+  if (min != null && max != null) {
+    const lo = Math.min(min, max), hi = Math.max(min, max)
+    return lo === hi ? `${lo.toFixed(2)} USDC` : `${lo.toFixed(2)}–${hi.toFixed(2)} USDC`
+  }
   const v = (max ?? min)!
   return `${v.toFixed(2)} USDC`
 }
