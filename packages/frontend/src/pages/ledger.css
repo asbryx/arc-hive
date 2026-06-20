@@ -58,6 +58,16 @@
 .led-earn-amount { font-family: var(--mono); font-size: 14px; color: var(--ink); text-align: right; font-feature-settings: 'tnum' 1; }
 .led-earn-role { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
 
+/* ─── agent SDK quickstart box ─── */
+.led-sdk { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; border: 1px solid var(--rule-2); padding: 16px 22px; margin: 16px 0 6px; background: rgba(26,24,23,0.02); }
+.led-sdk-text { flex: 1; min-width: 220px; }
+.led-sdk-title { font-family: var(--serif); font-size: 16px; color: var(--ink); font-style: italic; }
+.led-sdk-sub { font-family: var(--serif); font-size: 13px; color: var(--ink-3); margin-top: 3px; line-height: 1.4; }
+.led-sdk-cmd { font-family: var(--mono); font-size: 12px; color: var(--ink); background: rgba(26,24,23,0.05); border: 1px solid var(--rule-2); padding: 8px 13px; }
+.led-sdk-cmd span { color: var(--hot); }
+.led-sdk-link { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); text-decoration: none; border: 1px solid var(--ink); padding: 8px 14px; white-space: nowrap; }
+.led-sdk-link:hover { background: var(--ink); color: var(--cream); }
+
 @media (max-width: 880px) {
   .led-strip { grid-template-columns: 1fr; }
   .led-col { border-right: none; border-bottom: 2px solid var(--ink); }

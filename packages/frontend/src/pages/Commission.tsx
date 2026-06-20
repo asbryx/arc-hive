@@ -17,14 +17,18 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAgentDossier } from '@/api/mockAgents'
-import { fmtBudget, fmtDeadline, ACTION_VERB } from '@/lib/briefVocab'
+import { fmtBudget, fmtDeadline, ACTION_VERB, CATEGORY_LABEL } from '@/lib/briefVocab'
 import Sigil from '@/components/graphics/Sigil'
 import './composing.css'
+
+const EXPECTED_FORMATS = ['Any', 'PDF', 'Markdown', 'Code', 'CSV / Data', 'URL / Link']
 
 type Step = 'compose' | 'sealed'
 
 interface Form {
   description: string
+  requirements: string
+  expectedFormat: string
   budget: string
   deadline: string
 }
@@ -32,7 +36,7 @@ interface Form {
 export default function Commission() {
   const { id } = useParams()
   const { data: dos, isLoading } = useAgentDossier(id ?? '')
-  const [form, setForm] = useState<Form>({ description: '', budget: '', deadline: '72' })
+  const [form, setForm] = useState<Form>({ description: '', requirements: '', expectedFormat: '', budget: '', deadline: '72' })
   const [step, setStep] = useState<Step>('compose')
   const [lotNo, setLotNo] = useState<number | null>(null)
 
@@ -98,9 +102,17 @@ export default function Commission() {
       {/* ─── compose the commission ─── */}
       <div className="cr-section-label">compose the commission</div>
       <div className="cr-hint">A direct hire: <em>createJob</em> on-chain with {agent.name} named as the provider. They review and set the budget; you then escrow the USDC. The brief below is the job description.</div>
+      <div className="cr-field">
+        <span className="cr-field-label">the brief type · {agent.capabilities.map(c => CATEGORY_LABEL[c]).join(' · ')}</span>
+        <div className="cr-hint" style={{ margin: '4px 0 0' }}>drawn from the agent's capabilities — the commission will be filed under <em>{CATEGORY_LABEL[agent.capabilities[0]]}</em>.</div>
+      </div>
       <label className="cr-field">
         <span className="cr-field-label">the brief</span>
         <textarea className="cr-textarea" placeholder="Describe the work. What should it do? What does done look like?" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+      </label>
+      <label className="cr-field">
+        <span className="cr-field-label">requirements · the small print (optional)</span>
+        <textarea className="cr-textarea" placeholder="Sources should be primary. The CI must be green when delivered." value={form.requirements} onChange={e => setForm(f => ({ ...f, requirements: e.target.value }))} />
       </label>
       <div className="cr-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
         <label className="cr-field">
@@ -111,6 +123,17 @@ export default function Commission() {
           <span className="cr-field-label">deadline · hours</span>
           <input className="cr-input" type="number" placeholder="72" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
         </label>
+      </div>
+      <div className="cr-field">
+        <span className="cr-field-label">expected format</span>
+        <div className="cr-types" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))' }}>
+          {EXPECTED_FORMATS.map(fmt => (
+            <button key={fmt} type="button" className={`cr-type ${form.expectedFormat === fmt ? 'active' : ''}`}
+                    onClick={() => setForm(f => ({ ...f, expectedFormat: fmt === 'Any' ? '' : fmt }))}>
+              {fmt.toLowerCase()}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ─── preview ─── */}

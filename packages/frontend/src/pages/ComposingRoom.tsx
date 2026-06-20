@@ -14,7 +14,7 @@
 
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { CATEGORIES, CATEGORY_LABEL, fmtBudget, fmtDeadline, ACTION_VERB } from '@/lib/briefVocab'
+import { CATEGORIES, CATEGORY_LABEL, fmtBudget, fmtDeadline, ACTION_VERB, type BriefCategory } from '@/lib/briefVocab'
 import { getSector, type SectorDetailField } from '@/lib/sectors'
 import './composing.css'
 
@@ -32,6 +32,18 @@ const TYPE_HINTS: Record<string, string> = {
   copy: 'a page, press notes',
   translation: 'a localized return',
 }
+
+/** broadsheet templates — prefab notices that prefill the form (mirrors the real
+ *  PostJob template selector, themed). */
+const TEMPLATES: Array<{ name: string; category: BriefCategory; title: string; description: string; requirements: string }> = [
+  { name: 'code review', category: 'code', title: 'Code Review: [Repository / Module]', description: 'Review the codebase for:\n- security vulnerabilities\n- performance bottlenecks\n- code quality and best practices\n- documentation gaps', requirements: 'Familiar with the stack; security-audit background preferred. Cite the exact commit reviewed.' },
+  { name: 'research report', category: 'research', title: 'Research Report: [Topic]', description: 'Conduct comprehensive research on [Topic]:\n- literature review\n- methodology\n- key findings with evidence\n- conclusions and recommendations', requirements: 'Primary sources only. Footnotes preferred to prose links.' },
+  { name: 'audit', category: 'audit', title: 'Audit: [Contract / Path]', description: 'Audit the target for:\n- findings classified by severity\n- each finding citing the storage slot or code line\n- a remediation note per finding', requirements: 'A formal report. Cite the exact commit hash reviewed.' },
+  { name: 'brand', category: 'brand', title: 'Wordmark: [Project]', description: 'A new wordmark for [Project]. Restraint expected. Concept first, execution second; provide a one-page rationale.', requirements: 'Two rounds. Unstyled brief.' },
+  { name: 'translation', category: 'translation', title: 'Translation: [Document] → [Language]', description: 'Translate the document into [Language].\n- native speaker\n- side-by-side comparison\n- preserve the source vocabulary', requirements: 'Two-pass review: first draft, then a polish pass three days later.' },
+]
+
+const EXPECTED_FORMATS = ['Any', 'PDF', 'Markdown', 'Code', 'CSV / Data', 'URL / Link']
 
 interface Form {
   category: string
@@ -108,6 +120,17 @@ export default function ComposingRoom() {
         ))}
       </div>
 
+      {/* ─── start from a template ─── */}
+      <div className="cr-section-label">start from a template</div>
+      <div className="cr-types">
+        {TEMPLATES.map(t => (
+          <button key={t.name} type="button" className={`cr-type ${form.title === t.title ? 'active' : ''}`}
+                  onClick={() => { setForm(f => ({ ...f, category: t.category, title: t.title, description: t.description, requirements: t.requirements, sectorDetails: {} })); setShowDetails(false) }}>
+            {t.name}
+          </button>
+        ))}
+      </div>
+
       {/* ─── the notice ─── */}
       <div className="cr-section-label">compose the notice</div>
       <label className="cr-field">
@@ -115,8 +138,8 @@ export default function ComposingRoom() {
         <input className="cr-input" placeholder="A quiet review of perpetual-DEX volume since the Q1 thaw." value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
       </label>
       <label className="cr-field">
-        <span className="cr-field-label">the brief · what you need</span>
-        <textarea className="cr-textarea" placeholder="Describe the work. What should it do? What should it cite? What does done look like?" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+        <span className="cr-field-label">the brief · what you need <span style={{ color: 'var(--ink-3)', marginLeft: 8 }}>{form.description.length} / 2000</span></span>
+        <textarea className="cr-textarea" maxLength={2000} placeholder="Describe the work. What should it do? What should it cite? What does done look like?" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
       </label>
       <label className="cr-field">
         <span className="cr-field-label">requirements · the small print (optional)</span>
@@ -138,10 +161,22 @@ export default function ComposingRoom() {
         </label>
       </div>
 
-      <label className="cr-field">
-        <span className="cr-field-label">expected format (optional)</span>
-        <input className="cr-input" placeholder="PDF · Markdown · Code · URL" value={form.expectedFormat} onChange={e => setForm(f => ({ ...f, expectedFormat: e.target.value }))} />
-      </label>
+      <div className="cr-field">
+        <span className="cr-field-label">expected format</span>
+        <div className="cr-types" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))' }}>
+          {EXPECTED_FORMATS.map(fmt => (
+            <button key={fmt} type="button" className={`cr-type ${form.expectedFormat === fmt ? 'active' : ''}`}
+                    onClick={() => setForm(f => ({ ...f, expectedFormat: fmt === 'Any' ? '' : fmt }))}>
+              {fmt.toLowerCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* evaluator notice */}
+      <div className="cr-hint" style={{ marginTop: 14 }}>
+        <em>The AI evaluator</em> — an automated assay — scores every filed return on completeness, quality, effort, and format. It can approve, request a revision, or fail the return. You set the revision allowance below.
+      </div>
 
       {/* ─── sector detail fields (optional, collapsible) ─── */}
       {sector && sector.detailFields.length > 0 && (
@@ -218,6 +253,20 @@ function DetailField({ field, value, onChange }: { field: SectorDetailField; val
           {field.options?.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
       </label>
+    )
+  }
+  if (field.type === 'multiselect') {
+    const arr: string[] = Array.isArray(value) ? value : []
+    const toggle = (o: string) => onChange(arr.includes(o) ? arr.filter(x => x !== o) : [...arr, o])
+    return (
+      <div className="cr-field">
+        <span className="cr-field-label">{field.label}</span>
+        <div className="cr-types" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))' }}>
+          {field.options?.map(o => (
+            <button key={o} type="button" className={`cr-type ${arr.includes(o) ? 'active' : ''}`} onClick={() => toggle(o)}>{o.toLowerCase()}</button>
+          ))}
+        </div>
+      </div>
     )
   }
   return (

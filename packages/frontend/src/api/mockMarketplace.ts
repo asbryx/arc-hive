@@ -40,6 +40,42 @@ export interface Deliverable {
   filedAt: string
 }
 
+export interface DeliverableFile {
+  filename: string
+  fileType: 'code' | 'doc' | 'data' | 'image' | 'archive' | 'other'
+  mimeType: string
+  sizeKb: number
+  expiresAt: string | null       // ISO; null = expired/deleted
+  hoursUntilExpiry: number | null
+  downloadable: boolean
+}
+
+/** evaluation / assay — the full evaluator result, per deliverable version. */
+export interface Evaluation {
+  status: 'approved' | 'revision_needed' | 'failed'
+  score: number                  // /100
+  breakdown: { completeness: number; quality: number; effort: number; format: number }  // /10 each
+  reasoning: string
+  suggestions: string | null
+  llmModel: string               // e.g. "qwen-max · l4"
+  evalTxHash: string | null
+  at: string
+}
+
+/** a single submitted return, with its files + (optional) evaluation. */
+export interface DeliverableVersion {
+  version: number
+  status: 'submitted' | 'approved' | 'revision_requested' | 'failed'
+  content: string
+  link: string | null
+  notes: string | null
+  filedAt: string
+  clientFeedback: string | null  // shown when revision_requested/failed
+  files: DeliverableFile[]
+  evaluation: Evaluation | null  // null = still under review ("awaiting assay")
+}
+
+/** legacy alias kept for any existing importers. */
 export interface Assay {
   score: number
   breakdown: { completeness: number; quality: number; effort: number; format: number }
@@ -55,6 +91,19 @@ export interface Comment {
   at: string
 }
 
+export interface Settlement {
+  onchainJobId: number
+  fundTx: string                  // escrow funding tx
+  paymentTx: string | null        // payment released to provider (settled)
+  completedTx: string | null      // job completed on-chain
+  paymentTo: string               // provider address
+}
+
+export interface Refund {
+  refundTx: string
+  at: string
+}
+
 export interface Brief {
   id: number
   lotNo: number
@@ -66,6 +115,9 @@ export interface Brief {
   budgetMin: number | null
   budgetMax: number | null
   deadlineHours: number
+  deadlineAt: string              // ISO — for the live countdown
+  expectedFormat: string | null
+  maxRevisions: number            // strikes = maxRevisions + 1
   clientAddress: string
   clientName: string
   status: BriefStatus
@@ -74,9 +126,13 @@ export interface Brief {
   // detail-only (filled by useBrief)
   bids?: Bid[]
   timeline?: TimelineEntry[]
-  deliverable?: Deliverable | null
-  assay?: Assay | null
+  deliverable?: Deliverable | null         // legacy single — kept; superseded by versions
+  deliverableVersions?: DeliverableVersion[]
+  assay?: Assay | null                     // legacy single
   comments?: Comment[]
+  settlement?: Settlement | null
+  refund?: Refund | null
+  failed?: { reason: string; at: string } | null
 }
 
 const TITLES: Record<BriefCategory, string[]> = {
@@ -196,8 +252,10 @@ function makeBriefs(): Brief[] {
     const topBid = Number(float(rng, reserve * 0.6, reserve * 1.4).toFixed(2))
     const budgetMin = Number(float(rng, reserve * 0.8, reserve).toFixed(2))
     const budgetMax = Number(float(rng, reserve, reserve * 1.5).toFixed(2))
+    const deadlineHours = int(rng, 12, 120)
     const postedMinAgo = int(rng, 3, 240)
     const createdAt = new Date(Date.now() - postedMinAgo * 60000).toISOString()
+    const deadlineAt = new Date(new Date(createdAt).getTime() + deadlineHours * 3600000).toISOString()
     const clientName = pick(rng, CLIENT_NAMES)
     const appCount = status === 'open' ? int(rng, 0, 4)
       : status === 'bidding' ? int(rng, 4, 16)
@@ -214,7 +272,10 @@ function makeBriefs(): Brief[] {
       requirements: summary,
       budgetMin: status === 'open' ? budgetMin : appCount > 0 ? topBid : budgetMin,
       budgetMax,
-      deadlineHours: int(rng, 12, 120),
+      deadlineHours,
+      deadlineAt,
+      expectedFormat: pick(rng, ['PDF', 'Markdown', 'Code', 'CSV / Data', 'URL / Link', null, null]),
+      maxRevisions: int(rng, 1, 3),
       clientAddress: fakeAddr(`c${i}`),
       clientName,
       status,
@@ -281,28 +342,149 @@ function buildDetail(b: Brief): Brief {
     timeline.push({ event: 'expired', detail: `The window closed with no award.`, txHash: null, at: new Date(new Date(b.createdAt).getTime() + 172800000).toISOString() })
   }
 
-  const deliverable: Deliverable | null = ['filed', 'assayed', 'settled'].includes(b.status)
-    ? {
-        content: `Delivered per the brief. ${b.summary} See the attached link for the full return; a short note on method follows in the notes field.`,
-        link: `https://example.com/returns/${b.id}`,
+  // ── deliverable versions + files + evaluations ──
+  // Each filed/assayed/settled brief gets 1–3 versioned returns. Later versions
+  // exist when an earlier one was returned for revision. The agent who filed is
+  // the awarded bidder (or a stand-in).
+  const provider = bids.find(x => x.status === 'selected') ?? bids[0] ?? { agentName: pick(rng, AGENT_NAMES), applicantAddress: fakeAddr(`prov-${b.id}`) }
+  const fileTypes: DeliverableFile['fileType'][] = ['code', 'doc', 'data', 'image', 'archive', 'other']
+  const mimeFor: Record<DeliverableFile['fileType'], string> = {
+    code: 'text/x-python', doc: 'application/pdf', data: 'text/csv', image: 'image/png', archive: 'application/zip', other: 'application/octet-stream',
+  }
+  const fileSuffix: Record<DeliverableFile['fileType'], string> = {
+    code: '.py', doc: '.pdf', data: '.csv', image: '.png', archive: '.zip', other: '.bin',
+  }
+
+  function makeFiles(seedKey: string, n: number): DeliverableFile[] {
+    const out: DeliverableFile[] = []
+    for (let j = 0; j < n; j++) {
+      const ft = pick(rng, fileTypes)
+      const hoursLeft = pick(rng, [3, 7, 14, 22, null])   // null = expired
+      const expired = hoursLeft == null
+      out.push({
+        filename: `return-v${seedKey}-${j}${fileSuffix[ft]}`,
+        fileType: ft,
+        mimeType: mimeFor[ft],
+        sizeKb: int(rng, 2, 4800),
+        expiresAt: expired ? null : new Date(Date.now() + hoursLeft! * 3600000).toISOString(),
+        hoursUntilExpiry: hoursLeft,
+        downloadable: !expired,
+      })
+    }
+    return out
+  }
+
+  const llmModels = ['qwen-max · l4', 'claude-sonnet · l3', 'deepseek-v3 · l4', 'gpt-4o · l3']
+
+  function makeEval(seedKey: string, verdict: Evaluation['status']): Evaluation {
+    const base = verdict === 'approved' ? [78, 96] : verdict === 'revision_needed' ? [45, 64] : [22, 39]
+    return {
+      status: verdict,
+      score: int(rng, base[0], base[1] + 1),
+      breakdown: {
+        completeness: int(rng, verdict === 'approved' ? 8 : 4, 11),
+        quality: int(rng, verdict === 'approved' ? 7 : 4, 11),
+        effort: int(rng, 6, 11),
+        format: int(rng, verdict === 'approved' ? 7 : 3, 11),
+      },
+      reasoning: verdict === 'approved'
+        ? 'Meets the stated requirements with care. Citations are primary where required. One minor formatting gap; otherwise a clean return.'
+        : verdict === 'revision_needed'
+        ? 'Substantive but incomplete. Two sections lack the primary citations the brief required; the methodology needs a second pass before approval.'
+        : 'Falls short of the brief on multiple axes. The return does not address the stated deliverable; recommend the client reclaim escrow.',
+      suggestions: verdict === 'approved'
+        ? 'Consider a short glossary annex for the next pass.'
+        : 'Resubmit with primary citations on §3 and §5, and tighten the methodology note.',
+      llmModel: pick(rng, llmModels),
+      evalTxHash: fakeTx(`eval-${seedKey}`),
+      at: new Date(new Date(b.createdAt).getTime() + 90000000).toISOString(),
+    }
+  }
+
+  const deliverableVersions: DeliverableVersion[] = []
+  if (['filed', 'assayed', 'settled'].includes(b.status)) {
+    // filed = v1 submitted, under review (no eval yet)
+    // assayed = v1 evaluated; settled = v1 approved OR a later version approved
+    // For a richer story, settled briefs get an approved final version; assayed
+    // briefs get a revision_needed or failed v1 to show that branch.
+    if (b.status === 'filed') {
+      deliverableVersions.push({
+        version: 1, status: 'submitted',
+        content: `Return filed per the brief. ${b.summary} See the attached link for the full return.`,
+        link: `https://example.com/returns/${b.id}-v1`,
         notes: 'Two passes done. Open to one revision round if needed.',
         filedAt: new Date(new Date(b.createdAt).getTime() + 86400000).toISOString(),
-      }
-    : null
+        clientFeedback: null,
+        files: makeFiles(`v1`, int(rng, 1, 3)),
+        evaluation: null,   // still under review
+      })
+    } else if (b.status === 'assayed') {
+      // show the revision branch: v1 returned, v2 under review
+      deliverableVersions.push({
+        version: 1, status: 'revision_requested',
+        content: `First pass filed per the brief.`,
+        link: `https://example.com/returns/${b.id}-v1`,
+        notes: 'Initial return.',
+        filedAt: new Date(new Date(b.createdAt).getTime() + 86400000).toISOString(),
+        clientFeedback: 'Two sections need primary citations; methodology needs a second pass.',
+        files: makeFiles(`v1`, 2),
+        evaluation: makeEval(`v1`, 'revision_needed'),
+      })
+      deliverableVersions.push({
+        version: 2, status: 'submitted',
+        content: `Revised return — citations added to §3 and §5, methodology tightened.`,
+        link: `https://example.com/returns/${b.id}-v2`,
+        notes: 'Second pass, addressing the revision notes.',
+        filedAt: new Date(new Date(b.createdAt).getTime() + 158400000).toISOString(),
+        clientFeedback: null,
+        files: makeFiles(`v2`, 2),
+        evaluation: null,   // awaiting assay
+      })
+    } else { // settled
+      deliverableVersions.push({
+        version: 1, status: 'approved',
+        content: `Final return filed and approved. ${b.summary}`,
+        link: `https://example.com/returns/${b.id}-final`,
+        notes: 'Delivered per the brief. One revision round incorporated.',
+        filedAt: new Date(new Date(b.createdAt).getTime() + 158400000).toISOString(),
+        clientFeedback: null,
+        files: makeFiles(`vfinal`, int(rng, 1, 3)),
+        evaluation: makeEval(`vfinal`, 'approved'),
+      })
+    }
+  }
 
-  const assay: Assay | null = ['assayed', 'settled'].includes(b.status)
-    ? {
-        score: Number(float(rng, 6.5, 9.4).toFixed(2)),
-        breakdown: {
-          completeness: int(rng, 7, 10),
-          quality: int(rng, 7, 10),
-          effort: int(rng, 7, 10),
-          format: int(rng, 6, 10),
-        },
-        reasoning: 'Meets the stated requirements with care. Citations are primary where required. One minor formatting gap; otherwise a clean return.',
-        suggestions: 'Consider a short glossary annex for the next pass.',
-      }
-    : null
+  // legacy single deliverable/assay (kept for back-compat) — derived from v1
+  const firstVer = deliverableVersions[0] ?? null
+  const deliverable: Deliverable | null = firstVer ? {
+    content: firstVer.content, link: firstVer.link, notes: firstVer.notes, filedAt: firstVer.filedAt,
+  } : null
+  const assay: Assay | null = firstVer?.evaluation ? {
+    score: firstVer.evaluation.score / 10,
+    breakdown: firstVer.evaluation.breakdown,
+    reasoning: firstVer.evaluation.reasoning,
+    suggestions: firstVer.evaluation.suggestions,
+  } : null
+
+  // ── settlement / refund / failed ──
+  let settlement: Settlement | null = null
+  let refund: Refund | null = null
+  let failed: { reason: string; at: string } | null = null
+  if (['escrowed', 'filed', 'assayed', 'settled'].includes(b.status)) {
+    settlement = {
+      onchainJobId: int(rng, 4000, 9000),
+      fundTx: fakeTx(`fund-${b.id}`),
+      paymentTx: b.status === 'settled' ? fakeTx(`pay-${b.id}`) : null,
+      completedTx: b.status === 'settled' ? fakeTx(`done-${b.id}`) : null,
+      paymentTo: provider.applicantAddress,
+    }
+  }
+  // a subset of 'assayed' briefs show the FAILED/exhausted-revisions + refund path
+  if (b.status === 'assayed' && (b.id % 7 === 0)) {
+    failed = { reason: 'All revision attempts exhausted — the return never met the brief.', at: new Date(new Date(b.createdAt).getTime() + 176400000).toISOString() }
+    refund = { refundTx: fakeTx(`refund-${b.id}`), at: new Date(new Date(b.createdAt).getTime() + 180000000).toISOString() }
+  }
+  const revisionCount = deliverableVersions.filter(v => v.status !== 'approved').length
 
   const comments: Comment[] = []
   if (b.status !== 'open') {
@@ -313,18 +495,18 @@ function buildDetail(b: Brief): Brief {
       body: 'A clarification: the window is firm. Please only bid if you can file in time.',
       at: new Date(new Date(b.createdAt).getTime() + 1800000).toISOString(),
     })
-    if (bids[0]) {
+    if (provider) {
       comments.push({
         id: 2,
-        authorAddress: bids[0].applicantAddress,
-        authorName: bids[0].agentName,
+        authorAddress: provider.applicantAddress,
+        authorName: provider.agentName,
         body: 'Understood. Estimate reflects the window. Will cite every line.',
         at: new Date(new Date(b.createdAt).getTime() + 5400000).toISOString(),
       })
     }
   }
 
-  return { ...b, bids, timeline, deliverable, assay, comments }
+  return { ...b, bids, timeline, deliverable, deliverableVersions, assay, comments, settlement, refund, failed }
 }
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_STATS === 'true'

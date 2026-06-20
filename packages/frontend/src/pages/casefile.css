@@ -86,9 +86,97 @@
 
 .cf-empty { font-family: var(--serif); font-style: italic; color: var(--ink-3); font-size: 14px; padding: 18px 0; }
 
+/* ─── deadline countdown ─── */
+.cf-countdown { font-family: var(--mono); font-size: 12px; color: var(--ink-2); padding: 8px 0 0; letter-spacing: 0.04em; }
+.cf-countdown .cf-count-num { color: var(--hot); font-weight: 600; font-feature-settings: 'tnum' 1; }
+.cf-countdown.expired .cf-count-num { color: var(--slate); }
+
+/* ─── deliverable versions (the filed returns) ─── */
+.cf-version { border: 1px solid var(--rule-2); margin-top: 14px; }
+.cf-version-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--rule-2); background: rgba(26,24,23,0.02); }
+.cf-version-num { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); font-weight: 600; }
+.cf-version-stamp { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; padding: 4px 9px; border: 1px solid currentColor; }
+.cf-version-stamp.submitted { color: var(--ink-3); }
+.cf-version-stamp.approved { color: var(--marsh); }
+.cf-version-stamp.revision_requested { color: var(--ochre); }
+.cf-version-stamp.failed { color: var(--hot); }
+.cf-version-body { padding: 16px 18px; }
+.cf-version-content { font-family: var(--serif); font-size: 14px; color: var(--ink); line-height: 1.55; }
+.cf-version-link { font-family: var(--mono); font-size: 11px; color: var(--hot); text-decoration: none; border-bottom: 1px solid var(--hot); display: inline-block; margin-top: 8px; }
+.cf-version-notes { font-family: var(--serif); font-size: 13px; color: var(--ink-3); font-style: italic; margin-top: 10px; }
+.cf-version-feedback { font-family: var(--serif); font-size: 13px; color: var(--ochre); font-style: italic; margin-top: 10px; border-left: 2px solid var(--ochre); padding-left: 10px; }
+.cf-reviewing { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-top: 12px; display: flex; align-items: center; gap: 8px; }
+.cf-spinner { width: 11px; height: 11px; border: 1.5px solid var(--rule-2); border-top-color: var(--ink-2); border-radius: 50%; display: inline-block; animation: cf-spin 0.9s linear infinite; }
+@keyframes cf-spin { to { transform: rotate(360deg); } }
+
+/* ─── files ─── */
+.cf-files { margin-top: 14px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.cf-files-label { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+.cf-file { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid var(--rule-2); margin-bottom: 6px; }
+.cf-file-type { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cream); background: var(--ink-3); padding: 2px 7px; flex-shrink: 0; }
+.cf-file-name { font-family: var(--mono); font-size: 12px; color: var(--ink); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cf-file-size { font-family: var(--mono); font-size: 10px; color: var(--ink-3); flex-shrink: 0; font-feature-settings: 'tnum' 1; }
+.cf-file-expiry { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); flex-shrink: 0; letter-spacing: 0.04em; }
+.cf-file-expiry.expired { color: var(--hot); }
+.cf-file-dl { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); background: transparent; border: 1px solid var(--rule-2); padding: 3px 8px; cursor: pointer; flex-shrink: 0; }
+.cf-file-dl:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+.cf-file-dl:disabled { opacity: 0.3; cursor: default; }
+.cf-file-upload { border: 1px dashed var(--rule-2); padding: 16px; text-align: center; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--ink-3); margin-bottom: 10px; }
+
+/* ─── full assay / evaluation ─── */
+.cf-eval { margin-top: 14px; border: 1px solid var(--rule-2); padding: 16px 18px; background: rgba(26,24,23,0.015); }
+.cf-eval-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.cf-eval-status { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 600; padding: 4px 10px; border: 1.5px solid currentColor; }
+.cf-eval-status.approved { color: var(--marsh); }
+.cf-eval-status.revision_needed { color: var(--ochre); }
+.cf-eval-status.failed { color: var(--hot); }
+.cf-eval-model { font-family: var(--mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.06em; }
+.cf-eval-score-row { display: flex; align-items: center; gap: 14px; margin: 8px 0 10px; }
+.cf-eval-score-num { font-family: var(--mono); font-size: 28px; font-weight: 600; font-feature-settings: 'tnum' 1; line-height: 1; }
+.cf-eval-score-num.approved { color: var(--marsh); }
+.cf-eval-score-num.revision_needed { color: var(--ochre); }
+.cf-eval-score-num.failed { color: var(--hot); }
+.cf-eval-score-unit { font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.08em; }
+.cf-eval-bar { height: 6px; background: var(--rule-2); flex: 1; min-width: 120px; position: relative; }
+.cf-eval-bar-fill { position: absolute; left: 0; top: 0; height: 100%; }
+.cf-eval-bar-fill.approved { background: var(--marsh); }
+.cf-eval-bar-fill.revision_needed { background: var(--ochre); }
+.cf-eval-bar-fill.failed { background: var(--hot); }
+.cf-eval-break { display: flex; flex-wrap: wrap; gap: 5px 22px; font-family: var(--mono); font-size: 11px; color: var(--ink-2); margin: 10px 0; }
+.cf-eval-break b { color: var(--ink); font-feature-settings: 'tnum' 1; }
+.cf-eval-reason { font-family: var(--serif); font-size: 13.5px; color: var(--ink-2); line-height: 1.5; font-style: italic; }
+.cf-eval-suggest { font-family: var(--serif); font-size: 13px; color: var(--ochre); line-height: 1.5; margin-top: 8px; border-left: 2px solid var(--ochre); padding-left: 10px; font-style: italic; }
+.cf-eval-tx { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); margin-top: 10px; word-break: break-all; }
+.cf-eval-tx .cf-eval-seal { color: var(--marsh); letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* ─── revisions counter ─── */
+.cf-revisions { font-family: var(--mono); font-size: 11px; color: var(--ink-2); padding: 10px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); margin-top: 14px; letter-spacing: 0.04em; }
+.cf-revisions b { color: var(--ink); font-feature-settings: 'tnum' 1; }
+.cf-revisions .cf-rev-strike { color: var(--hot); }
+
+/* ─── refund / failed panels ─── */
+.cf-refund, .cf-failed { border: 1px solid currentColor; padding: 16px 20px; margin-top: 14px; }
+.cf-refund { color: var(--marsh); }
+.cf-failed { color: var(--hot); }
+.cf-refund-verb, .cf-failed-verb { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 600; }
+.cf-refund-detail, .cf-failed-detail { font-family: var(--serif); font-size: 14px; color: var(--ink-2); margin-top: 6px; line-height: 1.45; }
+.cf-refund-detail .cf-refund-tx, .cf-failed-detail .cf-failed-tx { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); display: block; margin-top: 6px; word-break: break-all; }
+.cf-refund-detail .cf-refund-tx .cf-refund-seal { color: var(--marsh); letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* ─── settlement (on-chain) ─── */
+.cf-settle { border: 1px solid var(--rule-2); margin-top: 14px; }
+.cf-settle-row { display: grid; grid-template-columns: 130px 1fr; gap: 14px; padding: 10px 18px; border-bottom: 1px solid var(--rule-2); font-family: var(--mono); font-size: 12px; }
+.cf-settle-row:last-child { border-bottom: none; }
+.cf-settle-lbl { color: var(--ink-3); letter-spacing: 0.06em; text-transform: uppercase; font-size: 10px; padding-top: 2px; }
+.cf-settle-val { color: var(--ink); word-break: break-all; }
+.cf-settle-val .cf-settle-seal { color: var(--marsh); letter-spacing: 0.1em; text-transform: uppercase; font-size: 9.5px; }
+
 @media (max-width: 720px) {
   .cf-event { grid-template-columns: 1fr; gap: 6px; }
   .cf-bid { grid-template-columns: 1fr 80px; }
   .cf-bid-jobs, .cf-bid-sel { display: none; }
   .cf-title { font-size: 24px; }
+  .cf-settle-row { grid-template-columns: 1fr; gap: 4px; }
+  .cf-file { flex-wrap: wrap; }
+  .cf-file-expiry { display: none; }
 }
