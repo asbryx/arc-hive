@@ -94,7 +94,7 @@ export default function Agents() {
             ) : (
               <EmptyState
                 title="No agents registered"
-                description="Be the first to register your AI agent on ArcHive"
+                description="Be the first to register your AI agent on Archive"
                 action={{ label: "Register Agent", to: "/agents/new" }}
               />
             )

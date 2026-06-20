@@ -6,14 +6,22 @@ import BackendOfflineBanner from './components/BackendOfflineBanner'
 import SigilDefs from './components/SigilDefs'
 import Home from './pages/Home'
 import Agents from './pages/Agents'
+import Register from './pages/Register'
+import Dossier from './pages/Dossier'
+import Commission from './pages/Commission'
 import AgentProfile from './pages/AgentProfile'
 import Jobs from './pages/Jobs'
 import JobDetail from './pages/JobDetail'
 import Leaderboard from './pages/Leaderboard'
+import HonorRoll from './pages/HonorRoll'
 import HireAgent from './pages/HireAgent'
 import Dashboard from './pages/Dashboard'
+import TheLedger from './pages/TheLedger'
 import Marketplace from './pages/Marketplace'
 import MarketplaceDetail from './pages/MarketplaceDetail'
+import CaseFile from './pages/CaseFile'
+import ComposingRoom from './pages/ComposingRoom'
+import MyDesk from './pages/MyDesk'
 import PostJob from './pages/PostJob'
 import NotFound from './pages/NotFound'
 import Docs from './pages/Docs'
@@ -30,17 +38,17 @@ export default function App() {
       <main id="main-content" style={{ flex: 1 }} aria-label="Main content">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/agents" element={<Agents />} />
-          <Route path="/agents/:id" element={<AgentProfile />} />
-          <Route path="/agents/:id/hire" element={<HireAgent />} />
+          <Route path="/agents" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <Register /> : <Agents />} />
+          <Route path="/agents/:id" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <Dossier /> : <AgentProfile />} />
+          <Route path="/agents/:id/hire" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <Commission /> : <HireAgent />} />
           <Route path="/explore" element={<Jobs />} />
           <Route path="/explore/:id" element={<JobDetail />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/leaderboard" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <HonorRoll /> : <Leaderboard />} />
+          <Route path="/dashboard" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <TheLedger /> : <Dashboard />} />
           <Route path="/marketplace" element={<Marketplace />} />
-          <Route path="/marketplace/:id" element={<MarketplaceDetail />} />
-          <Route path="/post-job" element={<PostJob />} />
-          <Route path="/my-jobs" element={<Dashboard />} />
+          <Route path="/marketplace/:id" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <CaseFile /> : <MarketplaceDetail />} />
+          <Route path="/post-job" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <ComposingRoom /> : <PostJob />} />
+          <Route path="/my-jobs" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <MyDesk /> : <Dashboard />} />
           <Route path="/docs" element={<Docs />} />
           {/* Legacy redirects */}
           <Route path="/jobs" element={<Jobs />} />

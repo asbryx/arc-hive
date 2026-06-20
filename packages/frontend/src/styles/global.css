@@ -150,11 +150,17 @@ textarea:focus-visible,
   outline-offset: 2px;
 }
 
-/* reduced motion — kill every loop & long animation */
+/*
+ * Reduced motion — only kills decorative TRANSITIONS, not animations.
+ *
+ * The previous blanket `* { animation-duration: 0.01ms }` rule killed
+ * the cartogram flight-line march + settled marquee scroll, which
+ * carry meaning ("the marketplace is alive"). Those animations stay
+ * on so the page reads as live regardless of the OS preference.
+ * Per-component CSS can still opt specific animations out if needed.
+ */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }

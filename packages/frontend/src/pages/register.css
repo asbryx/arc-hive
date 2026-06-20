@@ -1,0 +1,151 @@
+/* register.css — "The Register" census roll (A1 agents listing) + dossier (A2).
+ * Same broadsheet substrate as marketplace.css / casefile.css. */
+
+.reg-page { max-width: 1280px; margin: 0 auto; padding: 48px 32px 80px; font-family: var(--serif); color: var(--ink); }
+
+/* ─── masthead ─── */
+.reg-masthead { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; padding-bottom: 18px; border-bottom: 2px solid var(--ink); margin-bottom: 14px; }
+.reg-masthead h1 { font-family: var(--serif); font-weight: 300; font-size: 34px; letter-spacing: -0.02em; margin: 0; font-variation-settings: 'wght' 300, 'opsz' 144; }
+.reg-masthead h1 em { font-style: italic; color: var(--ink-2); font-weight: 400; }
+.reg-masthead .reg-sub { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3); margin-top: 6px; }
+
+/* ─── stats strap ─── */
+.reg-strap { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); padding: 10px 0 26px; border-bottom: 1px solid var(--rule); margin-bottom: 22px; }
+.reg-strap strong { font-weight: 600; color: var(--ink); }
+.reg-strap em { font-style: normal; color: var(--hot); }
+.reg-strap .reg-dot { color: var(--ink-3); margin: 0 10px; }
+
+/* ─── filter bar ─── */
+.reg-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 26px; }
+.reg-cats { display: flex; flex-wrap: wrap; gap: 8px; }
+.reg-cat { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; background: transparent; border: 1px solid var(--rule-2); color: var(--ink-2); padding: 7px 13px; cursor: pointer; transition: border-color .15s, color .15s; }
+.reg-cat:hover { border-color: var(--ink-2); color: var(--ink); }
+.reg-cat.active { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+.reg-cat .reg-cat-count { opacity: 0.5; margin-left: 6px; }
+.reg-spacer { flex: 1 1 auto; }
+.reg-search { font-family: var(--mono); font-size: 12px; background: transparent; border: none; border-bottom: 1px solid var(--rule-2); color: var(--ink); padding: 7px 4px; width: 220px; outline: none; }
+.reg-search:focus { border-bottom-color: var(--ink); }
+.reg-search::placeholder { color: var(--ink-3); }
+.reg-sort { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; background: transparent; border: 1px solid var(--rule-2); color: var(--ink-2); padding: 7px 10px; cursor: pointer; }
+
+/* ─── the census roll ─── */
+.reg-roll { border-top: 1px solid var(--ink); }
+.reg-row { display: grid; grid-template-columns: 44px 1fr 130px 76px 70px 90px 80px; align-items: center; gap: 16px; padding: 14px 6px; border-bottom: 1px solid var(--rule); text-decoration: none; color: inherit; transition: background .12s; }
+.reg-row:hover { background: rgba(26,24,23,0.025); }
+
+/* sigil */
+.reg-sigil { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+.reg-sigil svg { width: 100%; height: 100%; }
+
+/* name + addr + caps */
+.reg-name-cell { min-width: 0; overflow: hidden; }
+.reg-name { font-family: var(--serif); font-size: 17px; font-weight: 400; line-height: 1.2; letter-spacing: -0.01em; color: var(--ink); font-variation-settings: 'wght' 400, 'opsz' 32; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
+.reg-name em { font-style: italic; color: var(--hot); }
+.reg-addr { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-top: 2px; letter-spacing: 0.04em; }
+.reg-caps { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.reg-cap-tag { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--rule-2); padding: 1px 6px; }
+
+/* score (big-ish mono number) */
+.reg-score { font-family: var(--mono); font-size: 16px; color: var(--ink); font-feature-settings: 'tnum' 1; text-align: right; }
+.reg-score-tier { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); text-align: right; margin-top: 2px; }
+.reg-score-tier b { color: var(--marsh); }
+
+/* jobs / earned / last active */
+.reg-jobs { font-family: var(--mono); font-size: 12px; color: var(--ink-2); text-align: right; font-feature-settings: 'tnum' 1; }
+.reg-earned { font-family: var(--mono); font-size: 12px; color: var(--ink); text-align: right; font-feature-settings: 'tnum' 1; }
+.reg-active { font-family: var(--mono); font-size: 10px; color: var(--ink-3); text-align: right; letter-spacing: 0.04em; }
+
+/* status stamp */
+.reg-stamp { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; text-align: center; padding: 4px 8px; border: 1px solid currentColor; justify-self: end; }
+.reg-stamp.active { color: var(--hot); }
+.reg-stamp.idle { color: var(--slate); }
+.reg-stamp.new { color: var(--marsh); }
+
+/* ─── pagination ─── */
+.reg-pag { display: flex; align-items: center; gap: 14px; justify-content: center; margin-top: 30px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
+.reg-pag button { background: transparent; border: 1px solid var(--rule-2); color: var(--ink-2); padding: 7px 16px; cursor: pointer; font: inherit; letter-spacing: inherit; text-transform: inherit; }
+.reg-pag button:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+.reg-pag button:disabled { opacity: 0.35; cursor: default; }
+
+.reg-empty { padding: 60px 0; text-align: center; font-family: var(--serif); font-style: italic; color: var(--ink-3); font-size: 15px; }
+
+@media (max-width: 880px) {
+  .reg-row { grid-template-columns: 36px 1fr 70px 70px; gap: 10px; }
+  .reg-caps, .reg-earned, .reg-active, .reg-stamp { display: none; }
+  .reg-masthead { flex-direction: column; align-items: flex-start; gap: 12px; }
+}
+
+/* ─── A2: dossier (shares much with casefile.css shapes) ─── */
+.dos-page { max-width: 920px; margin: 0 auto; padding: 40px 32px 80px; font-family: var(--serif); color: var(--ink); }
+.dos-back { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); text-decoration: none; border-bottom: 1px solid var(--rule); padding-bottom: 4px; display: inline-block; margin-bottom: 24px; }
+.dos-back:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+.dos-head { border-bottom: 2px solid var(--ink); padding-bottom: 22px; margin-bottom: 6px; display: grid; grid-template-columns: 64px 1fr auto; gap: 22px; align-items: center; }
+.dos-head-sigil { width: 56px; height: 56px; }
+.dos-head-sigil svg { width: 100%; height: 100%; }
+.dos-head-name { font-family: var(--serif); font-weight: 300; font-size: 30px; line-height: 1.1; letter-spacing: -0.02em; margin: 0; font-variation-settings: 'wght' 300, 'opsz' 144; }
+.dos-head-name em { font-style: italic; color: var(--hot); }
+.dos-head-owner { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-top: 5px; letter-spacing: 0.04em; }
+.dos-head-caps { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.dos-head-cap { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); border: 1px solid var(--rule-2); padding: 3px 8px; }
+.dos-stamp { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; border: 1.5px solid currentColor; padding: 5px 12px; align-self: start; }
+.dos-stamp.active { color: var(--hot); }
+.dos-stamp.idle { color: var(--slate); }
+.dos-stamp.new { color: var(--marsh); }
+.dos-desc { font-family: var(--serif); font-size: 15px; color: var(--ink-2); font-style: italic; line-height: 1.5; margin-top: 16px; padding-bottom: 22px; border-bottom: 2px solid var(--ink); }
+
+.dos-section-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); margin: 34px 0 14px; padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+
+/* score readout */
+.dos-score { display: flex; align-items: baseline; gap: 18px; }
+.dos-score-num { font-family: var(--serif); font-size: 56px; font-weight: 300; color: var(--marsh); line-height: 1; font-feature-settings: 'tnum' 1; }
+.dos-score-lbl { font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.12em; text-transform: uppercase; }
+.dos-score-break { display: flex; flex-wrap: wrap; gap: 6px 26px; font-family: var(--mono); font-size: 12px; color: var(--ink-2); margin-top: 16px; }
+.dos-score-break b { color: var(--ink); font-feature-settings: 'tnum' 1; }
+
+/* work record stat strip */
+.dos-workstrip { display: flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--rule-2); margin-top: 6px; }
+.dos-workcell { flex: 1 1 0; padding: 16px 18px; border-right: 1px solid var(--rule-2); min-width: 110px; }
+.dos-workcell:last-child { border-right: none; }
+.dos-workcell-num { font-family: var(--mono); font-size: 22px; color: var(--ink); font-feature-settings: 'tnum' 1; }
+.dos-workcell-lbl { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
+.dos-workcell-num.marsh { color: var(--marsh); }
+.dos-workcell-num.hot { color: var(--hot); }
+
+/* reputation timeline (mirrors casefile) */
+.dos-timeline { border-left: 2px solid var(--rule); margin-left: 8px; }
+.dos-event { display: grid; grid-template-columns: 120px 1fr; gap: 18px; padding: 14px 0 14px 20px; position: relative; border-bottom: 1px solid var(--rule); }
+.dos-event:last-child { border-bottom: none; }
+.dos-event::before { content: ''; position: absolute; left: -6px; top: 20px; width: 10px; height: 10px; border-radius: 50%; background: var(--cream); border: 2px solid var(--ink-2); }
+.dos-event.dos-sealed::before { background: var(--marsh); border-color: var(--marsh); }
+.dos-event-time { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); padding-top: 3px; }
+.dos-event-verb { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); font-weight: 600; }
+.dos-event-detail { font-family: var(--serif); font-size: 14px; color: var(--ink-2); margin-top: 3px; line-height: 1.45; }
+.dos-event-tx { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); margin-top: 5px; word-break: break-all; }
+.dos-event-tx .dos-seal { color: var(--marsh); letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* portfolio */
+.dos-port { border-top: 1px solid var(--rule); }
+.dos-port-row { display: grid; grid-template-columns: 70px 1fr 80px 60px; gap: 16px; align-items: center; padding: 14px 4px; border-bottom: 1px solid var(--rule); text-decoration: none; color: inherit; }
+.dos-port-row:hover { background: rgba(26,24,23,0.025); }
+.dos-port-lot { font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.08em; }
+.dos-port-title { font-family: var(--serif); font-size: 15px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
+.dos-port-cat { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); text-align: right; }
+.dos-port-score { font-family: var(--mono); font-size: 12px; color: var(--marsh); text-align: right; font-feature-settings: 'tnum' 1; }
+
+/* commission action */
+.dos-commission { border: 1px solid var(--ink); padding: 22px 24px; margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.dos-commission-hint { font-family: var(--serif); font-size: 14px; color: var(--ink-2); font-style: italic; line-height: 1.45; }
+.dos-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; background: var(--ink); color: var(--cream); border: none; padding: 12px 24px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.dos-btn:hover { background: var(--hot); color: var(--cream); }
+
+.dos-empty { font-family: var(--serif); font-style: italic; color: var(--ink-3); font-size: 14px; padding: 18px 0; }
+
+@media (max-width: 720px) {
+  .dos-head { grid-template-columns: 48px 1fr; }
+  .dos-stamp { grid-column: 2; justify-self: start; }
+  .dos-event { grid-template-columns: 1fr; gap: 6px; }
+  .dos-port-row { grid-template-columns: 60px 1fr 60px; }
+  .dos-port-cat { display: none; }
+  .dos-workcell { flex: 1 1 45%; }
+}

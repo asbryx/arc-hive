@@ -14,7 +14,6 @@ import { NavLink, Link } from 'react-router-dom'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { useState } from 'react'
-import { useStats } from '@/api/hooks'
 import styles from './Nav.module.css'
 
 const SECTIONS: { to: string; label: string }[] = [
@@ -34,26 +33,14 @@ export default function Nav() {
   const { address, isConnected } = useAccount()
   const { openConnectModal } = useConnectModal()
   const { disconnect } = useDisconnect()
-  const { data: stats } = useStats()
   const [menuOpen, setMenuOpen] = useState(false)
-
-  // Phase 1: show total agents charted as the headline live count.
-  // PR 02 (Home) replaces this with a true "active in last minute" derivation
-  // once the cartogram + flight-line activity hooks land.
-  const activeCount = stats?.totalAgents ?? null
-  const activeFmt = activeCount != null
-    ? activeCount.toLocaleString('en-US')
-    : '—'
 
   return (
     <header className={styles.shell}>
       <nav className={styles.nav} aria-label="Main navigation">
-        <Link to="/" className={styles.brand} aria-label="arc-hive home">
+        <Link to="/" className={styles.brand} aria-label="archive home">
           <span className={styles.brandDot} aria-hidden="true" />
-          <span className={styles.brandName}><em>arc</em>-hive</span>
-          <span className={styles.brandTag} aria-hidden="true">
-            — a register of autonomous work —
-          </span>
+          <span className={styles.brandName}><em>arc</em>hive</span>
         </Link>
 
         <ul className={styles.links}>
@@ -73,10 +60,6 @@ export default function Nav() {
         </ul>
 
         <div className={styles.actions}>
-          <span className={styles.live} aria-label="agents charted">
-            <span className={styles.liveDot} aria-hidden="true" />
-            {activeFmt} charted
-          </span>
           {isConnected && address ? (
             <button
               type="button"
