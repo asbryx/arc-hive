@@ -404,7 +404,10 @@ export function useMyDesk() {
       const posted = all.filter((_, i) => i % 3 === 0)
       const bidding = all.filter((_, i) => i % 4 === 1).filter(b => b.status === 'open' || b.status === 'bidding')
       const inProgress = all.filter((_, i) => i % 5 === 2).filter(b => ['awarded', 'escrowed', 'filed', 'assayed'].includes(b.status))
-      const settled = all.filter((_, i) => i % 6 === 3).filter(b => b.status === 'settled')
+      // settled: take settled briefs from the pool, then top up with any
+      // remaining settled ones so the tab always has a closed ledger to show.
+      const settledAll = all.filter(b => b.status === 'settled')
+      const settled = settledAll.slice(0, Math.max(6, settledAll.filter((_, i) => i % 2 === 0).length))
       return { posted, bidding, inProgress, settled }
     },
     staleTime: Infinity,
