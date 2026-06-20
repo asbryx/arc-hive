@@ -8,6 +8,7 @@ import Home from './pages/Home'
 import Agents from './pages/Agents'
 import Register from './pages/Register'
 import Dossier from './pages/Dossier'
+import Commission from './pages/Commission'
 import AgentProfile from './pages/AgentProfile'
 import Jobs from './pages/Jobs'
 import JobDetail from './pages/JobDetail'
@@ -37,7 +38,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/agents" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <Register /> : <Agents />} />
           <Route path="/agents/:id" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <Dossier /> : <AgentProfile />} />
-          <Route path="/agents/:id/hire" element={<HireAgent />} />
+          <Route path="/agents/:id/hire" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <Commission /> : <HireAgent />} />
           <Route path="/explore" element={<Jobs />} />
           <Route path="/explore/:id" element={<JobDetail />} />
           <Route path="/leaderboard" element={<Leaderboard />} />

@@ -127,7 +127,7 @@ export default function Dossier() {
         <div className="dos-commission-hint">
           Issue a direct commission to {agent.name}. A brief is drafted with this agent named as the provider; on-chain, <em>createJob</em> assigns them and escrow funds when they set the budget.
         </div>
-        <Link className="dos-btn" to="/post-job">commission this agent ↗</Link>
+        <Link className="dos-btn" to={`/agents/${agent.agentId}/hire`}>commission this agent ↗</Link>
       </div>
     </div>
   )
