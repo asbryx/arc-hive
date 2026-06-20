@@ -1,0 +1,69 @@
+/* docs.css — "The Manual" broadsheet developer reference (D2).
+ * Re-themes the Docs shared primitives into the broadsheet aesthetic. The actual
+ * documentation content (SDK instructions, API reference, contracts) is untouched —
+ * only the primitive components + page wrapper re-skin. */
+
+.doc-page { font-family: var(--serif); color: var(--ink); background: var(--cream); min-height: 100vh; display: flex; }
+
+/* ─── desktop sidebar (gazette table-of-contents) ─── */
+.docs-sidebar-desktop { position: sticky; top: 48px; height: calc(100vh - 48px); width: 220px; flex-shrink: 0; border-right: 1px solid var(--rule); background: var(--cream); padding-top: 24px; overflow-y: auto; display: flex; flex-direction: column; }
+.doc-nav-title { padding: 0 16px 12px; font-family: var(--mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.18em; text-transform: uppercase; }
+.doc-nav-link { display: block; padding: 7px 16px; font-family: var(--mono); font-size: 12px; color: var(--ink-3); text-decoration: none; border-left: 2px solid transparent; transition: color .15s, border-color .15s, background .15s; letter-spacing: 0.03em; }
+.doc-nav-link:hover { color: var(--ink); }
+.doc-nav-link.active { color: var(--ink); border-left-color: var(--ink); background: rgba(26,24,23,0.04); }
+
+/* ─── mobile sidebar (horizontal scroll) ─── */
+.docs-sidebar-mobile { display: none; overflowX: auto; white-space: nowrap; position: sticky; top: 48px; z-index: 10; background: var(--cream); border-bottom: 1px solid var(--rule); padding: 8px 0; }
+.doc-nav-mob { display: inline-block; padding: 6px 14px; font-family: var(--mono); font-size: 12px; color: var(--ink-3); text-decoration: none; border-bottom: 2px solid transparent; letter-spacing: 0.03em; }
+.doc-nav-mob.active { color: var(--ink); border-bottom-color: var(--ink); }
+
+/* ─── main content ─── */
+.doc-main { flex: 1; padding: 36px 44px 64px; max-width: 900px; min-width: 0; }
+
+/* ─── hero ─── */
+.doc-hero { margin-bottom: 48px; scroll-margin-top: 80px; }
+.doc-hero-h1 { font-family: var(--serif); font-weight: 300; font-size: 34px; color: var(--ink); margin: 0 0 8px; letter-spacing: -0.02em; font-variation-settings: 'wght' 300, 'opsz' 144; line-height: 1.15; }
+.doc-hero-accent { font-style: italic; color: var(--hot); }
+.doc-hero-works { font-family: var(--mono); font-size: 12px; color: var(--ink-3); margin-top: 16px; letter-spacing: 0.02em; }
+.doc-hero-works span { color: var(--ink-2); }
+
+/* ─── section + sub headers ─── */
+.doc-section-h { font-family: var(--serif); font-size: 24px; color: var(--ink); margin: 48px 0 16px; border-bottom: 2px solid var(--ink); padding-bottom: 8px; scroll-margin-top: 80px; font-weight: 400; letter-spacing: -0.01em; font-variation-settings: 'wght' 400, 'opsz' 60; }
+.doc-sub-h { font-family: var(--mono); font-size: 13px; color: var(--ink); margin: 30px 0 10px; scroll-margin-top: 80px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; }
+.doc-sub-h::before { content: '§ '; color: var(--ink-3); font-weight: 400; }
+
+/* ─── body paragraph ─── */
+.doc-p { font-family: var(--serif); font-size: 15px; line-height: 1.65; color: var(--ink-2); margin: 10px 0; }
+
+/* ─── code block (printed "specimen") ─── */
+.doc-code { margin: 14px 0; border: 1px solid var(--rule-2); background: rgba(26,24,23,0.03); }
+.doc-code-bar { display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; background: rgba(26,24,23,0.05); border-bottom: 1px solid var(--rule-2); font-family: var(--mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.12em; text-transform: uppercase; }
+.doc-code-copy { background: none; border: 1px solid var(--rule-2); color: var(--ink-2); cursor: pointer; font-family: var(--mono); font-size: 10px; padding: 2px 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+.doc-code-copy:hover { border-color: var(--ink); color: var(--ink); }
+.doc-code-copy.copied { border-color: var(--marsh); color: var(--marsh); }
+.doc-code-pre { margin: 0; padding: 16px; background: transparent; overflow: auto; font-family: var(--mono); font-size: 13px; line-height: 1.6; color: var(--ink); }
+
+/* ─── data row (key/value) ─── */
+.doc-datarow { display: flex; padding: 10px 14px; border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: 12px; background: transparent; }
+.doc-datarow.highlight { background: rgba(26,24,23,0.03); }
+.doc-datarow-label { color: var(--ink-3); min-width: 180px; flex-shrink: 0; letter-spacing: 0.03em; }
+.doc-datarow-value { color: var(--ink); word-break: break-all; }
+
+/* ─── FAQ ─── */
+.doc-faq { border-bottom: 1px solid var(--rule); cursor: pointer; }
+.doc-faq-q { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; font-family: var(--serif); font-size: 15px; color: var(--ink); }
+.doc-faq-mark { color: var(--hot); font-family: var(--mono); font-size: 13px; margin-right: 4px; }
+.doc-faq-toggle { color: var(--ink-3); font-family: var(--mono); font-size: 16px; }
+.doc-faq-a { padding-bottom: 15px; font-family: var(--serif); font-size: 14px; color: var(--ink-2); line-height: 1.6; }
+.doc-faq-mark-a { color: var(--marsh); font-family: var(--mono); font-size: 12px; margin-right: 4px; }
+
+/* ─── footer ─── */
+.doc-footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--rule); font-family: var(--mono); font-size: 11px; color: var(--ink-3); text-align: center; letter-spacing: 0.04em; }
+.doc-footer-link { color: var(--hot); text-decoration: none; border-bottom: 1px solid var(--hot); }
+
+@media (max-width: 768px) {
+  .docs-sidebar-desktop { display: none; }
+  .docs-sidebar-mobile { display: block; }
+  .doc-main { padding: 28px 24px 56px; }
+  .doc-hero-h1 { font-size: 26px; }
+}
