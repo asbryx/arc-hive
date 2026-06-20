@@ -147,8 +147,9 @@
   padding: 3px 7px;
   text-align: center;
 }
-.mp-title-cell { min-width: 0; }
+.mp-title-cell { min-width: 0; overflow: hidden; }
 .mp-title {
+  display: block;
   font-family: var(--serif);
   font-size: 17px;
   font-weight: 400;
@@ -159,9 +160,11 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 .mp-title em { font-style: italic; color: var(--hot); }
 .mp-desc {
+  display: block;
   font-family: var(--serif);
   font-size: 12.5px;
   color: var(--ink-3);
@@ -170,6 +173,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 .mp-budget {
   font-family: var(--mono);
