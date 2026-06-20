@@ -6,14 +6,13 @@
  * the top tier. One row per agent: sigil · name · owner addr · capability tags ·
  * composite score · trust tier · jobs settled · earned · last active · status.
  *
- * Preview only (VITE_USE_MOCK_STATS → useRegisteredAgents). Prod uses the real
  * Agents page. Same vocabulary as home + marketplace (the 6 provinces).
  */
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useRegisteredAgents } from '@/api/adapters/agents'
-import { type RegisteredAgent } from '@/api/mockAgents'
+import { type RegisteredAgent } from '@/api/types'
 import { CATEGORIES, CATEGORY_LABEL } from '@/lib/briefVocab'
 import Sigil from '@/components/graphics/Sigil'
 import './register.css'

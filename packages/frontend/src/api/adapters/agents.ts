@@ -26,7 +26,7 @@ import { houseName } from './home'
 import type { BriefCategory } from '../../lib/briefVocab'
 import type {
   RegisteredAgent, AgentDossier, Sigil, AgentStatus, HonorMetric,
-} from '../mockAgents'
+} from '../types'
 
 const SIGILS: Sigil[] = ['ring', 'cross', 'tri', 'lens', 'star', 'keep']
 const VALID_CATS: BriefCategory[] = [

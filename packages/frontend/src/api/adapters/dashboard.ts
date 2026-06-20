@@ -17,8 +17,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
 import { authFetch } from '../client'
 import { jobToBriefForAdapters } from './marketplace'
-import type { Brief } from '../mockMarketplace'
-import type { WalletStats, EarningRow, BookView } from '../mockMarketplace'
+import type { Brief } from '../types'
+import type { WalletStats, EarningRow, BookView } from '../types'
 import type { BriefCategory } from '../../lib/briefVocab'
 
 interface RawRoleJob {

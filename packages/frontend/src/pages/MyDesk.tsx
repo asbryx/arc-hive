@@ -6,7 +6,6 @@
  * Each tab = gazette rows like the classifieds, filtered to "your" briefs.
  * Reuses the marketplace.css row styles so it reads as the same publication.
  *
- * Preview only (VITE_USE_MOCK_STATS → useMyDesk). Prod uses the real Dashboard
  * (filters /open-jobs by wallet). On preview the "ownership" is deterministic
  * so the desk always has content without a connected wallet.
  */
@@ -14,7 +13,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMyDesk } from '@/api/adapters/dashboard'
-import { type Brief, type DeskTab } from '@/api/mockMarketplace'
+import { type Brief, type DeskTab } from '@/api/types'
 import { CATEGORY_LABEL, STATUS_STAMP, STATUS_COLOR, fmtBudget, fmtDeadline, fmtAgo } from '@/lib/briefVocab'
 import './marketplace.css'
 

@@ -10,7 +10,6 @@
  * keeps the real HireAgent with the actual contract calls (preserved untouched);
  * the on-chain handlers port into this themed shell once the design is approved.
  *
- * Preview only (VITE_USE_MOCK_STATS). Reads the agent from useAgentDossier so
  * the named provider matches the dossier.
  */
 

@@ -22,8 +22,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { getJobs, getOpenJobs, getLeaderboard, type Job, type Agent } from '../client'
 import { mulberry32, seedFrom, pick, int, float } from '../../lib/seededRandom'
-import type { SettlementEvent } from '../mockSettlements'
-import type { Lot, LotCategory, LotsBundle } from '../mockLots'
+import type { SettlementEvent } from '../types'
+import type { Lot, LotCategory, LotsBundle } from '../types'
 
 // ─── shared derivation helpers ────────────────────────────────────────────────
 

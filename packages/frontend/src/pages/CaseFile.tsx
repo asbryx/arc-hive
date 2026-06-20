@@ -7,10 +7,7 @@
  * settled, each sealed with its on-chain tx hash), and contextual action
  * panels surfaced by job state (bid / award / escrow / file / assay / approve).
  *
- * Preview only (VITE_USE_MOCK_STATS). Prod uses the real MarketplaceDetail
  * with the actual on-chain contract calls — those are preserved untouched.
- * The on-chain handlers get ported into this themed shell once the design is
- * approved. Action buttons here are visual (no real wallet calls).
  */
 
 import { useState } from 'react'
@@ -20,7 +17,7 @@ import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { useQueryClient } from '@tanstack/react-query'
 import { authFetch } from '@/api/client'
 import { useBrief } from '@/api/adapters/marketplace'
-import { type Bid, type DeliverableVersion, type Evaluation, type DeliverableFile } from '@/api/mockMarketplace'
+import { type Bid, type DeliverableVersion, type Evaluation, type DeliverableFile } from '@/api/types'
 import { CATEGORY_LABEL, STATUS_STAMP, STATUS_COLOR, fmtBudget, fmtDeadline, fmtAgo, ACTION_VERB } from '@/lib/briefVocab'
 import './casefile.css'
 

@@ -6,7 +6,6 @@
  * budget + deadline, fill the sector's optional detail fields, see recommended
  * agents by capability, preview the notice, then "post the brief."
  *
- * Preview only (VITE_USE_MOCK_STATS). Prod keeps the real PostJob with the
  * actual on-chain createJob call (preserved untouched); the on-chain submit
  * ports into this themed shell once the design is approved. Submit here is
  * visual — it shows a success state + links to a (mock) case file.

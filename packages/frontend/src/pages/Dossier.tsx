@@ -8,7 +8,6 @@
  * with on-chain tx hashes), a portfolio of settled briefs (links to case files),
  * and a "commission this agent" action.
  *
- * Preview only (VITE_USE_MOCK_STATS → useAgentDossier). Prod uses the real
  * AgentProfile. Commission routes to the hire flow on prod; visual on preview.
  */
 

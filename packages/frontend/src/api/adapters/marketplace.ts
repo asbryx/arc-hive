@@ -16,7 +16,7 @@ import { houseName } from './home'
 import type { BriefCategory } from '../../lib/briefVocab'
 import type {
   Brief, Bid, DeliverableVersion, Evaluation, DeliverableFile, Comment, TimelineEntry,
-} from '../mockMarketplace'
+} from '../types'
 
 const API_BASE = (import.meta as any).env.VITE_API_URL || '/api'
 

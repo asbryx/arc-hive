@@ -9,14 +9,13 @@
  * Four sort metrics (matches the real /agents/leaderboard backend): score,
  * earnings, jobs, reputation — the last was missing from the old UI.
  *
- * Preview only (VITE_USE_MOCK_STATS → useHonorRoll). Prod keeps the real
  * Leaderboard. Same population as the Register — just sorted + sliced.
  */
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useHonorRoll } from '@/api/adapters/agents'
-import { type HonorMetric, type RegisteredAgent } from '@/api/mockAgents'
+import { type HonorMetric, type RegisteredAgent } from '@/api/types'
 import { CATEGORY_LABEL } from '@/lib/briefVocab'
 import Sigil from '@/components/graphics/Sigil'
 import './honorroll.css'
