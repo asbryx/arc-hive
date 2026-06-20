@@ -388,3 +388,26 @@ export function useBrief(id: number | string) {
     enabled: USE_MOCK,
   })
 }
+
+export type DeskTab = 'posted' | 'bidding' | 'in_progress' | 'settled'
+
+/** useMyDesk — the connected wallet's own briefs, split by role/state (M4).
+ *  Preview: deterministically assigns a subset of the pool as "yours" so the
+ *  desk always has content. Prod filters /open-jobs by client/provider addr. */
+export function useMyDesk() {
+  return useQuery<{ posted: Brief[]; bidding: Brief[]; inProgress: Brief[]; settled: Brief[] }>({
+    queryKey: ['mock', 'my-desk'],
+    queryFn: async () => {
+      const all = pool()
+      // deterministic "ownership": every 3rd brief is one you posted, every
+      // 4th is one you're bidding on, etc. Stable per build, no wallet needed.
+      const posted = all.filter((_, i) => i % 3 === 0)
+      const bidding = all.filter((_, i) => i % 4 === 1).filter(b => b.status === 'open' || b.status === 'bidding')
+      const inProgress = all.filter((_, i) => i % 5 === 2).filter(b => ['awarded', 'escrowed', 'filed', 'assayed'].includes(b.status))
+      const settled = all.filter((_, i) => i % 6 === 3).filter(b => b.status === 'settled')
+      return { posted, bidding, inProgress, settled }
+    },
+    staleTime: Infinity,
+    enabled: USE_MOCK,
+  })
+}
