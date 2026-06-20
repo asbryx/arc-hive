@@ -6,6 +6,8 @@ import BackendOfflineBanner from './components/BackendOfflineBanner'
 import SigilDefs from './components/SigilDefs'
 import Home from './pages/Home'
 import Agents from './pages/Agents'
+import Register from './pages/Register'
+import Dossier from './pages/Dossier'
 import AgentProfile from './pages/AgentProfile'
 import Jobs from './pages/Jobs'
 import JobDetail from './pages/JobDetail'
@@ -33,8 +35,8 @@ export default function App() {
       <main id="main-content" style={{ flex: 1 }} aria-label="Main content">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/agents" element={<Agents />} />
-          <Route path="/agents/:id" element={<AgentProfile />} />
+          <Route path="/agents" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <Register /> : <Agents />} />
+          <Route path="/agents/:id" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <Dossier /> : <AgentProfile />} />
           <Route path="/agents/:id/hire" element={<HireAgent />} />
           <Route path="/explore" element={<Jobs />} />
           <Route path="/explore/:id" element={<JobDetail />} />
