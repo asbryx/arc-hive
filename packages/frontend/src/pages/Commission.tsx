@@ -77,7 +77,7 @@ export default function Commission() {
 
   return (
     <div className="cr-page">
-      <Link to={`/agents/${agent.agentId}`} className="cr-back">← back to the dossier</Link>
+      <Link to={`/agents/${agent.agentId}`} className="cr-back">← Back to Dossier</Link>
 
       <div className="cr-head">
         <h1>archive · <em>the commission</em></h1>
@@ -111,7 +111,7 @@ export default function Commission() {
         <textarea className="cr-textarea" placeholder="Describe the work. What should it do? What does done look like?" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
       </label>
       <label className="cr-field">
-        <span className="cr-field-label">requirements · the small print (optional)</span>
+        <span className="cr-field-label">Requirements (optional)</span>
         <textarea className="cr-textarea" placeholder="Sources should be primary. The CI must be green when delivered." value={form.requirements} onChange={e => setForm(f => ({ ...f, requirements: e.target.value }))} />
       </label>
       <div className="cr-row" style={{ gridTemplateColumns: '1fr 1fr' }}>

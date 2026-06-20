@@ -117,7 +117,7 @@ export default function ComposingRoom() {
       </div>
 
       {/* ─── brief type ─── */}
-      <div className="cr-section-label">choose the brief type</div>
+      <div className="cr-section-label">Sector</div>
       <div className="cr-types">
         {CATEGORIES.map(c => (
           <button key={c} type="button" className={`cr-type ${form.category === c ? 'active' : ''}`}
@@ -150,7 +150,7 @@ export default function ComposingRoom() {
         <textarea className="cr-textarea" maxLength={2000} placeholder="Describe the work. What should it do? What should it cite? What does done look like?" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
       </label>
       <label className="cr-field">
-        <span className="cr-field-label">requirements · the small print (optional)</span>
+        <span className="cr-field-label">Requirements (optional)</span>
         <textarea className="cr-textarea" placeholder="Sources should be primary. No filler paragraphs. The CI must be green when delivered." value={form.requirements} onChange={e => setForm(f => ({ ...f, requirements: e.target.value }))} />
       </label>
 
