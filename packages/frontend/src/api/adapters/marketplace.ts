@@ -150,6 +150,11 @@ function deadlineAtFrom(createdAt: string, deadlineHours: number): string {
   return new Date(t).toISOString()
 }
 
+/** Exported for the dashboard adapter, which maps the same open-job rows. */
+export function jobToBriefForAdapters(j: any): Brief {
+  return jobToBrief(j as RawOpenJob)
+}
+
 function jobToBrief(j: RawOpenJob): Brief {
   return {
     id: j.id,

@@ -14,7 +14,10 @@ import Commission from './pages/Commission'
 import HonorRoll from './pages/HonorRoll'
 import Jobs from './pages/Jobs'
 import JobDetail from './pages/JobDetail'
-import Dashboard from './pages/Dashboard'
+// Dashboard cluster — broadsheet redesign (real-data wired). Old Dashboard
+// remains on disk, unimported.
+import TheLedger from './pages/TheLedger'
+import MyDesk from './pages/MyDesk'
 // Marketplace cluster — broadsheet redesign (real-data wired). Old pages
 // (MarketplaceDetail, PostJob) remain on disk, unimported.
 import Marketplace from './pages/Marketplace'
@@ -44,11 +47,11 @@ export default function App() {
           <Route path="/explore" element={<Jobs />} />
           <Route path="/explore/:id" element={<JobDetail />} />
           <Route path="/leaderboard" element={<HonorRoll />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<TheLedger />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/marketplace/:id" element={<CaseFile />} />
           <Route path="/post-job" element={<ComposingRoom />} />
-          <Route path="/my-jobs" element={<Dashboard />} />
+          <Route path="/my-jobs" element={<MyDesk />} />
           <Route path="/docs" element={<Docs />} />
           {/* Legacy redirects */}
           <Route path="/jobs" element={<Jobs />} />
