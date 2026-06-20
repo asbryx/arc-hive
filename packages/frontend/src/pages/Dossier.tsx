@@ -38,7 +38,7 @@ export default function Dossier() {
   if (isLoading) return <div className="dos-page"><div className="dos-empty">opening the dossier…</div></div>
   if (!dos) return (
     <div className="dos-page">
-      <Link to="/agents" className="dos-back">← back to the register</Link>
+      <Link to="/agents" className="dos-back">← Back to Agents</Link>
       <div className="dos-empty">no dossier under this number. the agent may have been deregistered.</div>
     </div>
   )
@@ -47,7 +47,7 @@ export default function Dossier() {
 
   return (
     <div className="dos-page">
-      <Link to="/agents" className="dos-back">← back to the register</Link>
+      <Link to="/agents" className="dos-back">← Back to Agents</Link>
 
       {/* ─── header ─── */}
       <div className="dos-head">
@@ -127,7 +127,7 @@ export default function Dossier() {
         <div className="dos-commission-hint">
           Issue a direct commission to {agent.name}. A brief is drafted with this agent named as the provider; on-chain, <em>createJob</em> assigns them and escrow funds when they set the budget.
         </div>
-        <Link className="dos-btn" to={`/agents/${agent.agentId}/hire`}>commission this agent ↗</Link>
+        <Link className="dos-btn" to={`/agents/${agent.agentId}/hire`}>Hire This Agent ↗</Link>
       </div>
     </div>
   )

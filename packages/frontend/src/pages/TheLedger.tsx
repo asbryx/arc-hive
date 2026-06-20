@@ -82,7 +82,7 @@ export default function TheLedger() {
       {stats && (
         <div className="led-strip">
           <div className="led-col">
-            <div className="led-col-label as-client">as client</div>
+            <div className="led-col-label as-client">As Client</div>
             <div className="led-col-rows">
               <div><div className="led-stat-num">{stats.posted}</div><div className="led-stat-lbl">posted</div></div>
               <div><div className="led-stat-num">{stats.activeAsClient}</div><div className="led-stat-lbl">active</div></div>
@@ -91,7 +91,7 @@ export default function TheLedger() {
             </div>
           </div>
           <div className="led-col">
-            <div className="led-col-label as-provider">as provider</div>
+            <div className="led-col-label as-provider">As Provider</div>
             <div className="led-col-rows">
               <div><div className="led-stat-num marsh">{stats.activeAsProvider}</div><div className="led-stat-lbl">active</div></div>
               <div><div className="led-stat-num marsh">{stats.completedAsProvider}</div><div className="led-stat-lbl">completed</div></div>
@@ -104,7 +104,7 @@ export default function TheLedger() {
 
       {/* ─── tabs ─── */}
       <div className="led-tabs">
-        <button className={`led-tab ${tab === 'books' ? 'active' : ''}`} onClick={() => setTab('books')}>the books</button>
+        <button className={`led-tab ${tab === 'books' ? 'active' : ''}`} onClick={() => setTab('books')}>Jobs</button>
         <button className={`led-tab ${tab === 'earnings' ? 'active' : ''}`} onClick={() => setTab('earnings')}>earnings</button>
       </div>
 
@@ -112,18 +112,18 @@ export default function TheLedger() {
       {tab === 'books' && (
         <>
           <div className="led-subtoggle">
-            <button className={`led-sub ${book === 'client' ? 'active' : ''}`} onClick={() => { setBook('client'); setShowHistory(false) }}>as client</button>
-            <button className={`led-sub ${book === 'provider' ? 'active' : ''}`} onClick={() => { setBook('provider'); setShowHistory(false) }}>as provider</button>
+            <button className={`led-sub ${book === 'client' ? 'active' : ''}`} onClick={() => { setBook('client'); setShowHistory(false) }}>My Posted</button>
+            <button className={`led-sub ${book === 'provider' ? 'active' : ''}`} onClick={() => { setBook('provider'); setShowHistory(false) }}>My Active</button>
           </div>
           <div className="led-subtoggle">
             <button className={`led-sub ${!showHistory ? 'active' : ''}`} onClick={() => setShowHistory(false)}>open</button>
             <button className={`led-sub ${showHistory ? 'active' : ''}`} onClick={() => setShowHistory(true)}>history</button>
           </div>
-          <div className="led-section-label">{book === 'client' ? 'briefs you posted' : 'briefs you are working'} · {showHistory ? 'history' : 'open'}</div>
+          <div className="led-section-label">{book === 'client' ? 'Jobs you posted' : 'Jobs you are working on'} · {showHistory ? 'history' : 'open'}</div>
           {isLoading ? (
-            <div className="led-loading">opening the books…</div>
+            <div className="led-loading">loading jobs…</div>
           ) : rows.length === 0 ? (
-            <div className="led-empty">nothing under this view. {book === 'client' && !showHistory && <><Link to="/post-job" style={{ color: 'var(--hot)', borderBottom: '1px solid var(--hot)' }}>post a brief</Link> to open the books.</>}</div>
+            <div className="led-empty">nothing under this view. {book === 'client' && !showHistory && <><Link to="/post-job" style={{ color: 'var(--hot)', borderBottom: '1px solid var(--hot)' }}>post a job</Link> to get started.</>}</div>
           ) : (
             <div className="mp-ledger">
               {rows.map(b => (

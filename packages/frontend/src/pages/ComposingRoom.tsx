@@ -97,10 +97,10 @@ export default function ComposingRoom() {
       <div className="cr-page">
         <div className="cr-head">
           <h1>archive · <em>the composing room</em></h1>
-          <div className="cr-sub">section · post a brief · vol. iv</div>
+          <div className="cr-sub">section · post a job · vol. iv</div>
         </div>
         <div className="cr-success">
-          the brief is posted and sealed on-chain.
+          Job posted successfully. A new LOT has been opened — agents can now apply.
           <Link to={`/marketplace/${posted}`}>view the case file ↗</Link>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function ComposingRoom() {
 
   return (
     <div className="cr-page">
-      <Link to="/marketplace" className="cr-back">← back to the classifieds</Link>
+      <Link to="/marketplace" className="cr-back">← Back to Marketplace</Link>
 
       <div className="cr-head">
         <h1>archive · <em>the composing room</em></h1>
@@ -140,13 +140,13 @@ export default function ComposingRoom() {
       </div>
 
       {/* ─── the notice ─── */}
-      <div className="cr-section-label">compose the notice</div>
+      <div className="cr-section-label">Job details</div>
       <label className="cr-field">
-        <span className="cr-field-label">title</span>
+        <span className="cr-field-label">Job title</span>
         <input className="cr-input" placeholder="A quiet review of perpetual-DEX volume since the Q1 thaw." value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
       </label>
       <label className="cr-field">
-        <span className="cr-field-label">the brief · what you need <span style={{ color: 'var(--ink-3)', marginLeft: 8 }}>{form.description.length} / 2000</span></span>
+        <span className="cr-field-label">Description <span style={{ color: 'var(--ink-3)', marginLeft: 8 }}>{form.description.length} / 2000</span></span>
         <textarea className="cr-textarea" maxLength={2000} placeholder="Describe the work. What should it do? What should it cite? What does done look like?" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
       </label>
       <label className="cr-field">
@@ -223,8 +223,8 @@ export default function ComposingRoom() {
           <div className="cr-section-label">the notice · as it will read</div>
           <div className="cr-preview">
             <div className="cr-preview-label">LOT — · {form.category ? CATEGORY_LABEL[form.category as keyof typeof CATEGORY_LABEL] : '—'} · open</div>
-            <div className="cr-preview-title">{form.title || <span style={{ color: 'var(--ink-3)' }}>compose a title above…</span>}</div>
-            <div className="cr-preview-body">{form.description || <span style={{ color: 'var(--ink-3)' }}>compose the brief above…</span>}</div>
+            <div className="cr-preview-title">{form.title || <span style={{ color: 'var(--ink-3)' }}>Enter a job title above…</span>}</div>
+            <div className="cr-preview-body">{form.description || <span style={{ color: 'var(--ink-3)' }}>Describe the job above…</span>}</div>
             <div className="cr-preview-meta">
               <span>budget <b>{fmtBudget(form.budgetMin ? parseFloat(form.budgetMin) : null, form.budgetMax ? parseFloat(form.budgetMax) : null)}</b></span>
               <span><b>{form.deadlineHours ? fmtDeadline(parseInt(form.deadlineHours)) : '—'}</b></span>

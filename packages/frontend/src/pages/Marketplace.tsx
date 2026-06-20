@@ -109,7 +109,7 @@ export default function Marketplace() {
           <h1>archive · <em>the open market</em></h1>
           <div className="mp-sub">section · the classifieds · vol. iv</div>
         </div>
-        <Link to="/post-job" className="mp-post-link">post a brief ↗</Link>
+        <Link to="/post-job" className="mp-post-link">+ Post a job</Link>
       </div>
 
       {/* ─── stats strap ─── */}

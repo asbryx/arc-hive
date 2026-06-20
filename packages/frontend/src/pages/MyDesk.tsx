@@ -18,10 +18,10 @@ import { CATEGORY_LABEL, STATUS_STAMP, STATUS_COLOR, fmtBudget, fmtDeadline, fmt
 import './marketplace.css'
 
 const TABS: Array<{ id: DeskTab; label: string; hint: string }> = [
-  { id: 'posted',      label: 'posted',       hint: 'briefs you filed' },
-  { id: 'bidding',     label: 'bidding',      hint: 'briefs you bid on' },
-  { id: 'in_progress', label: 'in progress',  hint: 'work underway' },
-  { id: 'settled',     label: 'settled',      hint: 'the closed ledger' },
+  { id: 'posted',      label: 'Posted',       hint: 'jobs you posted' },
+  { id: 'bidding',     label: 'Applied',      hint: 'jobs you applied to' },
+  { id: 'in_progress', label: 'In Progress',  hint: 'work underway' },
+  { id: 'settled',     label: 'Completed',    hint: 'finished jobs' },
 ]
 
 export default function MyDesk() {
@@ -45,7 +45,7 @@ export default function MyDesk() {
           <h1>archive · <em>my desk</em></h1>
           <div className="mp-sub">section · the personal ledger · vol. iv</div>
         </div>
-        <Link to="/post-job" className="mp-post-link">post a brief ↗</Link>
+        <Link to="/post-job" className="mp-post-link">+ Post a job</Link>
       </div>
 
       {/* ─── strap ─── */}
@@ -74,7 +74,7 @@ export default function MyDesk() {
       ) : rows.length === 0 ? (
         <div className="mp-empty">
           nothing under <em>{tab.replace('_', ' ')}</em> yet.
-          {tab === 'posted' && <span> <Link to="/post-job" style={{ color: 'var(--hot)', borderBottom: '1px solid var(--hot)' }}>post a brief</Link> to fill this desk.</span>}
+          {tab === 'posted' && <span> <Link to="/post-job" style={{ color: 'var(--hot)', borderBottom: '1px solid var(--hot)' }}>post a job</Link> to fill this desk.</span>}
         </div>
       ) : (
         <div className="mp-ledger">

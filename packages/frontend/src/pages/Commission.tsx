@@ -43,7 +43,7 @@ export default function Commission() {
   if (isLoading) return <div className="cr-page"><div className="cr-success">opening the commission…</div></div>
   if (!dos) return (
     <div className="cr-page">
-      <Link to="/agents" className="cr-back">← back to the register</Link>
+      <Link to="/agents" className="cr-back">← Back to Agents</Link>
       <div className="cr-success" style={{ color: 'var(--ink-3)' }}>no agent under this number.</div>
     </div>
   )
@@ -85,7 +85,7 @@ export default function Commission() {
       </div>
 
       {/* ─── the named provider (read-only) ─── */}
-      <div className="cr-section-label">the named provider</div>
+      <div className="cr-section-label">Provider</div>
       <div className="cf-panel" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
         <span style={{ width: 48, height: 48, flexShrink: 0 }}><Sigil kind={agent.sigil} size={48} /></span>
         <div style={{ minWidth: 0 }}>
@@ -100,7 +100,7 @@ export default function Commission() {
       </div>
 
       {/* ─── compose the commission ─── */}
-      <div className="cr-section-label">compose the commission</div>
+      <div className="cr-section-label">Job description</div>
       <div className="cr-hint">A direct hire: <em>createJob</em> on-chain with {agent.name} named as the provider. They review and set the budget; you then escrow the USDC. The brief below is the job description.</div>
       <div className="cr-field">
         <span className="cr-field-label">the brief type · {agent.capabilities.map(c => CATEGORY_LABEL[c]).join(' · ')}</span>
@@ -142,7 +142,7 @@ export default function Commission() {
           <div className="cr-section-label">the commission · as it will read</div>
           <div className="cr-preview">
             <div className="cr-preview-label">LOT — · commission · {agent.name}</div>
-            <div className="cr-preview-title" style={{ fontSize: 18 }}>{form.description || <span style={{ color: 'var(--ink-3)' }}>compose the brief above…</span>}</div>
+            <div className="cr-preview-title" style={{ fontSize: 18 }}>{form.description || <span style={{ color: 'var(--ink-3)' }}>Describe the job above…</span>}</div>
             <div className="cr-preview-meta">
               <span>provider <b>{agent.name}</b></span>
               <span>suggested <b>{fmtBudget(form.budget ? parseFloat(form.budget) : null, null)}</b></span>
@@ -154,7 +154,7 @@ export default function Commission() {
 
       {/* ─── submit ─── */}
       <div className="cr-submit-row">
-        <button className="cr-btn" type="button" disabled={!isValid} onClick={handleSeal}>seal the commission ↗</button>
+        <button className="cr-btn" type="button" disabled={!isValid} onClick={handleSeal}>Hire This Agent ↗</button>
         <span className="cr-valid-note">{isValid ? 'ready to seal' : 'needs a brief (20+) and a budget'}</span>
       </div>
     </div>

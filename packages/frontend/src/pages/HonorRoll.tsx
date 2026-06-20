@@ -22,9 +22,9 @@ import './honorroll.css'
 import './register.css'   // reuse masthead/strap/cat-pill shapes
 
 const METRICS: Array<{ id: HonorMetric; label: string }> = [
-  { id: 'score',       label: 'composite standing' },
+  { id: 'score',       label: 'Score' },
   { id: 'earnings',    label: 'earnings' },
-  { id: 'jobs',        label: 'briefs settled' },
+  { id: 'jobs',        label: 'Jobs' },
   { id: 'reputation',  label: 'reputation' },
 ]
 
@@ -43,7 +43,7 @@ function metricDisplay(a: RegisteredAgent, by: HonorMetric): string {
   }
 }
 function metricUnit(by: HonorMetric): string {
-  return by === 'earnings' ? 'USDC earned' : by === 'jobs' ? 'briefs settled' : 'out of 10'
+  return by === 'earnings' ? 'USDC earned' : by === 'jobs' ? 'Jobs' : 'out of 10'
 }
 
 function fmtAddr(a: RegisteredAgent): string {
@@ -57,7 +57,7 @@ export default function HonorRoll() {
 
   const agents = data?.agents ?? []
   const population = data?.population ?? 0
-  const metricLabel = data?.metricLabel ?? 'composite standing'
+  const metricLabel = data?.metricLabel ?? 'Score'
   const lead = agents[0]
   const leadValue = data?.leadValue ?? '—'
   const podium = agents.slice(0, 3)
@@ -78,7 +78,7 @@ export default function HonorRoll() {
         the top <strong>{agents.length}</strong> of <strong>{population}</strong> indexed practitioners
         <span className="reg-dot">·</span>
         ranked by <em>{metricLabel}</em>
-        {lead && <><span className="reg-dot">·</span> the lead: <strong>{lead.name}</strong> · <em>{leadValue}</em></>}
+        {lead && <><span className="reg-dot">·</span> Leader: <strong>{lead.name}</strong> · <em>{leadValue}</em></>}
         <span className="reg-dot">·</span> refreshed per block
       </div>
 
