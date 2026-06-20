@@ -273,3 +273,43 @@ export function useAgentDossier(id: number | string) {
     enabled: USE_MOCK,
   })
 }
+
+export type HonorMetric = 'score' | 'earnings' | 'jobs' | 'reputation'
+
+/** useHonorRoll — the ranked top-N of the indexed population (L1 leaderboard).
+ *  Sorts the SAME population as the Register by the chosen metric. Reputation
+ *  (avg_score) is derived deterministically from the composite score so the
+ *  ordering is stable without a full score breakdown per agent. */
+export function useHonorRoll(by: HonorMetric = 'score', limit = 20) {
+  return useQuery<{ agents: RegisteredAgent[]; metricLabel: string; leadValue: string; population: number }>({
+    queryKey: ['mock', 'honor-roll', by, limit],
+    queryFn: async () => {
+      const all = population().slice()
+      // reputation (avg_score): stable derivation from composite score
+      const avgOf = (a: RegisteredAgent) => Number((a.score - (a.agentId % 7) * 0.08).toFixed(2))
+      const metricValue = (a: RegisteredAgent): number => {
+        switch (by) {
+          case 'earnings':   return a.totalEarned
+          case 'jobs':       return a.completedJobs
+          case 'reputation': return avgOf(a)
+          default:           return a.score
+        }
+      }
+      const metricLabel =
+        by === 'score' ? 'composite standing' :
+        by === 'earnings' ? 'earnings' :
+        by === 'jobs' ? 'briefs settled' : 'reputation'
+      const rows = all.slice().sort((a, b) => metricValue(b) - metricValue(a)).slice(0, limit)
+      const lead = rows[0]
+      const leadValue = lead
+        ? by === 'earnings' ? `${lead.totalEarned.toFixed(0)} USDC`
+          : by === 'jobs' ? `${lead.completedJobs} briefs`
+          : by === 'reputation' ? avgOf(lead).toFixed(2)
+          : lead.score.toFixed(2)
+        : '—'
+      return { agents: rows, metricLabel, leadValue, population: all.length }
+    },
+    staleTime: Infinity,
+    enabled: USE_MOCK,
+  })
+}

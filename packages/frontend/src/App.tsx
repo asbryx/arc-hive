@@ -13,6 +13,7 @@ import AgentProfile from './pages/AgentProfile'
 import Jobs from './pages/Jobs'
 import JobDetail from './pages/JobDetail'
 import Leaderboard from './pages/Leaderboard'
+import HonorRoll from './pages/HonorRoll'
 import HireAgent from './pages/HireAgent'
 import Dashboard from './pages/Dashboard'
 import Marketplace from './pages/Marketplace'
@@ -41,7 +42,7 @@ export default function App() {
           <Route path="/agents/:id/hire" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <Commission /> : <HireAgent />} />
           <Route path="/explore" element={<Jobs />} />
           <Route path="/explore/:id" element={<JobDetail />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/leaderboard" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <HonorRoll /> : <Leaderboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/marketplace/:id" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <CaseFile /> : <MarketplaceDetail />} />
