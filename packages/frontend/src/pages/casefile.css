@@ -1,0 +1,94 @@
+/* casefile.css — "The Case File" stamped dossier (M2 detail page).
+ * Same broadsheet substrate: cream, Fraunces + Geist Mono, ink type, rule
+ * borders, oxblood/marsh state colors. The on-chain lifecycle renders as a
+ * stamped event timeline — the thing that makes the chain legible. */
+
+.cf-page { max-width: 920px; margin: 0 auto; padding: 40px 32px 80px; font-family: var(--serif); color: var(--ink); }
+
+/* ─── back link ─── */
+.cf-back { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); text-decoration: none; border-bottom: 1px solid var(--rule); padding-bottom: 4px; display: inline-block; margin-bottom: 24px; }
+.cf-back:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+/* ─── case header ─── */
+.cf-head { border-bottom: 2px solid var(--ink); padding-bottom: 20px; margin-bottom: 24px; }
+.cf-head-top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.cf-head-lot { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--ink-3); text-transform: uppercase; }
+.cf-head-lot .cf-cat { color: var(--ink-2); border: 1px solid var(--rule-2); padding: 3px 8px; margin-left: 10px; }
+.cf-stamp { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; border: 1.5px solid currentColor; padding: 5px 12px; }
+.cf-title { font-family: var(--serif); font-weight: 300; font-size: 30px; line-height: 1.15; letter-spacing: -0.02em; margin: 14px 0 4px; font-variation-settings: 'wght' 300, 'opsz' 144; }
+.cf-title em { font-style: italic; color: var(--hot); }
+.cf-meta { display: flex; flex-wrap: wrap; gap: 6px 26px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); margin-top: 14px; }
+.cf-meta b { font-weight: 600; color: var(--ink); font-feature-settings: 'tnum' 1; }
+.cf-meta .cf-client { font-family: var(--serif); font-style: italic; text-transform: none; letter-spacing: 0; color: var(--ink-2); }
+
+/* ─── section labels ─── */
+.cf-section-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+
+/* ─── brief body ─── */
+.cf-body { font-family: var(--serif); font-size: 16px; line-height: 1.55; color: var(--ink); }
+.cf-body p { margin: 0 0 14px; }
+.cf-req { font-family: var(--serif); font-size: 14px; line-height: 1.5; color: var(--ink-2); font-style: italic; }
+
+/* ─── event timeline (centerpiece) ─── */
+.cf-timeline { border-left: 2px solid var(--rule); padding-left: 0; margin-left: 8px; }
+.cf-event { display: grid; grid-template-columns: 120px 1fr; gap: 18px; padding: 14px 0 14px 20px; position: relative; border-bottom: 1px solid var(--rule); }
+.cf-event:last-child { border-bottom: none; }
+.cf-event::before { content: ''; position: absolute; left: -6px; top: 20px; width: 10px; height: 10px; border-radius: 50%; background: var(--cream); border: 2px solid var(--ink-2); }
+.cf-event.cf-sealed::before { background: var(--marsh); border-color: var(--marsh); }
+.cf-event-time { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); padding-top: 3px; }
+.cf-event-body { min-width: 0; }
+.cf-event-verb { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); font-weight: 600; }
+.cf-event-detail { font-family: var(--serif); font-size: 14px; color: var(--ink-2); margin-top: 3px; line-height: 1.45; }
+.cf-event-tx { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); margin-top: 5px; word-break: break-all; }
+.cf-event-tx .cf-seal { color: var(--marsh); letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* ─── action panels ─── */
+.cf-panel { border: 1px solid var(--rule-2); padding: 22px 24px; margin-top: 14px; background: rgba(26,24,23,0.015); }
+.cf-panel-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 14px; }
+.cf-field { display: block; margin-bottom: 14px; }
+.cf-field-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); display: block; margin-bottom: 5px; }
+.cf-input, .cf-textarea { width: 100%; box-sizing: border-box; font-family: var(--serif); font-size: 15px; background: var(--cream); border: 1px solid var(--rule-2); color: var(--ink); padding: 9px 11px; outline: none; }
+.cf-input:focus, .cf-textarea:focus { border-color: var(--ink); }
+.cf-textarea { min-height: 90px; resize: vertical; line-height: 1.45; }
+.cf-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; background: var(--ink); color: var(--cream); border: none; padding: 10px 20px; cursor: pointer; }
+.cf-btn:hover { background: var(--hot); }
+.cf-btn.cf-ghost { background: transparent; color: var(--ink); border: 1px solid var(--ink-2); }
+.cf-btn.cf-ghost:hover { background: var(--ink); color: var(--cream); }
+.cf-btn.cf-danger:hover { background: var(--hot); color: var(--cream); }
+.cf-btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.cf-hint { font-family: var(--serif); font-size: 13px; color: var(--ink-3); font-style: italic; margin-bottom: 14px; line-height: 1.45; }
+
+/* ─── bid list ─── */
+.cf-bids { border-top: 1px solid var(--rule); }
+.cf-bid { display: grid; grid-template-columns: 1fr 90px 80px 90px; gap: 16px; align-items: center; padding: 14px 4px; border-bottom: 1px solid var(--rule); }
+.cf-bid-name { font-family: var(--serif); font-size: 15px; color: var(--ink); }
+.cf-bid-name .cf-bid-addr { font-family: var(--mono); font-size: 10px; color: var(--ink-3); display: block; margin-top: 2px; }
+.cf-bid-budget { font-family: var(--mono); font-size: 12px; color: var(--ink); text-align: right; font-feature-settings: 'tnum' 1; }
+.cf-bid-jobs { font-family: var(--mono); font-size: 10px; color: var(--ink-3); text-align: right; }
+.cf-bid-msg { font-family: var(--serif); font-size: 13px; color: var(--ink-2); font-style: italic; line-height: 1.4; grid-column: 1 / -1; margin-top: 4px; }
+.cf-bid-sel { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--marsh); border: 1px solid var(--marsh); padding: 3px 7px; text-align: center; justify-self: end; }
+
+/* ─── assay readout ─── */
+.cf-assay-score { font-family: var(--serif); font-size: 40px; font-weight: 300; color: var(--marsh); line-height: 1; font-feature-settings: 'tnum' 1; }
+.cf-assay-break { display: flex; flex-wrap: wrap; gap: 6px 22px; font-family: var(--mono); font-size: 11px; color: var(--ink-2); margin: 12px 0; }
+.cf-assay-break b { color: var(--ink); font-feature-settings: 'tnum' 1; }
+.cf-assay-reason { font-family: var(--serif); font-size: 14px; color: var(--ink-2); line-height: 1.5; font-style: italic; }
+
+/* ─── deliverable ─── */
+.cf-deliv { font-family: var(--serif); font-size: 15px; color: var(--ink); line-height: 1.55; }
+.cf-deliv-link { font-family: var(--mono); font-size: 12px; color: var(--hot); text-decoration: none; border-bottom: 1px solid var(--hot); display: inline-block; margin-top: 8px; }
+
+/* ─── correspondence ─── */
+.cf-comment { padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.cf-comment-head { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.cf-comment-head .cf-comment-name { color: var(--ink); font-family: var(--serif); font-style: italic; text-transform: none; letter-spacing: 0; font-size: 14px; }
+.cf-comment-body { font-family: var(--serif); font-size: 14px; color: var(--ink); line-height: 1.5; margin-top: 5px; }
+
+.cf-empty { font-family: var(--serif); font-style: italic; color: var(--ink-3); font-size: 14px; padding: 18px 0; }
+
+@media (max-width: 720px) {
+  .cf-event { grid-template-columns: 1fr; gap: 6px; }
+  .cf-bid { grid-template-columns: 1fr 80px; }
+  .cf-bid-jobs, .cf-bid-sel { display: none; }
+  .cf-title { font-size: 24px; }
+}

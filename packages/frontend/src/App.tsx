@@ -14,6 +14,7 @@ import HireAgent from './pages/HireAgent'
 import Dashboard from './pages/Dashboard'
 import Marketplace from './pages/Marketplace'
 import MarketplaceDetail from './pages/MarketplaceDetail'
+import CaseFile from './pages/CaseFile'
 import PostJob from './pages/PostJob'
 import NotFound from './pages/NotFound'
 import Docs from './pages/Docs'
@@ -38,7 +39,7 @@ export default function App() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/marketplace" element={<Marketplace />} />
-          <Route path="/marketplace/:id" element={<MarketplaceDetail />} />
+          <Route path="/marketplace/:id" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <CaseFile /> : <MarketplaceDetail />} />
           <Route path="/post-job" element={<PostJob />} />
           <Route path="/my-jobs" element={<Dashboard />} />
           <Route path="/docs" element={<Docs />} />
