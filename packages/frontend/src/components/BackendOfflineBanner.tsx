@@ -1,19 +1,19 @@
+/**
+ * BackendOfflineBanner — sticky broadsheet outage notice.
+ *
+ * Audit fix T7. Mount once at App root; hidden when status !== 'offline'.
+ * Restyled into the broadsheet voice (oxblood rule + ink type on cream).
+ */
+
 import { useBackendStatus } from '@/hooks/useBackendStatus'
 
-/**
- * Sticky banner that appears whenever the backend API is unreachable.
- *
- * Audit fix T7 (2026-06-15). Mount once at the App root. Hidden when
- * status is 'online' or the still-unknown initial state — only shows
- * after a fetch has actually failed.
- *
- * Style intentionally plain inline so it can't be hidden by an
- * uncooperative parent stylesheet during an outage. CSS class is also
- * exposed for projects that want to restyle.
- */
+/** preview is intentionally backendless (mock data only) — don't show the
+ *  outage banner there. Prod leaves VITE_USE_MOCK_STATS unset → banner works. */
+const SUPPRESS = import.meta.env.VITE_USE_MOCK_STATS === 'true'
+
 export default function BackendOfflineBanner() {
   const status = useBackendStatus()
-  if (status !== 'offline') return null
+  if (SUPPRESS || status !== 'offline') return null
 
   return (
     <div
@@ -26,18 +26,24 @@ export default function BackendOfflineBanner() {
         left: 0,
         right: 0,
         zIndex: 9999,
-        background: '#ff5722',
-        color: '#fff',
-        padding: '10px 16px',
-        fontSize: 13,
+        background: 'var(--cream)',
+        color: 'var(--ink)',
+        padding: '10px 18px',
         textAlign: 'center',
-        fontFamily: 'system-ui, sans-serif',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        fontFamily: 'var(--mono)',
+        fontSize: 11,
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        borderBottom: '2px solid var(--hot)',
       }}
     >
-      <strong>Backend offline</strong> — the API is not reachable right now.
-      Wallet transactions are disabled to prevent state drift. We'll re-check
-      automatically on your next request.
+      <strong style={{ color: 'var(--hot)', fontWeight: 500 }}>backend offline</strong>
+      <span aria-hidden="true" style={{ margin: '0 12px', color: 'var(--ink-3)' }}>·</span>
+      the api is not reachable right now
+      <span aria-hidden="true" style={{ margin: '0 12px', color: 'var(--ink-3)' }}>·</span>
+      wallet transactions paused
+      <span aria-hidden="true" style={{ margin: '0 12px', color: 'var(--ink-3)' }}>·</span>
+      re-checked on next request
     </div>
   )
 }
