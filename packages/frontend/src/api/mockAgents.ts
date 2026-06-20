@@ -70,22 +70,22 @@ export interface AgentDossier {
 
 // ── the 10 named cartogram agents (top tier) ──
 const NAMED: Array<{ name: string; owner: string; sigil: Sigil; score: number; caps: BriefCategory[] }> = [
-  { name: 'Lyra Synthwright', owner: '0xA8C3', sigil: 'star',  score: 9.42, caps: ['code', 'audit'] },
-  { name: 'Carter & Vale',    owner: '0x4C91', sigil: 'cross', score: 8.71, caps: ['code', 'research'] },
-  { name: 'Thorne Ledger',    owner: '0x12FA', sigil: 'tri',   score: 8.43, caps: ['audit', 'research'] },
-  { name: 'Bly & Marsh',      owner: '0x3D8E', sigil: 'cross', score: 8.34, caps: ['copy', 'brand'] },
-  { name: 'Osric Wynn',       owner: '0x1F44', sigil: 'tri',   score: 8.22, caps: ['code'] },
-  { name: 'Sable & Crane',    owner: '0x41BC', sigil: 'lens',  score: 8.18, caps: ['brand', 'copy'] },
-  { name: 'Wren Albright',    owner: '0x6F23', sigil: 'star',  score: 8.12, caps: ['research', 'translation'] },
-  { name: 'Mira Tolle',       owner: '0x9D7C', sigil: 'lens',  score: 8.05, caps: ['translation', 'copy'] },
-  { name: 'Nim Hawthorne',    owner: '0xD905', sigil: 'keep',  score: 7.97, caps: ['research'] },
-  { name: 'Verity & Bell',    owner: '0x7E02', sigil: 'ring',  score: 7.94, caps: ['audit', 'code'] },
+  { name: 'Lyra Synthwright', owner: '0xA8C3', sigil: 'star',  score: 9.42, caps: ['Code', 'Development'] },
+  { name: 'Carter & Vale',    owner: '0x4C91', sigil: 'cross', score: 8.71, caps: ['Code', 'Research'] },
+  { name: 'Thorne Ledger',    owner: '0x12FA', sigil: 'tri',   score: 8.43, caps: ['Data Analysis', 'Research'] },
+  { name: 'Bly & Marsh',      owner: '0x3D8E', sigil: 'cross', score: 8.34, caps: ['Content Creation', 'Social Media'] },
+  { name: 'Osric Wynn',       owner: '0x1F44', sigil: 'tri',   score: 8.22, caps: ['Code'] },
+  { name: 'Sable & Crane',    owner: '0x41BC', sigil: 'lens',  score: 8.18, caps: ['DeFi', 'Trading'] },
+  { name: 'Wren Albright',    owner: '0x6F23', sigil: 'star',  score: 8.12, caps: ['Research', 'Monitoring'] },
+  { name: 'Mira Tolle',       owner: '0x9D7C', sigil: 'lens',  score: 8.05, caps: ['Content Creation', 'Social Media'] },
+  { name: 'Nim Hawthorne',    owner: '0xD905', sigil: 'keep',  score: 7.97, caps: ['Research'] },
+  { name: 'Verity & Bell',    owner: '0x7E02', sigil: 'ring',  score: 7.94, caps: ['Data Analysis', 'Code'] },
 ]
 
 // ── generated practitioner names (lower tier) ──
 const SURNAMES = ['Voss', 'Castle', 'Marlowe', 'Halden', 'Pike', 'Quill', 'Orsa', 'Beacon', 'Marlow', 'Seabright', 'North', 'Atlas', 'Manor', 'Orin', 'Calder', 'Wren', 'Tolle', 'Hawthorne']
 const PATTERNS = ['& {s}', '{s} & Co.', '{s} Index', '{s} Audit', 'North {s}', '{s} Ledger', '{s} Holdings', '{s} Trust', '{s} Capital', '{s} & Manor']
-const ALL_CAPS: BriefCategory[] = ['code', 'research', 'audit', 'brand', 'copy', 'translation']
+const ALL_CAPS: BriefCategory[] = ['Data Analysis', 'Content Creation', 'Code', 'Development', 'Research', 'Trading', 'DeFi', 'Social Media', 'Monitoring', 'Other']
 const SIGILS: Sigil[] = ['ring', 'cross', 'tri', 'lens', 'star', 'keep']
 
 function fakeFullAddr(seed: string): string {

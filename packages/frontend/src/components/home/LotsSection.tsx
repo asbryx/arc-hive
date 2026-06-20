@@ -20,13 +20,17 @@ import './lots.css'
 type FilterValue = 'all' | LotCategory
 
 const FILTER_LABELS: Record<FilterValue, string> = {
-  all:         'all',
-  code:        'code',
-  research:    'research',
-  audit:       'audit',
-  brand:       'brand',
-  copy:        'copy',
-  translation: 'translation',
+  all:               'all',
+  'Data Analysis':   'Data Analysis',
+  'Content Creation':'Content Creation',
+  'Code':            'Code',
+  'Development':     'Development',
+  'Research':        'Research',
+  'Trading':         'Trading',
+  'DeFi':            'DeFi',
+  'Social Media':    'Social Media',
+  'Monitoring':      'Monitoring',
+  'Other':           'Other',
 }
 
 /** target pixel-area density. Larger = taller container, fewer tiles per pixel. */

@@ -19,28 +19,36 @@ import { getSector, type SectorDetailField } from '@/lib/sectors'
 import './composing.css'
 
 /** broadsheet category → real sector id (capitalized in sectors.ts). */
+/** categories are now the OG sector ids directly (e.g. 'Code', 'Data Analysis'),
+ *  so getSector takes the category as-is. */
 const SECTOR_ID: Record<string, string> = {
-  code: 'Code', research: 'Research', audit: 'Audit',
-  brand: 'Brand', copy: 'Copy', translation: 'Translation',
+  'Data Analysis': 'Data Analysis', 'Content Creation': 'Content Creation',
+  'Code': 'Code', 'Development': 'Development', 'Research': 'Research',
+  'Trading': 'Trading', 'DeFi': 'DeFi', 'Social Media': 'Social Media',
+  'Monitoring': 'Monitoring', 'Other': 'Other',
 }
 
 const TYPE_HINTS: Record<string, string> = {
-  code: 'a PR, a script, a tool',
-  research: 'a landscape, a survey',
-  audit: 'a formal report',
-  brand: 'a wordmark, a system',
-  copy: 'a page, press notes',
-  translation: 'a localized return',
+  'Data Analysis': 'clusters, cohorts, charts',
+  'Content Creation': 'copy, a wordmark, a page',
+  'Code': 'a PR, a script, a tool',
+  'Development': 'an app, an API, a contract',
+  'Research': 'a landscape, a survey',
+  'Trading': 'a strategy, a backtest',
+  'DeFi': 'a vault, a pool, a route',
+  'Social Media': 'posts, a calendar, a voice',
+  'Monitoring': 'alerts, a dashboard, a feed',
+  'Other': 'describe it yourself',
 }
 
 /** broadsheet templates — prefab notices that prefill the form (mirrors the real
  *  PostJob template selector, themed). */
 const TEMPLATES: Array<{ name: string; category: BriefCategory; title: string; description: string; requirements: string }> = [
-  { name: 'code review', category: 'code', title: 'Code Review: [Repository / Module]', description: 'Review the codebase for:\n- security vulnerabilities\n- performance bottlenecks\n- code quality and best practices\n- documentation gaps', requirements: 'Familiar with the stack; security-audit background preferred. Cite the exact commit reviewed.' },
-  { name: 'research report', category: 'research', title: 'Research Report: [Topic]', description: 'Conduct comprehensive research on [Topic]:\n- literature review\n- methodology\n- key findings with evidence\n- conclusions and recommendations', requirements: 'Primary sources only. Footnotes preferred to prose links.' },
-  { name: 'audit', category: 'audit', title: 'Audit: [Contract / Path]', description: 'Audit the target for:\n- findings classified by severity\n- each finding citing the storage slot or code line\n- a remediation note per finding', requirements: 'A formal report. Cite the exact commit hash reviewed.' },
-  { name: 'brand', category: 'brand', title: 'Wordmark: [Project]', description: 'A new wordmark for [Project]. Restraint expected. Concept first, execution second; provide a one-page rationale.', requirements: 'Two rounds. Unstyled brief.' },
-  { name: 'translation', category: 'translation', title: 'Translation: [Document] → [Language]', description: 'Translate the document into [Language].\n- native speaker\n- side-by-side comparison\n- preserve the source vocabulary', requirements: 'Two-pass review: first draft, then a polish pass three days later.' },
+  { name: 'code review', category: 'Code', title: 'Code Review: [Repository / Module]', description: 'Review the codebase for:\n- security vulnerabilities\n- performance bottlenecks\n- code quality and best practices\n- documentation gaps', requirements: 'Familiar with the stack; security-audit background preferred. Cite the exact commit reviewed.' },
+  { name: 'research report', category: 'Research', title: 'Research Report: [Topic]', description: 'Conduct comprehensive research on [Topic]:\n- literature review\n- methodology\n- key findings with evidence\n- conclusions and recommendations', requirements: 'Primary sources only. Footnotes preferred to prose links.' },
+  { name: 'data analysis', category: 'Data Analysis', title: 'Data Analysis: [Dataset]', description: 'Analyze the dataset for:\n- summary statistics\n- clusters / cohorts\n- key trends with evidence\n- charts and a short write-up', requirements: 'Reproducible notebook preferred. Cite the data source.' },
+  { name: 'content / copy', category: 'Content Creation', title: 'Content: [Project]', description: 'Write the copy for [Project]:\n- landing page\n- a short post\n- a one-line positioning\n- tone of voice notes', requirements: 'Two rounds. Voice should match the brand brief.' },
+  { name: 'other', category: 'Other', title: 'Custom: [Describe]', description: 'Describe the work in your own words. What should it do? What does done look like?', requirements: 'Be specific about the deliverable and the deadline.' },
 ]
 
 const EXPECTED_FORMATS = ['Any', 'PDF', 'Markdown', 'Code', 'CSV / Data', 'URL / Link']

@@ -136,66 +136,116 @@ export interface Brief {
 }
 
 const TITLES: Record<BriefCategory, string[]> = {
-  research: [
+  'Research': [
     'Synthesize a 2,000-word landscape on RWA platforms.',
     'A quiet review of perpetual-DEX volume since the Q1 thaw.',
     'Map the twelve public chains that still settle below $0.01 / tx.',
     'A survey of MEV-resistant orderflow designs, with citations.',
   ],
-  code: [
+  'Code': [
     'Port a Solidity escrow to Move, with full property tests.',
     'Refactor the indexer: split sync state from event normalisation.',
     'Write typed bindings for a small Cairo contract, no abi-decoder.',
     'Ship a CLI that replays an indexer from a given block height.',
   ],
-  audit: [
-    'Audit a 340-line reward router. Cite every storage slot you read.',
-    'Review the pause-and-rescue path of a small lending vault.',
-    'Threat-model a cross-chain bridge before it opens to public flow.',
+  'Development': [
+    'Build a REST API for an order book, with WebSocket fills.',
+    'Stand up a staking dashboard — wallet connect, claims, history.',
+    'A Telegram bot that posts settled briefs to a channel.',
+    'Assemble a full-stack faucet with rate-limited claims.',
   ],
-  brand: [
-    'A new wordmark for an OTC desk. Restraint expected.',
-    'Brand system for an auction-house resale of NFTs.',
-    'A name and a one-line positioning for a restaking protocol.',
+  'Data Analysis': [
+    'Cluster 90 days of swap data into trader archetypes.',
+    'A cohort study of wallet retention after the Q1 incentive.',
+    'Chart gas-fee distribution across the top forty contracts.',
+    'Reconcile two indexers and report where the counts diverge.',
   ],
-  copy: [
+  'Content Creation': [
     'A short landing page for a stable-yield protocol. No exclamation marks.',
     'Three press notes for a governance forum launch — measured tone.',
     'Rewrite the docs landing in plain English. Cut every adjective.',
+    'A one-page explainer on restaking, fit for a newcomer.',
   ],
-  translation: [
-    'Translate a technical paper on rollup proofs into German.',
-    'Localise a 1,400-word guide into JP and KR with parallel review.',
-    'A French pass on a light-paper, preserving the protocol vocabulary.',
+  'Trading': [
+    'A backtested mean-reversion strategy on a single pair.',
+    'Define a market-making spread schedule for a thin book.',
+    'A rebalancing rule for a four-asset basket, documented.',
+    'Stress-test a liquidation bot against a 30% gap-down.',
+  ],
+  'DeFi': [
+    'Design a vault adapter for a new lending market.',
+    'A yield route across three pools, with slippage bounds.',
+    'Model the bad-debt curve of a money market at scale.',
+    'A liquidity-incentive schedule that decays cleanly to zero.',
+  ],
+  'Social Media': [
+    'A two-week posting calendar for a protocol relaunch.',
+    'Draft ten threads explaining the fee switch, measured tone.',
+    'A community AMA brief — questions, talking points, follow-ups.',
+    'Reply guidelines for the support channel. No hype.',
+  ],
+  'Monitoring': [
+    'Stand up alerting for an oracle that drifts past 1%.',
+    'A watcher that flags any pause() call on a tracked contract.',
+    'Uptime monitoring for three RPC endpoints, with a status page.',
+    'Tail the mempool for a specific selector and log every hit.',
+  ],
+  'Other': [
+    'A small task, scoped tightly. See the brief for the specifics.',
+    'A one-off commission outside the usual sectors.',
+    'Miscellaneous work — described in full in the brief body.',
   ],
 }
 
 const SUMMARIES: Record<BriefCategory, string[]> = {
-  research: [
+  'Research': [
     'For private circulation. Restraint and citations expected. Familiarity with the prior literature required.',
     'Sources should be primary; secondary aggregators do not count. Footnotes preferred to prose links.',
     'Five working days. Methodology will be reviewed. No filler paragraphs.',
   ],
-  code: [
+  'Code': [
     'Tests required. No "TODO: handle later" comments. The CI must be green when delivered.',
     'Match the existing style in /packages. Do not add a new dependency without note.',
     'Small surface, narrow scope. Do not refactor adjacent code.',
   ],
-  audit: [
-    'Findings classified by severity. Each finding must include the storage slot or code line.',
-    'A formal report. Cite the exact commit hash you reviewed.',
+  'Development': [
+    'Ship something that runs. README with setup steps. No half-wired features.',
+    'Document the env vars. The reviewer will clone and run it cold.',
+    'Production-minded: handle the error path, not just the happy one.',
   ],
-  brand: [
-    'A short brief, unstyled. Two rounds.',
-    'Concept first, execution second. Provide a one-page rationale.',
+  'Data Analysis': [
+    'Show the query. Reproducible from the raw export, not a screenshot.',
+    'State the assumptions. Flag every record you dropped and why.',
+    'Charts must be labelled. No conclusions without the supporting numbers.',
   ],
-  copy: [
+  'Content Creation': [
     'Sober tone. Avoid superlatives. Read the prior copy first.',
     'Active voice. Short sentences. No mention of "magic" or "seamless".',
+    'One revision included. Match the house voice, not your own.',
   ],
-  translation: [
-    'Native speaker, please. Side-by-side comparison expected.',
-    'Two-pass review: first draft, then a polish pass three days later.',
+  'Trading': [
+    'Show the backtest window and the assumptions. No curve-fitting.',
+    'Include the drawdown, not just the return. Be honest about fees.',
+    'Parameters documented. The reviewer must be able to re-run it.',
+  ],
+  'DeFi': [
+    'Account for slippage and the failure path. No infinite approvals.',
+    'State the risk assumptions. Cite the pools and the rates you used.',
+    'A clear writeup of the route, with the worst-case outcome named.',
+  ],
+  'Social Media': [
+    'Match the house voice. No engagement-bait. Schedule, do not spam.',
+    'Plain claims only — nothing that needs a disclaimer.',
+    'Two rounds of edits. Keep it measured.',
+  ],
+  'Monitoring': [
+    'Alerts must be actionable, not noisy. Include a runbook line per alert.',
+    'State the thresholds and why. False positives will be reviewed.',
+    'A short writeup of what is watched and how to silence a flap.',
+  ],
+  'Other': [
+    'Scope is in the brief. Ask before you assume.',
+    'A clear deliverable, described above. One revision included.',
   ],
 }
 
@@ -234,19 +284,19 @@ function fakeTx(seed: string): string {
 /** Build the full pool of briefs (deterministic). */
 function makeBriefs(): Brief[] {
   const rng = mulberry32(seedFrom('archive-marketplace-v1'))
-  const cats: BriefCategory[] = ['code', 'research', 'audit', 'brand', 'copy', 'translation']
+  const cats: BriefCategory[] = ['Data Analysis', 'Content Creation', 'Code', 'Development', 'Research', 'Trading', 'DeFi', 'Social Media', 'Monitoring', 'Other']
   const out: Brief[] = []
   const N = 48
   for (let i = 0; i < N; i++) {
     const ci = int(rng, 0, cats.length)
-    const cat = cats[ci] ?? 'code'
+    const cat = cats[ci] ?? 'Code'
     const titleList = TITLES[cat]
     const summList = SUMMARIES[cat]
     if (!titleList || !summList) {
       console.warn('[mockMarketplace] missing pool for cat=', cat, 'ci=', ci, 'hasT=', !!titleList, 'hasS=', !!summList)
     }
-    const title = (titleList ?? TITLES.code)[Math.floor(rng() * (titleList ?? TITLES.code).length)]
-    const summary = (summList ?? SUMMARIES.code)[Math.floor(rng() * (summList ?? SUMMARIES.code).length)]
+    const title = (titleList ?? TITLES.Code)[Math.floor(rng() * (titleList ?? TITLES.Code).length)]
+    const summary = (summList ?? SUMMARIES.Code)[Math.floor(rng() * (summList ?? SUMMARIES.Code).length)]
     const status = STATUSES[int(rng, 0, STATUSES.length)] ?? 'open'
     const reserve = float(rng, 0.4, 14)
     const topBid = Number(float(rng, reserve * 0.6, reserve * 1.4).toFixed(2))

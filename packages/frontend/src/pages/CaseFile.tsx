@@ -67,7 +67,7 @@ export default function CaseFile() {
   if (isLoading) return <div className="cf-page"><div className="cf-empty">opening the case file…</div></div>
   if (!brief) return (
     <div className="cf-page">
-      <Link to="/marketplace" className="cf-back">← back to the classifieds</Link>
+      <Link to="/marketplace" className="cf-back">← Back to Marketplace</Link>
       <div className="cf-empty">no case file under this number. the lot may have been withdrawn.</div>
     </div>
   )
@@ -86,7 +86,7 @@ export default function CaseFile() {
 
   return (
     <div className="cf-page">
-      <Link to="/marketplace" className="cf-back">← back to the classifieds</Link>
+      <Link to="/marketplace" className="cf-back">← Back to Marketplace</Link>
 
       {/* ─── case header ─── */}
       <div className="cf-head">
@@ -198,9 +198,9 @@ export default function CaseFile() {
         <>
           <div className="cf-section-label">{ACTION_VERB.file}</div>
           <div className="cf-panel">
-            <div className="cf-hint">File the return. A link to the deliverable plus a short note on method. The client reviews and the assay scores it.</div>
+            <div className="cf-hint">Submit your deliverable. A link to the work plus a short note on method. The client reviews it and the evaluator scores it.</div>
             <label className="cf-field">
-              <span className="cf-field-label">the return · link or content</span>
+              <span className="cf-field-label">Description of work done</span>
               <textarea className="cf-textarea" placeholder="https://…  —  or paste the deliverable here" value={deliverForm.content} onChange={e => setDeliverForm(f => ({ ...f, content: e.target.value }))} />
             </label>
             <label className="cf-field">
@@ -223,7 +223,7 @@ export default function CaseFile() {
       {/* ─── deliverable versions (the filed returns) — the heart of the result flow ─── */}
       {versions.length > 0 && (
         <>
-          <div className="cf-section-label">the returns · {versions.length === 1 ? 'one filed' : `${versions.length} filed`}</div>
+          <div className="cf-section-label">Deliverables · {versions.length === 1 ? '1 submitted' : `${versions.length} submitted`}</div>
           {/* revisions counter */}
           {(brief.maxRevisions > 0 && (versions.some(v => v.status === 'revision_requested') || versions.some(v => v.status === 'failed'))) && (
             <div className="cf-revisions">
@@ -287,7 +287,7 @@ export default function CaseFile() {
                     )}
                   </div>
                 ) : (
-                  <div className="cf-reviewing"><span className="cf-spinner" /> the AI evaluator is reviewing this return…</div>
+                  <div className="cf-reviewing"><span className="cf-spinner" /> The evaluator is reviewing this submission…</div>
                 )}
               </div>
             </div>
@@ -312,7 +312,7 @@ export default function CaseFile() {
       {/* settlement (on-chain) */}
       {brief.settlement && (status === 'escrowed' || status === 'filed' || status === 'assayed' || status === 'settled') && (
         <>
-          <div className="cf-section-label">the settlement · on-chain</div>
+          <div className="cf-section-label">Settlement · on-chain</div>
           <div className="cf-settle">
             <div className="cf-settle-row"><span className="cf-settle-lbl">on-chain job</span><span className="cf-settle-val">#{brief.settlement.onchainJobId}</span></div>
             <div className="cf-settle-row"><span className="cf-settle-lbl">escrow funded</span><span className="cf-settle-val"><span className="cf-settle-seal">{SEAL}</span> {brief.settlement.fundTx.slice(0, 18)}…{brief.settlement.fundTx.slice(-6)}</span></div>
@@ -326,11 +326,11 @@ export default function CaseFile() {
       {/* approve / reject (client, filed/assayed) */}
       {canReview && (
         <>
-          <div className="cf-section-label">the verdict</div>
+          <div className="cf-section-label">Evaluation</div>
           <div className="cf-panel">
-            <div className="cf-hint">Approve to remit the escrowed USDC to the agent on-chain, or return with a reason for revision.</div>
+            <div className="cf-hint">Approve to release the escrowed USDC to the agent, or reject with a reason for revision.</div>
             <label className="cf-field">
-              <span className="cf-field-label">reason for return (if returning)</span>
+              <span className="cf-field-label">Rejection reason</span>
               <input className="cf-input" placeholder="One section needs a second pass…" value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
             </label>
             <div className="cf-btn-row">
@@ -355,10 +355,10 @@ export default function CaseFile() {
       )}
       <div className="cf-panel" style={{ marginTop: 14 }}>
         <label className="cf-field">
-          <span className="cf-field-label">add to the correspondence</span>
+          <span className="cf-field-label">Add a comment</span>
           <textarea className="cf-textarea" placeholder="A clarification or a question…" value={commentText} onChange={e => setCommentText(e.target.value)} />
         </label>
-        <button className="cf-btn cf-ghost" type="button">post ↗</button>
+        <button className="cf-btn cf-ghost" type="button">Send</button>
       </div>
     </div>
   )

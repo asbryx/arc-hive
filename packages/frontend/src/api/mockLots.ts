@@ -18,7 +18,9 @@ import { useQuery } from '@tanstack/react-query'
 import { useStats } from './hooks'
 import { mulberry32, seedFrom, pick, int, float } from '../lib/seededRandom'
 
-export type LotCategory = 'code' | 'research' | 'audit' | 'brand' | 'copy' | 'translation'
+export type LotCategory =
+  | 'Data Analysis' | 'Content Creation' | 'Code' | 'Development' | 'Research'
+  | 'Trading' | 'DeFi' | 'Social Media' | 'Monitoring' | 'Other'
 
 export interface Lot {
   jobId: number
@@ -41,48 +43,71 @@ interface TitleSeed {
 }
 
 const TITLES: TitleSeed[] = [
-  { category: 'research', text: 'Synthesize a <em>2,000-word</em> landscape on RWA platforms.' },
-  { category: 'research', text: 'A <em>quiet</em> review of perpetual-DEX volume since the Q1 thaw.' },
-  { category: 'research', text: 'Map the <em>twelve</em> public chains that still settle below $0.01 / tx.' },
-  { category: 'code',     text: 'Port a <em>Solidity</em> escrow to Move, with full property tests.' },
-  { category: 'code',     text: 'Refactor the <em>indexer</em>: split sync state from event normalisation.' },
-  { category: 'code',     text: 'Write <em>typed</em> bindings for a small Cairo contract, no abi-decoder.' },
-  { category: 'audit',    text: 'Audit a <em>340-line</em> reward router. Cite every storage slot you read.' },
-  { category: 'audit',    text: 'Review the <em>pause-and-rescue</em> path of a small lending vault.' },
-  { category: 'brand',    text: 'A new <em>wordmark</em> for an OTC desk. Restraint expected.' },
-  { category: 'brand',    text: 'Brand system for an <em>auction-house</em> resale of NFTs.' },
-  { category: 'copy',     text: 'A short <em>landing page</em> for a stable-yield protocol. No exclamation marks.' },
-  { category: 'copy',     text: 'Three press notes for a <em>governance forum</em> launch — measured tone.' },
-  { category: 'translation', text: 'Translate a <em>technical paper</em> on rollup proofs into German.' },
-  { category: 'translation', text: 'Localise a <em>1,400-word</em> guide into JP and KR with parallel review.' },
+  { category: 'Research', text: 'Synthesize a <em>2,000-word</em> landscape on RWA platforms.' },
+  { category: 'Research', text: 'A <em>quiet</em> review of perpetual-DEX volume since the Q1 thaw.' },
+  { category: 'Research', text: 'Map the <em>twelve</em> public chains that still settle below $0.01 / tx.' },
+  { category: 'Code',     text: 'Port a <em>Solidity</em> escrow to Move, with full property tests.' },
+  { category: 'Code',     text: 'Refactor the <em>indexer</em>: split sync state from event normalisation.' },
+  { category: 'Code',     text: 'Write <em>typed</em> bindings for a small Cairo contract, no abi-decoder.' },
+  { category: 'Development', text: 'Build a <em>REST API</em> for an order book, with WebSocket fills.' },
+  { category: 'Development', text: 'Stand up a <em>staking dashboard</em> — wallet connect, claims, history.' },
+  { category: 'Data Analysis', text: 'Cluster <em>90 days</em> of swap data into trader archetypes.' },
+  { category: 'Data Analysis', text: 'A <em>cohort study</em> of wallet retention after the Q1 incentive.' },
+  { category: 'Content Creation', text: 'A short <em>landing page</em> for a stable-yield protocol. No exclamation marks.' },
+  { category: 'Content Creation', text: 'Three press notes for a <em>governance forum</em> launch — measured tone.' },
+  { category: 'Trading',  text: 'A <em>backtested</em> mean-reversion strategy on a single pair.' },
+  { category: 'Trading',  text: 'Stress-test a <em>liquidation bot</em> against a 30% gap-down.' },
+  { category: 'DeFi',     text: 'Design a <em>vault adapter</em> for a new lending market.' },
+  { category: 'DeFi',     text: 'A <em>yield route</em> across three pools, with slippage bounds.' },
+  { category: 'Social Media', text: 'A two-week <em>posting calendar</em> for a protocol relaunch.' },
+  { category: 'Social Media', text: 'Draft ten threads explaining the <em>fee switch</em>, measured tone.' },
+  { category: 'Monitoring', text: 'Stand up <em>alerting</em> for an oracle that drifts past 1%.' },
+  { category: 'Monitoring', text: 'A watcher that flags any <em>pause()</em> call on a tracked contract.' },
+  { category: 'Other',    text: 'A <em>small task</em>, scoped tightly. See the brief for specifics.' },
 ]
 
 const SUMMARIES: Record<LotCategory, string[]> = {
-  research: [
+  'Research': [
     'For private circulation. Restraint and citations expected. Familiarity with the prior literature required.',
     'Sources should be primary; secondary aggregators do not count. Footnotes preferred to prose links.',
     'Five working days. Methodology will be reviewed. No filler paragraphs.',
   ],
-  code: [
+  'Code': [
     'Tests required. No "TODO: handle later" comments. The CI must be green when delivered.',
     'Match the existing style in /packages. Do not add a new dependency without note.',
     'Small surface, narrow scope. Do not refactor adjacent code.',
   ],
-  audit: [
-    'Findings classified by severity. Each finding must include the storage slot or code line.',
-    'A formal report. Cite the exact commit hash you reviewed.',
+  'Development': [
+    'Ship something that runs. README with setup steps. No half-wired features.',
+    'Document the env vars. The reviewer will clone and run it cold.',
   ],
-  brand: [
-    'A short brief, unstyled. Two rounds.',
-    'Concept first, execution second. Provide a one-page rationale.',
+  'Data Analysis': [
+    'Show the query. Reproducible from the raw export, not a screenshot.',
+    'State the assumptions. Flag every record you dropped and why.',
   ],
-  copy: [
+  'Content Creation': [
     'Sober tone. Avoid superlatives. Read the prior copy first.',
     'Active voice. Short sentences. No mention of "magic" or "seamless".',
   ],
-  translation: [
-    'Native speaker, please. Side-by-side comparison expected.',
-    'Two-pass review: first draft, then a polish pass three days later.',
+  'Trading': [
+    'Show the backtest window and the assumptions. No curve-fitting.',
+    'Include the drawdown, not just the return. Be honest about fees.',
+  ],
+  'DeFi': [
+    'Account for slippage and the failure path. No infinite approvals.',
+    'State the risk assumptions. Cite the pools and the rates you used.',
+  ],
+  'Social Media': [
+    'Match the house voice. No engagement-bait. Schedule, do not spam.',
+    'Plain claims only — nothing that needs a disclaimer.',
+  ],
+  'Monitoring': [
+    'Alerts must be actionable, not noisy. Include a runbook line per alert.',
+    'State the thresholds and why. False positives will be reviewed.',
+  ],
+  'Other': [
+    'Scope is in the brief. Ask before you assume.',
+    'A clear deliverable, described above. One revision included.',
   ],
 }
 
@@ -143,7 +168,8 @@ export function useOpenLots(count = 18) {
     queryFn: async () => {
       const lots = makeLots(`lots-${totalJobs}-${count}`, count)
       const totalsBase: Record<LotCategory, number> = {
-        code: 0, research: 0, audit: 0, brand: 0, copy: 0, translation: 0,
+        'Data Analysis': 0, 'Content Creation': 0, 'Code': 0, 'Development': 0, 'Research': 0,
+        'Trading': 0, 'DeFi': 0, 'Social Media': 0, 'Monitoring': 0, 'Other': 0,
       }
       for (const l of lots) totalsBase[l.category] += 1
       // grossed-up category totals (the page implies more lots than visible)

@@ -40,7 +40,7 @@ export default function Lot({ lot, tile }: { lot: LotData; tile: TreemapTile }) 
   const area = tile.w * tile.h
   const bucket = bucketFor(area, tile.w, tile.h)
   const className = ['lot', `size-${bucket}`, `cat-${lot.category}`].join(' ')
-  const cat = lot.category === 'translation' ? 'TRANSLATION' : lot.category.toUpperCase()
+  const cat = lot.category.toUpperCase()
   const style: React.CSSProperties = {
     position: 'absolute',
     left:   `${tile.x}px`,

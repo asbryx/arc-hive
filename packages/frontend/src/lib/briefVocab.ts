@@ -10,20 +10,32 @@
  * printed-record voice that makes the on-chain lifecycle legible.
  */
 
-export type BriefCategory = 'code' | 'research' | 'audit' | 'brand' | 'copy' | 'translation'
+export type BriefCategory =
+  | 'Data Analysis' | 'Content Creation' | 'Code' | 'Development' | 'Research'
+  | 'Trading' | 'DeFi' | 'Social Media' | 'Monitoring' | 'Other'
 
 export const CATEGORIES: BriefCategory[] = [
-  'code', 'research', 'audit', 'brand', 'copy', 'translation',
+  'Data Analysis', 'Content Creation', 'Code', 'Development', 'Research',
+  'Trading', 'DeFi', 'Social Media', 'Monitoring', 'Other',
 ]
 
-/** display label + a short tag (for the gazette row / filter pill). */
+/** display label (identity — the sector string is its own label). */
 export const CATEGORY_LABEL: Record<BriefCategory, string> = {
-  code:        'code',
-  research:    'research',
-  audit:       'audit',
-  brand:       'brand',
-  copy:        'copy',
-  translation: 'translation',
+  'Data Analysis':    'Data Analysis',
+  'Content Creation': 'Content Creation',
+  'Code':             'Code',
+  'Development':      'Development',
+  'Research':        'Research',
+  'Trading':         'Trading',
+  'DeFi':            'DeFi',
+  'Social Media':     'Social Media',
+  'Monitoring':      'Monitoring',
+  'Other':           'Other',
+}
+
+/** slug for CSS class names / data attributes (no spaces). */
+export function categorySlug(cat: string): string {
+  return cat.toLowerCase().replace(/\s+/g, '-')
 }
 
 /** the real on-chain/marketplace status → broadsheet stamp. */
@@ -32,21 +44,21 @@ export type BriefStatus =
   | 'filed' | 'assayed' | 'settled' | 'rejected' | 'expired'
 
 export const STATUS_STAMP: Record<BriefStatus, string> = {
-  open:      'open',
-  bidding:   'bidding',
-  awarded:   'awarded',
-  escrowed:  'escrowed',
-  filed:     'filed',
-  assayed:   'assayed',
-  settled:   'settled',
-  rejected:  'returned',
-  expired:   'expired',
+  open:      'Open',
+  bidding:   'Open',
+  awarded:   'Assigned',
+  escrowed:  'Funded',
+  filed:     'Submitted',
+  assayed:   'Evaluating',
+  settled:   'Completed',
+  rejected:  'Revision Requested',
+  expired:   'Expired',
 }
 
 /** the state color for a stamp (matches the cartogram phase colors). */
 export const STATUS_COLOR: Record<BriefStatus, string> = {
   open:      'var(--ink-2)',
-  bidding:   'var(--hot)',
+  bidding:   'var(--ink-2)',
   awarded:   'var(--hot)',
   escrowed:  'var(--ochre)',
   filed:     'var(--marsh)',
@@ -56,17 +68,17 @@ export const STATUS_COLOR: Record<BriefStatus, string> = {
   expired:   'var(--slate)',
 }
 
-/** broadsheet verbs for the on-chain actions (buttons / timeline entries). */
+/** standard verbs for the on-chain actions (buttons / timeline entries). */
 export const ACTION_VERB = {
-  post:      'post the brief',
-  bid:       'enter a bid',
-  award:     'award the brief',
-  escrow:    'escrow the payment',
-  file:      'file the return',
-  assay:     'read the assay',
-  approve:   'approve & remit',
-  reject:    'return with reason',
-  comment:   'correspondence',
+  post:      'Post Job',
+  bid:       'Apply',
+  award:     'Select',
+  escrow:    'Fund Job',
+  file:      'Submit Deliverable',
+  assay:     'Evaluation',
+  approve:   'Approve',
+  reject:    'Reject',
+  comment:   'Discussion',
 } as const
 
 /** format a budget range in the broadsheet voice (always low→high). */
