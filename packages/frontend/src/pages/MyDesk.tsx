@@ -28,7 +28,10 @@ export default function MyDesk() {
   const { data, isLoading } = useMyDesk()
   const [tab, setTab] = useState<DeskTab>('posted')
 
-  const rows: Brief[] = data ? (data[tab] ?? []) : []
+  const KEY: Record<DeskTab, keyof NonNullable<typeof data>> = {
+    posted: 'posted', bidding: 'bidding', in_progress: 'inProgress', settled: 'settled',
+  }
+  const rows: Brief[] = data ? (data[KEY[tab]] ?? []) : []
   const counts = data ? {
     posted: data.posted.length, bidding: data.bidding.length,
     in_progress: data.inProgress.length, settled: data.settled.length,
