@@ -1,0 +1,56 @@
+/* honorroll.css — "The Honor Roll" ranked standings (L1 leaderboard).
+ * Reuses register.css for the masthead/strap/filter/row shapes (shared classes);
+ * this file adds the podium + the rank-numeral column + standings-specific bits. */
+
+.hr-page { max-width: 1280px; margin: 0 auto; padding: 48px 32px 80px; font-family: var(--serif); color: var(--ink); }
+
+/* masthead + strap + filter pills: reuse .reg-masthead / .reg-strap / .reg-cats / .reg-cat */
+
+/* ─── the podium (top 3) ─── */
+.hr-podium { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin: 8px 0 36px; }
+.hr-card { border: 1px solid var(--rule-2); padding: 24px 22px 20px; text-decoration: none; color: inherit; transition: border-color .15s, background .15s; display: flex; flex-direction: column; gap: 14px; }
+.hr-card:hover { border-color: var(--ink-2); background: rgba(26,24,23,0.02); }
+.hr-card.hr-lead { border-color: var(--ink); background: rgba(26,24,23,0.025); }
+.hr-card-top { display: flex; align-items: center; gap: 14px; }
+.hr-rank { font-family: var(--serif); font-weight: 300; font-size: 52px; line-height: 0.9; color: var(--ink-3); font-feature-settings: 'tnum' 1; letter-spacing: -0.04em; }
+.hr-card.hr-lead .hr-rank { color: var(--hot); }
+.hr-sigil { width: 40px; height: 40px; flex-shrink: 0; }
+.hr-sigil svg { width: 100%; height: 100%; }
+.hr-name { font-family: var(--serif); font-size: 19px; line-height: 1.15; color: var(--ink); font-variation-settings: 'wght' 400, 'opsz' 32; }
+.hr-card.hr-lead .hr-name { font-size: 22px; }
+.hr-addr { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-top: 3px; letter-spacing: 0.04em; }
+.hr-caps { display: flex; flex-wrap: wrap; gap: 5px; }
+.hr-cap { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--rule-2); padding: 2px 7px; }
+.hr-metric { border-top: 1px solid var(--rule); padding-top: 12px; }
+.hr-metric-num { font-family: var(--mono); font-size: 26px; color: var(--marsh); font-feature-settings: 'tnum' 1; line-height: 1; }
+.hr-card.hr-lead .hr-metric-num { color: var(--hot); }
+.hr-metric-lbl { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); margin-top: 5px; }
+.hr-note { font-family: var(--serif); font-size: 12.5px; color: var(--ink-2); font-style: italic; line-height: 1.4; margin-top: 8px; }
+
+/* ─── the standings (rank 4+) ─── */
+.hr-section-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+.hr-roll { border-top: 1px solid var(--ink); }
+.hr-row { display: grid; grid-template-columns: 56px 44px 1fr 130px 100px 80px; align-items: center; gap: 16px; padding: 13px 6px; border-bottom: 1px solid var(--rule); text-decoration: none; color: inherit; transition: background .12s; }
+.hr-row:hover { background: rgba(26,24,23,0.025); }
+.hr-ranknum { font-family: var(--mono); font-size: 15px; color: var(--ink-3); font-feature-settings: 'tnum' 1; letter-spacing: 0.04em; }
+.hr-name-cell { min-width: 0; overflow: hidden; }
+.hr-row-name { font-family: var(--serif); font-size: 16px; line-height: 1.2; color: var(--ink); font-variation-settings: 'wght' 400, 'opsz' 32; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
+.hr-row-addr { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-top: 2px; }
+.hr-row-caps { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.hr-cap-tag { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--rule-2); padding: 1px 6px; }
+.hr-metric-col { font-family: var(--mono); font-size: 14px; color: var(--ink); text-align: right; font-feature-settings: 'tnum' 1; }
+.hr-score-col { font-family: var(--mono); font-size: 13px; color: var(--ink-2); text-align: right; font-feature-settings: 'tnum' 1; }
+.hr-tier-col { font-family: var(--mono); font-size: 10px; color: var(--ink-3); text-align: right; letter-spacing: 0.06em; text-transform: uppercase; }
+
+.hr-expand { text-align: center; margin-top: 28px; }
+.hr-expand button { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; background: transparent; border: 1px solid var(--rule-2); color: var(--ink-2); padding: 9px 20px; cursor: pointer; }
+.hr-expand button:hover { border-color: var(--ink); color: var(--ink); }
+
+.hr-empty { padding: 60px 0; text-align: center; font-family: var(--serif); font-style: italic; color: var(--ink-3); font-size: 15px; }
+
+@media (max-width: 880px) {
+  .hr-podium { grid-template-columns: 1fr; }
+  .hr-row { grid-template-columns: 44px 1fr 90px; gap: 10px; }
+  .hr-sigil, .hr-row-caps, .hr-score-col, .hr-tier-col { display: none; }
+  .reg-masthead { flex-direction: column; align-items: flex-start; gap: 12px; }
+}
