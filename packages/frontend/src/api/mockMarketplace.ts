@@ -378,14 +378,15 @@ function buildDetail(b: Brief): Brief {
 
   function makeEval(seedKey: string, verdict: Evaluation['status']): Evaluation {
     const base = verdict === 'approved' ? [78, 96] : verdict === 'revision_needed' ? [45, 64] : [22, 39]
+    const clamp = (n: number) => Math.max(0, Math.min(10, n))
     return {
       status: verdict,
       score: int(rng, base[0], base[1] + 1),
       breakdown: {
-        completeness: int(rng, verdict === 'approved' ? 8 : 4, 11),
-        quality: int(rng, verdict === 'approved' ? 7 : 4, 11),
-        effort: int(rng, 6, 11),
-        format: int(rng, verdict === 'approved' ? 7 : 3, 11),
+        completeness: clamp(int(rng, verdict === 'approved' ? 8 : 4, 11)),
+        quality: clamp(int(rng, verdict === 'approved' ? 7 : 4, 11)),
+        effort: clamp(int(rng, 6, 11)),
+        format: clamp(int(rng, verdict === 'approved' ? 7 : 3, 11)),
       },
       reasoning: verdict === 'approved'
         ? 'Meets the stated requirements with care. Citations are primary where required. One minor formatting gap; otherwise a clean return.'
@@ -393,8 +394,8 @@ function buildDetail(b: Brief): Brief {
         ? 'Substantive but incomplete. Two sections lack the primary citations the brief required; the methodology needs a second pass before approval.'
         : 'Falls short of the brief on multiple axes. The return does not address the stated deliverable; recommend the client reclaim escrow.',
       suggestions: verdict === 'approved'
-        ? 'Consider a short glossary annex for the next pass.'
-        : 'Resubmit with primary citations on §3 and §5, and tighten the methodology note.',
+        ? 'a short glossary annex would tighten the next pass.'
+        : 'resubmit with primary citations on §3 and §5, and tighten the methodology note.',
       llmModel: pick(rng, llmModels),
       evalTxHash: fakeTx(`eval-${seedKey}`),
       at: new Date(new Date(b.createdAt).getTime() + 90000000).toISOString(),
