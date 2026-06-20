@@ -16,6 +16,7 @@ import Leaderboard from './pages/Leaderboard'
 import HonorRoll from './pages/HonorRoll'
 import HireAgent from './pages/HireAgent'
 import Dashboard from './pages/Dashboard'
+import TheLedger from './pages/TheLedger'
 import Marketplace from './pages/Marketplace'
 import MarketplaceDetail from './pages/MarketplaceDetail'
 import CaseFile from './pages/CaseFile'
@@ -43,7 +44,7 @@ export default function App() {
           <Route path="/explore" element={<Jobs />} />
           <Route path="/explore/:id" element={<JobDetail />} />
           <Route path="/leaderboard" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <HonorRoll /> : <Leaderboard />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <TheLedger /> : <Dashboard />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/marketplace/:id" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <CaseFile /> : <MarketplaceDetail />} />
           <Route path="/post-job" element={import.meta.env.VITE_USE_MOCK_STATS === 'true' ? <ComposingRoom /> : <PostJob />} />

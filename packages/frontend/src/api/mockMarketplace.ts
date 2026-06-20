@@ -414,3 +414,83 @@ export function useMyDesk() {
     enabled: USE_MOCK,
   })
 }
+
+/* ─── The Ledger (D1) — wallet-scoped full account book ─── */
+
+export interface WalletStats {
+  // as client
+  posted: number
+  activeAsClient: number
+  completedAsClient: number
+  spent: number          // USDC
+  // as provider
+  activeAsProvider: number
+  completedAsProvider: number
+  earned: number         // USDC
+  applications: number
+}
+
+export interface EarningRow {
+  lotNo: number
+  title: string
+  category: BriefCategory
+  amount: number
+  assayScore: number
+  settledDaysAgo: number
+  role: 'client' | 'provider'
+}
+
+export type BookView = 'client' | 'provider'
+
+/** useMyLedger — the connected wallet's full books (D1 dashboard).
+ *  Preview: deterministic ownership (client briefs = i%3, provider briefs =
+ *  i%5) so the ledger always has content without a connected wallet. Mirrors
+ *  the real WalletStats split + an earnings list. Prod uses /stats/wallet +
+ *  /open-jobs/my-active-all + /open-jobs/my-history. */
+export function useMyLedger() {
+  return useQuery<{
+    stats: WalletStats
+    clientActive: Brief[]; clientHistory: Brief[]
+    providerActive: Brief[]; providerHistory: Brief[]
+    earnings: EarningRow[]
+  }>({
+    queryKey: ['mock', 'my-ledger'],
+    queryFn: async () => {
+      const all = pool()
+      const rng = mulberry32(seedFrom('ledger-v1'))
+      const asClient = all.filter((_, i) => i % 3 === 0)
+      const asProvider = all.filter((_, i) => i % 5 === 2)
+      const activeOf = (bs: Brief[]) => bs.filter(b => b.status !== 'settled' && b.status !== 'expired')
+      const histOf = (bs: Brief[]) => bs.filter(b => b.status === 'settled' || b.status === 'expired')
+      const clientActive = activeOf(asClient)
+      const clientHistory = histOf(asClient)
+      const providerActive = activeOf(asProvider)
+      const providerHistory = histOf(asProvider)
+      const settledForEarnings = [...clientHistory, ...providerHistory].filter(b => b.status === 'settled')
+      const earnings: EarningRow[] = settledForEarnings.slice(0, 12).map(b => ({
+        lotNo: b.lotNo,
+        title: b.title,
+        category: b.category,
+        amount: Number(float(rng, (b.budgetMin ?? 1) * 0.9, (b.budgetMax ?? 2) * 1.05).toFixed(2)),
+        assayScore: Number(float(rng, 6.8, 9.4).toFixed(2)),
+        settledDaysAgo: int(rng, 1, 70),
+        role: asClient.includes(b) ? 'client' : 'provider',
+      }))
+      const sumEarned = earnings.filter(e => e.role === 'provider').reduce((s, e) => s + e.amount, 0)
+      const sumSpent = earnings.filter(e => e.role === 'client').reduce((s, e) => s + e.amount, 0)
+      const stats: WalletStats = {
+        posted: asClient.length,
+        activeAsClient: clientActive.length,
+        completedAsClient: clientHistory.filter(b => b.status === 'settled').length,
+        spent: Number(sumSpent.toFixed(2)),
+        activeAsProvider: providerActive.length,
+        completedAsProvider: providerHistory.filter(b => b.status === 'settled').length,
+        earned: Number(sumEarned.toFixed(2)),
+        applications: int(rng, 8, 60),
+      }
+      return { stats, clientActive, clientHistory, providerActive, providerHistory, earnings }
+    },
+    staleTime: Infinity,
+    enabled: USE_MOCK,
+  })
+}
