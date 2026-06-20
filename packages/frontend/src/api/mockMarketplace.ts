@@ -337,18 +337,25 @@ export interface ListParams {
   limit?: number
 }
 
-/** useOpenBriefs — paginated, filterable, sortable list (M1). */
+/** useOpenBriefs — paginated, filterable, sortable list (M1).
+ *  Also returns `catCounts` across the search-filtered (but NOT category-
+ *  filtered, NOT paginated) set, so the filter pills always show meaningful
+ *  totals regardless of which category/page is selected. */
 export function useOpenBriefs(params: ListParams = {}) {
   const { category = '', search = '', sort = 'newest', page = 1, limit = 15 } = params
-  return useQuery<{ briefs: Brief[]; total: number; pages: number }>({
+  return useQuery<{ briefs: Brief[]; total: number; pages: number; catCounts: Record<string, number> }>({
     queryKey: ['mock', 'open-briefs', category, search, sort, page, limit],
     queryFn: async () => {
-      let rows = pool().slice()
-      if (category) rows = rows.filter(b => b.category === category)
+      // search-filter the full pool first (counts ignore the category filter)
+      let searched = pool().slice()
       if (search) {
         const q = search.toLowerCase()
-        rows = rows.filter(b => b.title.toLowerCase().includes(q) || b.summary.toLowerCase().includes(q))
+        searched = searched.filter(b => b.title.toLowerCase().includes(q) || b.summary.toLowerCase().includes(q))
       }
+      const catCounts: Record<string, number> = { '': searched.length }
+      for (const b of searched) catCounts[b.category] = (catCounts[b.category] ?? 0) + 1
+      // then apply the category filter + sort + paginate for the visible rows
+      let rows = category ? searched.filter(b => b.category === category) : searched
       rows.sort((a, b) => {
         switch (sort) {
           case 'budget_desc': return (b.budgetMax ?? 0) - (a.budgetMax ?? 0)
@@ -361,7 +368,7 @@ export function useOpenBriefs(params: ListParams = {}) {
       const total = rows.length
       const pages = Math.max(1, Math.ceil(total / limit))
       const start = (page - 1) * limit
-      return { briefs: rows.slice(start, start + limit), total, pages }
+      return { briefs: rows.slice(start, start + limit), total, pages, catCounts }
     },
     staleTime: Infinity,
     enabled: USE_MOCK,

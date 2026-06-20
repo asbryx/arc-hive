@@ -86,9 +86,10 @@ export default function Marketplace() {
   const pages  = USE_MOCK ? (mock.data?.pages ?? 1) : realPages
   const isLoading = USE_MOCK ? mock.isLoading : loading
 
-  // category counts for the filter pills (mock only — cheap from the pool)
+  // category counts for the filter pills — from the full search-filtered
+  // pool (not just the visible page), so totals stay meaningful.
   const catCounts: Record<string, number> = USE_MOCK
-    ? (mock.data?.briefs ? countByCat(mock.data.briefs) : {})
+    ? (mock.data?.catCounts ?? {})
     : {}
 
   // strap numbers: real marketplace stats on prod, derived from the mock
@@ -181,12 +182,6 @@ export default function Marketplace() {
       )}
     </div>
   )
-}
-
-function countByCat(rows: Brief[]): Record<string, number> {
-  const out: Record<string, number> = { '': rows.length }
-  for (const r of rows) out[r.category] = (out[r.category] ?? 0) + 1
-  return out
 }
 
 function medianBudget(rows: Brief[]): number {
