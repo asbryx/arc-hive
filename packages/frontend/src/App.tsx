@@ -15,10 +15,11 @@ import HonorRoll from './pages/HonorRoll'
 import Jobs from './pages/Jobs'
 import JobDetail from './pages/JobDetail'
 import Dashboard from './pages/Dashboard'
+// Marketplace cluster — broadsheet redesign (real-data wired). Old pages
+// (MarketplaceDetail, PostJob) remain on disk, unimported.
 import Marketplace from './pages/Marketplace'
-import MarketplaceDetail from './pages/MarketplaceDetail'
-import PostJob from './pages/PostJob'
-import MyJobs from './pages/MyJobs'
+import CaseFile from './pages/CaseFile'
+import ComposingRoom from './pages/ComposingRoom'
 import NotFound from './pages/NotFound'
 import Docs from './pages/Docs'
 
@@ -45,8 +46,8 @@ export default function App() {
           <Route path="/leaderboard" element={<HonorRoll />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/marketplace" element={<Marketplace />} />
-          <Route path="/marketplace/:id" element={<MarketplaceDetail />} />
-          <Route path="/post-job" element={<PostJob />} />
+          <Route path="/marketplace/:id" element={<CaseFile />} />
+          <Route path="/post-job" element={<ComposingRoom />} />
           <Route path="/my-jobs" element={<Dashboard />} />
           <Route path="/docs" element={<Docs />} />
           {/* Legacy redirects */}
