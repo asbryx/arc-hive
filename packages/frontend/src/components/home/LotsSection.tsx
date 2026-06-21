@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useOpenLots } from '@/api/adapters/home'
-import { type LotCategory } from '@/api/mockLots'
+import { type LotCategory } from '@/api/types'
 import { squarifyWithFloor, type TreemapTile } from '@/lib/squarifiedTreemap'
 import Lot from './Lot'
 import './lots.css'

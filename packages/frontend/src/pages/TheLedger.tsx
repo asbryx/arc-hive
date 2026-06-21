@@ -9,7 +9,6 @@
  * Distinct from My Desk (operational briefs): The Ledger is the money + role-split
  * + earnings view that the real Dashboard's WalletStats carries.
  *
- * Preview only (VITE_USE_MOCK_STATS → useMyLedger). Prod keeps the real Dashboard
  * (which uses /stats/wallet + my-active-all + my-history). Deterministic ownership
  * so the ledger always has content without a connected wallet.
  */
@@ -17,7 +16,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMyLedger } from '@/api/adapters/dashboard'
-import { type BookView, type Brief } from '@/api/mockMarketplace'
+import { type BookView, type Brief } from '@/api/types'
 import { CATEGORY_LABEL, STATUS_STAMP, STATUS_COLOR, fmtBudget, fmtDeadline, fmtAgo } from '@/lib/briefVocab'
 import './ledger.css'
 import './marketplace.css'   // reuse .mp-row shapes

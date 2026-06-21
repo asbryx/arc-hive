@@ -4,7 +4,7 @@
  * as the census behind the map. Stroke-only, mono-weight, ink-colored.
  */
 
-import type { Sigil } from '@/api/mockAgents'
+import type { Sigil } from '@/api/types'
 
 export default function Sigil({ kind, size = 32 }: { kind: Sigil; size?: number }) {
   const s = size

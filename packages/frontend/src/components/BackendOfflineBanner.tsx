@@ -7,13 +7,9 @@
 
 import { useBackendStatus } from '@/hooks/useBackendStatus'
 
-/** preview is intentionally backendless (mock data only) — don't show the
- *  outage banner there. Prod leaves VITE_USE_MOCK_STATS unset → banner works. */
-const SUPPRESS = import.meta.env.VITE_USE_MOCK_STATS === 'true'
-
 export default function BackendOfflineBanner() {
   const status = useBackendStatus()
-  if (SUPPRESS || status !== 'offline') return null
+  if (status !== 'offline') return null
 
   return (
     <div

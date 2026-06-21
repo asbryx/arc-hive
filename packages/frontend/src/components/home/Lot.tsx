@@ -11,7 +11,7 @@
  */
 
 import { Link } from 'react-router-dom'
-import type { Lot as LotData } from '@/api/mockLots'
+import type { Lot as LotData } from '@/api/types'
 import type { TreemapTile } from '@/lib/squarifiedTreemap'
 
 type SizeBucket = 'feature' | 'tall' | 'standard' | 'compact' | 'thin'

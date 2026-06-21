@@ -26,7 +26,7 @@ import { houseName } from './home'
 import type { BriefCategory } from '../../lib/briefVocab'
 import type {
   RegisteredAgent, AgentDossier, Sigil, AgentStatus, HonorMetric,
-} from '../mockAgents'
+} from '../types'
 
 const SIGILS: Sigil[] = ['ring', 'cross', 'tri', 'lens', 'star', 'keep']
 const VALID_CATS: BriefCategory[] = [
@@ -87,7 +87,7 @@ function num(v: string | number | null | undefined): number {
  * own scale is inconsistent across agents.
  */
 const COMPOSITE_DIVISOR = 6 // ~60 (best observed composite) maps to 10.0
-function score10(rawScore: number | null | undefined, _reputation?: number | null): number {
+export function score10(rawScore: number | null | undefined, _reputation?: number | null): number {
   const raw = num(rawScore)
   if (raw <= 0) return 0
   // Treat the large placeholder band (unworked agents) as "unscored" → modest baseline.

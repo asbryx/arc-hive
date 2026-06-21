@@ -5,28 +5,15 @@
  * ledger: masthead, stats strap, the 6 broadsheet category filters, and one
  * row per brief (LOT № · category · title · budget · deadline · bids · stamp).
  *
- * Mock data on preview (useOpenBriefs, gated by VITE_USE_MOCK_STATS), real
  * /open-jobs on prod. Same vocabulary as the home lots grid.
  */
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMarketplaceStats } from '@/api/hooks'
-import { useOpenBriefs, type Brief } from '@/api/mockMarketplace'
+import { useOpenBriefs } from '@/api/adapters/marketplace'
 import { CATEGORIES, CATEGORY_LABEL, STATUS_STAMP, STATUS_COLOR, fmtBudget, fmtDeadline, fmtAgo } from '@/lib/briefVocab'
 import './marketplace.css'
-
-// Migration: the broadsheet Marketplace now always uses the real /open-jobs API.
-// (The mock path is retained below but disabled — removed entirely in PR-F.)
-const USE_MOCK = false
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
-
-// real-API shape (prod) — kept minimal, mapped into Brief for rendering
-interface RealOpenJob {
-  id: number; jobId: number | null; title: string; description: string
-  category: string | null; budgetMin: string | null; budgetMax: string | null
-  deadlineHours: number; status: string; applicationCount: number; createdAt: string
-}
 
 type SortKey = 'newest' | 'budget_desc' | 'budget_asc' | 'deadline' | 'bids'
 
@@ -38,70 +25,18 @@ export default function Marketplace() {
   const [page, setPage] = useState(1)
   const limit = 15
 
-  // ── mock path (preview) ──
-  const mock = useOpenBriefs({ category: category as any, search, sort, page, limit })
+  // ── live /open-jobs via the marketplace adapter ──
+  const { data, isLoading } = useOpenBriefs({ category: category as any, search, sort, page, limit })
+  const briefs = data?.briefs ?? []
+  const total = data?.total ?? 0
+  const pages = data?.pages ?? 1
+  const catCounts: Record<string, number> = data?.catCounts ?? {}
 
-  // ── real path (prod) ──
-  const [realRows, setRealRows] = useState<Brief[]>([])
-  const [realTotal, setRealTotal] = useState(0)
-  const [realPages, setRealPages] = useState(1)
-  const [loading, setLoading] = useState(true)
-  useEffect(() => {
-    if (USE_MOCK) { setLoading(false); return }
-    let cancelled = false
-    setLoading(true)
-    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
-    fetch(`${API_BASE}/open-jobs?${params}`)
-      .then(r => r.json()).then(d => {
-        if (cancelled) return
-        const rows: Brief[] = (d.data || []).map((j: RealOpenJob) => ({
-          id: j.id, lotNo: j.jobId ?? j.id,
-          category: (j.category || 'code') as any,
-          title: j.title, summary: j.description, description: j.description,
-          requirements: '', budgetMin: j.budgetMin ? parseFloat(j.budgetMin) : null,
-          budgetMax: j.budgetMax ? parseFloat(j.budgetMax) : null,
-          deadlineHours: j.deadlineHours, clientAddress: '', clientName: '',
-          status: (j.status || 'open') as any, applicationCount: j.applicationCount,
-          createdAt: j.createdAt,
-        }))
-        // client-side filter/sort for the real path too (keeps UX consistent)
-        let f = rows
-        if (category) f = f.filter(b => b.category === category)
-        if (search) { const q = search.toLowerCase(); f = f.filter(b => b.title.toLowerCase().includes(q) || b.description.toLowerCase().includes(q)) }
-        f.sort((a, b) => {
-          switch (sort) {
-            case 'budget_desc': return (b.budgetMax ?? 0) - (a.budgetMax ?? 0)
-            case 'budget_asc':  return (a.budgetMin ?? 0) - (b.budgetMin ?? 0)
-            case 'deadline':    return a.deadlineHours - b.deadlineHours
-            case 'bids':        return b.applicationCount - a.applicationCount
-            default:            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          }
-        })
-        setRealRows(f); setRealTotal(d.total || f.length); setRealPages(d.pages || 1); setLoading(false)
-      })
-      .catch(() => { if (!cancelled) { setRealRows([]); setLoading(false) } })
-    return () => { cancelled = true }
-  }, [page, category, search, sort])
-
-  const briefs = USE_MOCK ? (mock.data?.briefs ?? []) : realRows
-  const total  = USE_MOCK ? (mock.data?.total ?? 0) : realTotal
-  const pages  = USE_MOCK ? (mock.data?.pages ?? 1) : realPages
-  const isLoading = USE_MOCK ? mock.isLoading : loading
-
-  // category counts for the filter pills — from the full search-filtered
-  // pool (not just the visible page), so totals stay meaningful.
-  const catCounts: Record<string, number> = USE_MOCK
-    ? (mock.data?.catCounts ?? {})
-    : {}
-
-  // strap numbers: real marketplace stats on prod, derived from the mock
-  // list on preview (useMarketplaceStats isn't mocked — only useStats is).
-  const openCount = USE_MOCK ? total : (mStats?.totalJobs ?? total)
-  const bidding   = USE_MOCK ? (mock.data?.briefs.filter(b => b.status === 'bidding').length ?? 0) : (mStats?.activeJobs ?? 0)
-  const median    = USE_MOCK
-    ? (mock.data?.briefs.length ? medianBudget(mock.data.briefs) : 0)
-    : (mStats?.volume ? parseFloat(mStats.volume) : 0)
-  const fillRate  = 0.942
+  // strap numbers from the real marketplace stats
+  const openCount = mStats?.totalJobs ?? total
+  const bidding = mStats?.activeJobs ?? 0
+  const median = mStats?.volume ? parseFloat(mStats.volume) : 0
+  const fillRate = 0.942
 
   return (
     <div className="mp-page">
@@ -184,10 +119,4 @@ export default function Marketplace() {
       )}
     </div>
   )
-}
-
-function medianBudget(rows: Brief[]): number {
-  const xs = rows.map(r => r.budgetMax ?? r.budgetMin ?? 0).filter(x => x > 0).sort((a, b) => a - b)
-  if (xs.length === 0) return 0
-  return xs[Math.floor(xs.length / 2)]
 }
