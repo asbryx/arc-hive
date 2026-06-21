@@ -1,0 +1,396 @@
+/**
+ * contourField — turn a set of "activity peaks" into a topographic
+ * elevation field and extract contour lines from it (marching squares).
+ *
+ * This is the substrate of the cartogram: address space as TERRITORY.
+ * Elevation = agent density / marketplace activity. Busy clusters are
+ * highlands; idle space is lowland; beyond the coastline is the void of
+ * unallocated address space. Contours fill the whole plate so it reads
+ * as a real map, not floating labels on empty paper.
+ *
+ * Everything is pure + deterministic — same peaks, same field, same
+ * contours, every render.
+ */
+
+export interface Peak { x: number; y: number; h: number; spread: number }
+export interface Seg { x1: number; y1: number; x2: number; y2: number }
+
+export interface FieldConfig {
+  w: number
+  h: number
+  /** grid cell size in viewBox units (smaller = smoother contours, slower). */
+  cell: number
+  peaks: Peak[]
+}
+
+export interface SampledField {
+  /** field[row][col], rows 0..ny inclusive, cols 0..nx inclusive. */
+  grid: number[][]
+  nx: number
+  ny: number
+  cell: number
+  max: number
+  /** sample the continuous field at an arbitrary point (bilinear-free, exact gaussian sum). */
+  at: (x: number, y: number) => number
+}
+
+/** Exact gaussian-sum elevation at a point. */
+function elevation(peaks: Peak[], x: number, y: number): number {
+  let v = 0
+  for (const p of peaks) {
+    const dx = x - p.x
+    const dy = y - p.y
+    v += p.h * Math.exp(-(dx * dx + dy * dy) / (2 * p.spread * p.spread))
+  }
+  return v
+}
+
+export function sampleField(cfg: FieldConfig): SampledField {
+  const nx = Math.ceil(cfg.w / cfg.cell)
+  const ny = Math.ceil(cfg.h / cfg.cell)
+  const grid: number[][] = []
+  let max = 0
+  for (let r = 0; r <= ny; r++) {
+    const row: number[] = []
+    for (let c = 0; c <= nx; c++) {
+      const v = elevation(cfg.peaks, c * cfg.cell, r * cfg.cell)
+      if (v > max) max = v
+      row.push(v)
+    }
+    grid.push(row)
+  }
+  return {
+    grid, nx, ny, cell: cfg.cell, max,
+    at: (x, y) => elevation(cfg.peaks, x, y),
+  }
+}
+
+/* ─── density field (kernel density estimate over agent points) ─── */
+
+export interface AgentPoint { x: number; y: number; weight: number }
+
+/**
+ * Build the elevation field as a kernel-density estimate over agent points.
+ *
+ * THIS is what makes the plate read as TERRAIN instead of ripples. Each
+ * agent splats a small gaussian (standard deviation `bandwidth`, scaled by
+ * its weight) onto the grid. The summed field is naturally multi-modal:
+ * dense address regions become highlands, sparse regions become lowland
+ * sea. No single dome, no concentric rings — the land's shape emerges from
+ * where the population actually is.
+ *
+ * Splatting is bounded to ~3σ per point so 1,284 agents stay cheap (runs
+ * once in a useMemo). The continuous `at()` sampler is O(n) per call — use
+ * it sparingly (e.g. a few settlement elevations), not in a tight loop.
+ */
+export function sampleDensityField(cfg: {
+  w: number; h: number; cell: number; points: AgentPoint[]; bandwidth: number
+}): SampledField {
+  const { w, h, cell, points, bandwidth } = cfg
+  const nx = Math.ceil(w / cell)
+  const ny = Math.ceil(h / cell)
+  const grid: number[][] = Array.from({ length: ny + 1 }, () => new Array(nx + 1).fill(0))
+  const inv2s2 = 1 / (2 * bandwidth * bandwidth)
+  const reach = bandwidth * 3
+  const reach2 = reach * reach
+
+  for (const p of points) {
+    const c0 = Math.max(0, Math.floor((p.x - reach) / cell))
+    const c1 = Math.min(nx, Math.ceil((p.x + reach) / cell))
+    const r0 = Math.max(0, Math.floor((p.y - reach) / cell))
+    const r1 = Math.min(ny, Math.ceil((p.y + reach) / cell))
+    for (let r = r0; r <= r1; r++) {
+      const gy = r * cell
+      const dy = gy - p.y
+      for (let c = c0; c <= c1; c++) {
+        const gx = c * cell
+        const dx = gx - p.x
+        grid[r][c] += p.weight * Math.exp(-(dx * dx + dy * dy) * inv2s2)
+      }
+    }
+  }
+
+  let max = 0
+  for (const row of grid) for (const v of row) if (v > max) max = v
+
+  const at = (x: number, y: number) => {
+    let v = 0
+    for (const p of points) {
+      const dx = x - p.x
+      const dy = y - p.y
+      const d2 = dx * dx + dy * dy
+      if (d2 > reach2) continue
+      v += p.weight * Math.exp(-d2 * inv2s2)
+    }
+    return v
+  }
+
+  return { grid, nx, ny, cell, max, at }
+}
+
+/* ─── marching squares ─── */
+
+// edge crossing helpers: linear interpolation where value == level
+function lerp(a: number, b: number, level: number): number {
+  if (a === b) return 0.5
+  return (level - a) / (b - a)
+}
+
+/**
+ * Extract contour segments at a given level. Returns line segments in
+ * viewBox coordinates. Standard 16-case marching squares with
+ * TL=8, TR=4, BR=2, BL=1.
+ */
+export function contourAt(field: SampledField, level: number): Seg[] {
+  const { grid, nx, ny, cell } = field
+  const segs: Seg[] = []
+
+  for (let r = 0; r < ny; r++) {
+    for (let c = 0; c < nx; c++) {
+      const tl = grid[r][c]
+      const tr = grid[r][c + 1]
+      const br = grid[r + 1][c + 1]
+      const bl = grid[r + 1][c]
+
+      let idx = 0
+      if (tl > level) idx |= 8
+      if (tr > level) idx |= 4
+      if (br > level) idx |= 2
+      if (bl > level) idx |= 1
+      if (idx === 0 || idx === 15) continue
+
+      const x0 = c * cell
+      const y0 = r * cell
+      const x1 = (c + 1) * cell
+      const y1 = (r + 1) * cell
+
+      // edge crossing points
+      const T = { x: x0 + lerp(tl, tr, level) * cell, y: y0 }
+      const R = { x: x1, y: y0 + lerp(tr, br, level) * cell }
+      const B = { x: x0 + lerp(bl, br, level) * cell, y: y1 }
+      const L = { x: x0, y: y0 + lerp(tl, bl, level) * cell }
+
+      const push = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+        segs.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y })
+
+      switch (idx) {
+        case 1:  push(L, B); break
+        case 2:  push(B, R); break
+        case 3:  push(L, R); break
+        case 4:  push(T, R); break
+        case 5:  push(L, T); push(B, R); break
+        case 6:  push(T, B); break
+        case 7:  push(L, T); break
+        case 8:  push(L, T); break
+        case 9:  push(T, B); break
+        case 10: push(T, R); push(L, B); break
+        case 11: push(T, R); break
+        case 12: push(L, R); break
+        case 13: push(B, R); break
+        case 14: push(L, B); break
+      }
+    }
+  }
+  return segs
+}
+
+/** Build an SVG path `d` string from a list of independent segments. */
+export function segsToPath(segs: Seg[]): string {
+  let d = ''
+  for (const s of segs) {
+    d += `M${s.x1.toFixed(1)} ${s.y1.toFixed(1)}L${s.x2.toFixed(1)} ${s.y2.toFixed(1)}`
+  }
+  return d
+}
+
+/**
+ * Chain disconnected marching-squares segments into continuous polylines
+ * by matching endpoints, then emit smooth SVG paths (Catmull-Rom → cubic
+ * Bézier). This turns the jagged broken-dash output into clean, elegant,
+ * nested contour lines that read as real topography.
+ */
+export function segsToSmoothPaths(segs: Seg[], quant = 1): string {
+  if (segs.length === 0) return ''
+  const key = (x: number, y: number) => `${Math.round(x / quant)},${Math.round(y / quant)}`
+
+  // adjacency: endpoint key -> list of {seg index, which end}
+  type End = { seg: number; end: 0 | 1 }
+  const ends = new Map<string, End[]>()
+  segs.forEach((s, i) => {
+    const k0 = key(s.x1, s.y1)
+    const k1 = key(s.x2, s.y2)
+    ;(ends.get(k0) ?? ends.set(k0, []).get(k0)!).push({ seg: i, end: 0 })
+    ;(ends.get(k1) ?? ends.set(k1, []).get(k1)!).push({ seg: i, end: 1 })
+  })
+
+  const used = new Array(segs.length).fill(false)
+  const polylines: Array<Array<{ x: number; y: number }>> = []
+
+  const ptOf = (i: number, end: 0 | 1) =>
+    end === 0 ? { x: segs[i].x1, y: segs[i].y1 } : { x: segs[i].x2, y: segs[i].y2 }
+
+  for (let start = 0; start < segs.length; start++) {
+    if (used[start]) continue
+    used[start] = true
+    const line = [ptOf(start, 0), ptOf(start, 1)]
+
+    // extend forward from the tail
+    let grew = true
+    while (grew) {
+      grew = false
+      const tail = line[line.length - 1]
+      const cand = ends.get(key(tail.x, tail.y)) ?? []
+      for (const e of cand) {
+        if (used[e.seg]) continue
+        const near = ptOf(e.seg, e.end)
+        const far = ptOf(e.seg, e.end === 0 ? 1 : 0)
+        if (Math.abs(near.x - tail.x) < quant && Math.abs(near.y - tail.y) < quant) {
+          line.push(far)
+          used[e.seg] = true
+          grew = true
+          break
+        }
+      }
+    }
+    polylines.push(line)
+  }
+
+  // emit each polyline as a smoothed path (Catmull-Rom to cubic Bézier)
+  let d = ''
+  for (const pts of polylines) {
+    if (pts.length < 2) continue
+    if (pts.length === 2) {
+      d += `M${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}L${pts[1].x.toFixed(1)} ${pts[1].y.toFixed(1)}`
+      continue
+    }
+    d += `M${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] ?? pts[i]
+      const p1 = pts[i]
+      const p2 = pts[i + 1]
+      const p3 = pts[i + 2] ?? p2
+      const c1x = p1.x + (p2.x - p0.x) / 6
+      const c1y = p1.y + (p2.y - p0.y) / 6
+      const c2x = p2.x - (p3.x - p1.x) / 6
+      const c2y = p2.y - (p3.y - p1.y) / 6
+      d += `C${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`
+    }
+  }
+  return d
+}
+
+/* ─── hillshade relief (2.5D depth, baked to a raster) ─── */
+
+export interface HillshadeOptions {
+  /** light azimuth in degrees (0 = from north/top, 315 = NW, the cartographic default). */
+  azimuth?: number
+  /** light altitude in degrees above the horizon (higher = flatter shading). */
+  altitude?: number
+  /** vertical exaggeration of the terrain before shading. */
+  zFactor?: number
+  /** output raster scale (px per grid cell). 1 = one pixel per cell. */
+  scale?: number
+  /** overall shading strength 0..1 (how dark the shadows get). */
+  strength?: number
+}
+
+/**
+ * Bake a hillshade relief of a SampledField to a PNG data URL.
+ *
+ * Classic cartographic relief: a virtual sun (default NW, the convention)
+ * lights the terrain; slopes facing the light go pale, slopes facing away
+ * go dark. The eye reads this instantly as raised land — "2.5D" depth on
+ * flat paper, exactly how printed topographic atlases have done it for a
+ * century. Tinted to the plate palette (warm cream highlight → cool ink
+ * shadow) so it reads as printed ink, not a grey DEM.
+ *
+ * Pure compute over the existing elevation grid; call ONCE in a useMemo and
+ * cache — it never needs to run per frame. Returns '' if no canvas (SSR).
+ */
+export function bakeHillshade(field: SampledField, opts: HillshadeOptions = {}): string {
+  if (typeof document === 'undefined') return ''
+  const {
+    azimuth = 315, altitude = 45, zFactor = 1.4, scale = 1, strength = 0.55,
+  } = opts
+
+  const { grid, nx, ny, cell, max } = field
+  if (max <= 0) return ''
+
+  const W = Math.max(1, Math.round(nx * scale))
+  const H = Math.max(1, Math.round(ny * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return ''
+
+  const img = ctx.createImageData(W, H)
+  const data = img.data
+
+  const azRad = (azimuth * Math.PI) / 180
+  const altRad = (altitude * Math.PI) / 180
+  // light vector
+  const lx = Math.cos(altRad) * Math.sin(azRad)
+  const ly = -Math.cos(altRad) * Math.cos(azRad)
+  const lz = Math.sin(altRad)
+
+  // normalise elevation so zFactor is palette-independent
+  const zScale = (zFactor * 60) / max
+
+  for (let py = 0; py < H; py++) {
+    const gy = (py / scale)
+    const r = Math.min(ny - 1, Math.max(1, Math.round(gy)))
+    for (let px = 0; px < W; px++) {
+      const gx = (px / scale)
+      const c = Math.min(nx - 1, Math.max(1, Math.round(gx)))
+
+      // central-difference gradient (Horn's method, 3x3 would be smoother but
+      // this is plenty for a soft wash)
+      const zL = grid[r][c - 1] * zScale
+      const zR = grid[r][c + 1] * zScale
+      const zT = grid[r - 1][c] * zScale
+      const zB = grid[r + 1][c] * zScale
+      const dzdx = (zR - zL) / (2 * cell)
+      const dzdy = (zB - zT) / (2 * cell)
+
+      // surface normal
+      const nlen = Math.sqrt(dzdx * dzdx + dzdy * dzdy + 1)
+      const nxv = -dzdx / nlen
+      const nyv = -dzdy / nlen
+      const nzv = 1 / nlen
+
+      // lambertian shade 0..1
+      let shade = nxv * lx + nyv * ly + nzv * lz
+      shade = Math.max(0, Math.min(1, shade))
+
+      // elevation 0..1 at this pixel (for a faint hypsometric warmth on peaks)
+      const elev = Math.min(1, grid[r][c] / max)
+
+      // map shade → ink/cream. shade 1 = lit (warm cream), shade 0 = shadow (cool ink).
+      // blend toward neutral by `strength` so it's a wash, not a hard render.
+      const litR = 247, litG = 243, litB = 230   // warm cream highlight
+      const shR = 70,  shG = 84,  shB = 92        // cool slate-ink shadow
+      const t = (1 - shade) * strength
+      let rr = Math.round(litR * (1 - t) + shR * t)
+      let gg = Math.round(litG * (1 - t) + shG * t)
+      let bb = Math.round(litB * (1 - t) + shB * t)
+      // faint warm lift on high peaks (hypsometric)
+      rr = Math.min(255, rr + Math.round(elev * 8))
+      gg = Math.min(255, gg + Math.round(elev * 3))
+
+      // alpha: stronger over land, fade to transparent over the lowland void so
+      // it sits inside the coastline and doesn't tint the empty paper.
+      const alpha = Math.round(Math.min(1, elev * 2.2) * 235)
+
+      const idx = (py * W + px) * 4
+      data[idx] = rr
+      data[idx + 1] = gg
+      data[idx + 2] = bb
+      data[idx + 3] = alpha
+    }
+  }
+
+  ctx.putImageData(img, 0, 0)
+  return canvas.toDataURL('image/png')
+}
+
