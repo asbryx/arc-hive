@@ -6,12 +6,14 @@ import BottomBar from './components/layout/BottomBar'
 import BackgroundCanvas from './components/BackgroundCanvas'
 import BackendOfflineBanner from './components/BackendOfflineBanner'
 import Home from './pages/Home'
-import Agents from './pages/Agents'
-import AgentProfile from './pages/AgentProfile'
+// Agents cluster — broadsheet redesign (real-data wired). Old pages
+// (Agents, AgentProfile, HireAgent, Leaderboard) remain on disk, unimported.
+import Register from './pages/Register'
+import Dossier from './pages/Dossier'
+import Commission from './pages/Commission'
+import HonorRoll from './pages/HonorRoll'
 import Jobs from './pages/Jobs'
 import JobDetail from './pages/JobDetail'
-import Leaderboard from './pages/Leaderboard'
-import HireAgent from './pages/HireAgent'
 import Dashboard from './pages/Dashboard'
 import Marketplace from './pages/Marketplace'
 import MarketplaceDetail from './pages/MarketplaceDetail'
@@ -35,12 +37,12 @@ export default function App() {
         </div>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/agents" element={<Agents />} />
-          <Route path="/agents/:id" element={<AgentProfile />} />
-          <Route path="/agents/:id/hire" element={<HireAgent />} />
+          <Route path="/agents" element={<Register />} />
+          <Route path="/agents/:id" element={<Dossier />} />
+          <Route path="/agents/:id/hire" element={<Commission />} />
           <Route path="/explore" element={<Jobs />} />
           <Route path="/explore/:id" element={<JobDetail />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/leaderboard" element={<HonorRoll />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/marketplace/:id" element={<MarketplaceDetail />} />

@@ -18,6 +18,7 @@ export interface Agent {
   capabilities: string[]
   agentType: string | null
   score: number | null
+  reputationScore?: number | null
   trustTier: number
   completedJobs: number
   totalEarned: string | null
