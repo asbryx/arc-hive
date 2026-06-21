@@ -1,103 +1,116 @@
-import { NavLink } from 'react-router-dom'
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
+/**
+ * Nav — broadsheet shell header.
+ *
+ * Static cream bg, 1px ink rule below, no glass, no blur, no shadow.
+ * Left: brand mark, italic Fraunces, marsh accent dot, italic sub-label.
+ * Center: section anchors, uppercase mono.
+ * Right: live-status pill (real active-agent count) + wallet button.
+ *
+ * At < 900px the center anchors collapse into a "menu" text link that
+ * toggles a stacked sheet of links. No hamburger icon by policy.
+ */
+
+import { NavLink, Link } from 'react-router-dom'
+import { useAccount, useDisconnect } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
-import { useTheme } from '@/hooks/useTheme'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import styles from './Nav.module.css'
 
-function truncateAddr(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`
-}
+const SECTIONS: { to: string; label: string }[] = [
+  { to: '/',            label: 'home' },
+  { to: '/marketplace', label: 'marketplace' },
+  { to: '/agents',      label: 'agents' },
+  { to: '/leaderboard', label: 'leaderboard' },
+  { to: '/dashboard',   label: 'dashboard' },
+  { to: '/docs',        label: 'docs' },
+]
 
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false)
-  useEffect(() => {
-    // Detect touch device via maxTouchPoints — works even in desktop mode
-    const touch = navigator.maxTouchPoints > 0
-    // Also check screen width (physical pixels)
-    const narrow = window.screen.width <= 1400
-    setIsMobile(touch && narrow)
-  }, [])
-  return isMobile
+function shortAddr(a: string) {
+  return `${a.slice(0, 6)}…${a.slice(-4)}`
 }
 
 export default function Nav() {
   const { address, isConnected } = useAccount()
   const { openConnectModal } = useConnectModal()
   const { disconnect } = useDisconnect()
-  const { theme, toggle } = useTheme()
-  const isMobile = useIsMobile()
+  const [menuOpen, setMenuOpen] = useState(false)
 
-  const navLinks = (
-    <>
-      <li><NavLink to="/dashboard" className={({ isActive }) => isActive ? styles.active : ''}>Dashboard</NavLink></li>
-      <li><NavLink to="/marketplace" className={({ isActive }) => isActive ? styles.active : ''}>Marketplace</NavLink></li>
-      <li><NavLink to="/explore" className={({ isActive }) => isActive ? styles.active : ''}>Explore</NavLink></li>
-      <li><NavLink to="/agents" className={({ isActive }) => isActive ? styles.active : ''}>Agents</NavLink></li>
-      <li><NavLink to="/leaderboard" className={({ isActive }) => isActive ? styles.active : ''}>Leaderboard</NavLink></li>
-    </>
-  )
-
-  const actions = (
-    <div className={styles.actions}>
-      <button
-        onClick={toggle}
-        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        className={styles.themeBtn}
-      >
-        {theme === 'dark' ? '☀' : '☾'}
-      </button>
-      {isConnected ? (
-        <button
-          onClick={() => disconnect()}
-          aria-label={`Disconnect wallet ${truncateAddr(address!)}`}
-          className={styles.walletBtn}
-        >
-          {truncateAddr(address!)} ✕
-        </button>
-      ) : (
-        <button
-          onClick={() => openConnectModal?.()}
-          aria-label="Connect wallet"
-          className={styles.connectBtn}
-        >
-          [Connect ↗]
-        </button>
-      )}
-    </div>
-  )
-
-  if (isMobile) {
-    // Mobile: top bar = logo + actions only. Links at bottom.
-    return (
-      <>
-        {/* T-AC01: ARIA labels for navigation landmarks */}
-        <nav className={styles.nav} aria-label="Mobile navigation">
-          <NavLink to="/" className={styles.logo}>
-            <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto' }} />
-            ArcHive
-          </NavLink>
-          {actions}
-        </nav>
-        <ul className={styles.bottomLinks} role="navigation" aria-label="Main navigation">
-          {navLinks}
-        </ul>
-      </>
-    )
-  }
-
-  // Desktop: everything in one bar
   return (
-    <nav className={styles.nav} aria-label="Main navigation">
-      <NavLink to="/" className={styles.logo}>
-        <img src="/assets/logo.png" alt="" style={{ height: 20, width: 'auto' }} className="nav-logo-img" />
-        ArcHive
-      </NavLink>
-      <ul className={styles.links}>
-        {navLinks}
-      </ul>
-      {actions}
-    </nav>
+    <header className={styles.shell}>
+      <nav className={styles.nav} aria-label="Main navigation">
+        <Link to="/" className={styles.brand} aria-label="archive home">
+          <span className={styles.brandDot} aria-hidden="true" />
+          <span className={styles.brandName}><em>arc</em>hive</span>
+        </Link>
+
+        <ul className={styles.links}>
+          {SECTIONS.map(s => (
+            <li key={s.to}>
+              <NavLink
+                end={s.to === '/'}
+                to={s.to}
+                className={({ isActive }) =>
+                  isActive ? `${styles.link} ${styles.linkActive}` : styles.link
+                }
+              >
+                {s.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+
+        <div className={styles.actions}>
+          {isConnected && address ? (
+            <button
+              type="button"
+              onClick={() => disconnect()}
+              className={styles.wallet}
+              aria-label={`Disconnect wallet ${shortAddr(address)}`}
+            >
+              {shortAddr(address)} <span aria-hidden="true">×</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openConnectModal?.()}
+              className={styles.wallet}
+              aria-label="Connect wallet"
+            >
+              connect ↗
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setMenuOpen(v => !v)}
+            className={styles.menuToggle}
+            aria-expanded={menuOpen}
+            aria-controls="nav-menu-sheet"
+          >
+            {menuOpen ? 'close' : 'menu'}
+          </button>
+        </div>
+      </nav>
+
+      {menuOpen && (
+        <ul id="nav-menu-sheet" className={styles.sheet}>
+          {SECTIONS.map(s => (
+            <li key={s.to}>
+              <NavLink
+                end={s.to === '/'}
+                to={s.to}
+                onClick={() => setMenuOpen(false)}
+                className={({ isActive }) =>
+                  isActive
+                    ? `${styles.sheetLink} ${styles.linkActive}`
+                    : styles.sheetLink
+                }
+              >
+                {s.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      )}
+    </header>
   )
 }
