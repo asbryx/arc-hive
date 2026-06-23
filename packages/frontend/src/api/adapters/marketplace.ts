@@ -175,6 +175,7 @@ function jobToBrief(j: RawOpenJob): Brief {
     status: mapStatus(j.status),
     applicationCount: j.applicationCount ?? 0,
     createdAt: j.createdAt,
+    onchainJobId: j.onchainJobId ?? j.jobId ?? null,
   }
 }
 
