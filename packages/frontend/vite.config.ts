@@ -12,17 +12,16 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        // Split heavy vendor groups out of the main bundle so the landing
-        // page doesn't ship the entire web3 stack up front (audit L1-1:
-        // single 1MB chunk). React-Query/router stay with the app; wallet
-        // libs (wagmi/viem/rainbowkit) and any charting load as separate
-        // cacheable chunks.
+        // Split ONLY the heavy, self-contained web3 stack into its own chunk.
+        // Everything else (React, React-Query, router, app) stays together —
+        // splitting React/query into separate chunks broke load order and
+        // white-screened the site with "createContext undefined" (the query
+        // chunk evaluated before React was available). web3 has no such
+        // cross-dependency on app init, so it's safe to isolate + cache.
         manualChunks(id) {
           if (!id.includes('node_modules')) return
-          if (/[\\/](wagmi|viem|@rainbow-me|@walletconnect|@coinbase|@metamask)[\\/]/.test(id)) return 'web3'
-          if (/[\\/](react|react-dom|react-router|scheduler)[\\/]/.test(id)) return 'react'
-          if (/[\\/]@tanstack[\\/]/.test(id)) return 'query'
-          return 'vendor'
+          if (/[\\/](wagmi|viem|@rainbow-me|@walletconnect|@coinbase|@metamask|ox)[\\/]/.test(id)) return 'web3'
+          return
         },
       },
     },
