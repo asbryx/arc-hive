@@ -50,7 +50,7 @@ async function recomputeAgentScore(agentId: bigint): Promise<void> {
        COUNT(*) FILTER (WHERE status = 4) as rejected,
        COUNT(*) FILTER (WHERE status = 5) as expired,
        COALESCE(SUM(payment_released::numeric), 0) as total_earned
-     FROM jobs WHERE provider_agent_id = $1 OR ($2 IS NOT NULL AND provider_address = $2)`,
+     FROM jobs WHERE provider_agent_id = $1 OR ($2::text IS NOT NULL AND provider_address = $2::text)`,
     [agentId.toString(), ownerAddress || null]
   )
 
@@ -114,7 +114,7 @@ async function recomputeAgentScore(agentId: bigint): Promise<void> {
     ),
     queryMarketplace(
       `SELECT MIN(created_timestamp) as first_active, MAX(created_timestamp) as last_active
-       FROM jobs WHERE provider_agent_id = $1 OR ($2 IS NOT NULL AND provider_address = $2)`,
+       FROM jobs WHERE provider_agent_id = $1 OR ($2::text IS NOT NULL AND provider_address = $2::text)`,
       [agentId.toString(), ownerAddress || null]
     ),
   ])
