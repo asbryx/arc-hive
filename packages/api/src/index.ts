@@ -149,13 +149,21 @@ const hostname = process.env.API_HOST || '0.0.0.0'
 const server = serve({ fetch: app.fetch, port, hostname })
 console.log(`[API] ArcHive API listening on ${hostname}:${port}`)
 
-// Periodically remove expired deliverable files from storage and DB metadata.
+// Periodically remove expired deliverable files from storage and DB metadata,
+// and purge expired auth nonces (audit C1-1: they accumulated unbounded).
 const cleanupInterval = setInterval(async () => {
   try {
     const { deleted, failed } = await cleanupExpiredFiles()
     if (deleted || failed) console.log(`[API] file cleanup: deleted=${deleted} failed=${failed}`)
   } catch (err: any) {
     console.error('[API] file cleanup failed:', err.message)
+  }
+  try {
+    const { query } = await import('./db.js')
+    const res = await query(`DELETE FROM auth_nonces WHERE expires_at < NOW()`)
+    if (res.rowCount) console.log(`[API] nonce cleanup: purged ${res.rowCount} expired nonces`)
+  } catch (err: any) {
+    console.error('[API] nonce cleanup failed:', err.message)
   }
 }, 60 * 60 * 1000)
 cleanupInterval.unref()

@@ -6,20 +6,17 @@ import BottomBar from './components/layout/BottomBar'
 import BackgroundCanvas from './components/BackgroundCanvas'
 import BackendOfflineBanner from './components/BackendOfflineBanner'
 import Home from './pages/Home'
-// Agents cluster — broadsheet redesign (real-data wired). Old pages
-// (Agents, AgentProfile, HireAgent, Leaderboard) remain on disk, unimported.
+// Agents cluster — broadsheet redesign (real-data wired).
 import Register from './pages/Register'
 import Dossier from './pages/Dossier'
 import Commission from './pages/Commission'
 import HonorRoll from './pages/HonorRoll'
 import Jobs from './pages/Jobs'
 import JobDetail from './pages/JobDetail'
-// Dashboard cluster — broadsheet redesign (real-data wired). Old Dashboard
-// remains on disk, unimported.
+// Dashboard cluster — broadsheet redesign (real-data wired).
 import TheLedger from './pages/TheLedger'
 import MyDesk from './pages/MyDesk'
-// Marketplace cluster — broadsheet redesign (real-data wired). Old pages
-// (MarketplaceDetail, PostJob) remain on disk, unimported.
+// Marketplace cluster — broadsheet redesign (real-data wired).
 import Marketplace from './pages/Marketplace'
 import CaseFile from './pages/CaseFile'
 import ComposingRoom from './pages/ComposingRoom'
