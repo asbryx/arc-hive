@@ -619,6 +619,32 @@ async function forwardPayoutToAgent(openJobId: number, job: any): Promise<void> 
     return
   }
 
+  // Phase 1.5: release the on-chain escrow to the relay FIRST.
+  // A client-override completion (POST /complete on a revision_requested job)
+  // marks the DB 'completed' but never calls complete() on-chain, so the
+  // escrow stays locked at status FUNDED and forwarding would pay the agent
+  // out of the relay's own float — draining the relay and stranding escrow
+  // (audit 2026-06-23). Drive the on-chain transition to COMPLETED here so
+  // complete() releases the escrowed USDC to the relay before we forward it.
+  const jobIdOnchain = job.job_id ?? job.onchain_job_id
+  if (jobIdOnchain) {
+    try {
+      const st = await getOnchainJobStatus(BigInt(jobIdOnchain))
+      if (st === 1) { // FUNDED — needs submit + complete
+        await executeSubmit(BigInt(jobIdOnchain), job.deliverable_content || 'deliverable').catch(() => {})
+        await executeComplete(BigInt(jobIdOnchain), 'client approved')
+        console.log(`[payout] Job ${openJobId}: released on-chain escrow (FUNDED→COMPLETED) before forward`)
+      } else if (st === 2) { // SUBMITTED — needs complete
+        await executeComplete(BigInt(jobIdOnchain), 'client approved')
+        console.log(`[payout] Job ${openJobId}: completed on-chain (SUBMITTED→COMPLETED) before forward`)
+      }
+      // st === 3 (COMPLETED already) → escrow already released, just forward.
+    } catch (err: any) {
+      await releasePayoutSlot(openJobId).catch(() => {})
+      throw new Error(`on-chain complete before payout failed: ${err.message}`)
+    }
+  }
+
   // Phase 2: send the on-chain transfer.
   let payoutTx: string
   try {

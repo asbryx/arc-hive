@@ -273,13 +273,15 @@ export async function releasePayoutSlot(openJobId: number): Promise<void> {
  */
 export async function getUnpaidCompletedJobs() {
   const result = await query(
-    `SELECT id, job_id, title, selected_applicant, final_budget, completed_tx
-       FROM open_jobs
-      WHERE status = 'completed'
-        AND payout_tx IS NULL
-        AND selected_applicant IS NOT NULL
-        AND final_budget IS NOT NULL
-      ORDER BY id ASC`,
+    `SELECT oj.id, oj.job_id, oj.title, oj.selected_applicant, oj.final_budget, oj.completed_tx,
+            (SELECT content FROM marketplace_deliverables d
+              WHERE d.open_job_id = oj.id ORDER BY d.id DESC LIMIT 1) AS deliverable_content
+       FROM open_jobs oj
+      WHERE oj.status = 'completed'
+        AND oj.payout_tx IS NULL
+        AND oj.selected_applicant IS NOT NULL
+        AND oj.final_budget IS NOT NULL
+      ORDER BY oj.id ASC`,
   )
   return result.rows
 }
