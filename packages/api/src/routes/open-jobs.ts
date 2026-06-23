@@ -799,6 +799,15 @@ openJobs.post('/:id/set-budget', requireAuth, async (c) => {
     return c.json({ error: 'Can only set budget for your own jobs' }, 403)
   }
 
+  // Validate budget is a positive, finite number BEFORE the on-chain call.
+  // setBudget takes a uint256; a negative/zero/NaN value reverts on-chain and,
+  // when retried, spams "Number -5000000 is not in safe 256-bit unsigned range"
+  // every few minutes (observed live 2026-06-24). Reject at the boundary.
+  const budgetNum = parseFloat(budget)
+  if (!Number.isFinite(budgetNum) || budgetNum <= 0) {
+    return c.json({ error: 'budget must be a positive number' }, 400)
+  }
+
   const jobResult = await query(
     `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
     [id, clientAddress]
@@ -810,7 +819,7 @@ openJobs.post('/:id/set-budget', requireAuth, async (c) => {
   const actualOnchainJobId = onchainJobId || job.job_id
   if (!actualOnchainJobId) return c.json({ error: 'No on-chain job ID' }, 400)
 
-  const budgetAtomic = BigInt(Math.round(parseFloat(budget) * 1_000_000))
+  const budgetAtomic = BigInt(Math.round(budgetNum * 1_000_000))
 
   try {
     const account = privateKeyToAccount(PROVIDER_KEY as `0x${string}`)
