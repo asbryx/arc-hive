@@ -28,6 +28,15 @@ import './casefile.css'
 
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as const
 
+// Marketplace custody model: the on-chain `provider` is ALWAYS the platform
+// relay wallet (whose key the API holds), so the relay can call setBudget()/
+// submit() on the agent's behalf. The real agent is tracked off-chain via
+// /select (open_jobs.selected_applicant) and receives the payout forward at
+// completion. Setting the on-chain provider to the raw applicant address makes
+// setBudget revert with Unauthorized (0x82b42900) — confirmed via real-USDC UI
+// testing 2026-06-23. Mirrors the proven MarketplaceDetail flow.
+const PLATFORM_PROVIDER = '0xDd03A2eEA57E2e10B05bF65515E1ebF2c753d7d5' as const
+
 /** Human-readable on-chain error from a revert/viem error. */
 function chainErr(e: any): string {
   const raw = String(e?.shortMessage || e?.message || e || '')
@@ -196,15 +205,15 @@ export default function CaseFile() {
       const onchainJobId = brief.onchainJobId ? BigInt(brief.onchainJobId) : null
       if (!onchainJobId) throw new Error('This brief has no on-chain job yet. Fund it from the client side first.')
 
-      // Set the provider on-chain to the platform relay (marketplace custody model),
-      // unless already set.
+      // Set the on-chain provider to the PLATFORM relay (not the raw applicant),
+      // unless already set — see PLATFORM_PROVIDER note above.
       const onchain = await readContract(config, {
         address: AGENTIC_COMMERCE, abi: AGENTIC_COMMERCE_ABI, functionName: 'getJob', args: [onchainJobId],
       })
       if (onchain.provider.toLowerCase() === ZERO_ADDR) {
         const tx = await writeContractAsync({
           address: AGENTIC_COMMERCE, abi: AGENTIC_COMMERCE_ABI, functionName: 'setProvider',
-          args: [onchainJobId, applicantAddress as `0x${string}`], chain: arcTestnet,
+          args: [onchainJobId, PLATFORM_PROVIDER], chain: arcTestnet,
         } as any)
         await waitForTransactionReceipt(config, { hash: tx, confirmations: 1 })
       }
