@@ -33,9 +33,10 @@ export default function Marketplace() {
   const catCounts: Record<string, number> = data?.catCounts ?? {}
 
   // strap numbers from the real marketplace stats
-  const openCount = mStats?.totalJobs ?? total
+  // openJobs = jobs actually accepting bids (status='open'); NOT all-time totalJobs.
+  const openCount = mStats?.openJobs ?? total
   const bidding = mStats?.activeJobs ?? 0
-  const median = mStats?.volume ? parseFloat(mStats.volume) : 0
+  const median = mStats?.medianTicket ? parseFloat(mStats.medianTicket) : 0
   const fillRate = 0.942
 
   return (
