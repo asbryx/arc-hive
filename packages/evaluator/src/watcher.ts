@@ -175,8 +175,27 @@ export async function pollForRefunds() {
           // Funded on-chain, deadline NOT passed yet
           console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) still funded on-chain, deadline not passed yet`)
         } else if (onchainStatus === 2) {
-          // Submitted on-chain — let evaluator handle it
-          console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) submitted on-chain, skipping`)
+          // Submitted on-chain. If the deadline has passed and the client never
+          // approved/rejected, the job would otherwise strand at SUBMITTED with
+          // escrow locked forever (audit 2026-06-23: job 15 stuck a month).
+          // The evaluator is the arbiter — complete() it (work WAS submitted),
+          // release escrow, and forward payout to the agent. If not yet expired,
+          // leave it for the client to act on.
+          if (onchainExpired) {
+            console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) SUBMITTED + past deadline — completing as evaluator to release escrow`)
+            try {
+              const tx = await executeComplete(BigInt(jobId), 'deadline passed after submission — evaluator resolution')
+              const { query } = await import('./db.js')
+              await query(`UPDATE open_jobs SET status = 'completed', completed_tx = $2, updated_at = NOW() WHERE id = $1`, [openJobId, tx])
+              await forwardPayoutToAgent(openJobId, job).catch((err: any) =>
+                console.error(`[deadline] Job ${openJobId} payout forward failed: ${err.message} — reconcile sweep will retry`))
+              console.log(`[deadline] Job ${openJobId} resolved (SUBMITTED→COMPLETED) tx=${tx}`)
+            } catch (err: any) {
+              console.error(`[deadline] Job ${openJobId} SUBMITTED-resolution failed: ${err.message} — needs manual intervention`)
+            }
+          } else {
+            console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) submitted on-chain, deadline not passed — awaiting client`)
+          }
         } else {
           // Completed/Rejected on-chain — sync marketplace status
           const { query } = await import('./db.js')
