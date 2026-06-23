@@ -1110,7 +1110,10 @@ openJobs.post('/:id/reject', requireAuth, async (c) => {
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found or not your job' }, 404)
   }
-  if (jobResult.rows[0].status !== 'delivered') {
+  // A deliverable exists once the job is delivered/evaluating/revision_requested.
+  // The CaseFile Reject button shows for all of these (they map to 'filed'),
+  // so the API must accept them all — not just 'delivered' (UI/API mismatch).
+  if (!['delivered', 'evaluating', 'revision_requested'].includes(jobResult.rows[0].status)) {
     return c.json({ error: 'Job must have a deliverable to reject' }, 400)
   }
 
