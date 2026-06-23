@@ -116,6 +116,7 @@ export interface Brief {
   status: BriefStatus
   applicationCount: number
   createdAt: string
+  onchainJobId: number | null      // on-chain AgenticCommerce job id (for select/fund/complete)
   // detail-only (filled by useBrief)
   bids?: Bid[]
   timeline?: TimelineEntry[]

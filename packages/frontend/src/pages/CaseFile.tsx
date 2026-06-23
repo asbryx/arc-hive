@@ -13,13 +13,30 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
+import { readContract, waitForTransactionReceipt } from '@wagmi/core'
+import { parseUnits } from 'viem'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { useQueryClient } from '@tanstack/react-query'
 import { authFetch } from '@/api/client'
 import { useBrief } from '@/api/adapters/marketplace'
+import { useGuardedWriteContract } from '@/hooks/useGuardedWriteContract'
+import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI, USDC_ADDRESS, USDC_ABI } from '@/lib/contracts'
+import { arcTestnet, config } from '@/lib/wagmi'
 import { type Bid, type DeliverableVersion, type Evaluation, type DeliverableFile } from '@/api/types'
 import { CATEGORY_LABEL, STATUS_STAMP, STATUS_COLOR, fmtBudget, fmtDeadline, fmtAgo, ACTION_VERB } from '@/lib/briefVocab'
 import './casefile.css'
+
+const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as const
+
+/** Human-readable on-chain error from a revert/viem error. */
+function chainErr(e: any): string {
+  const raw = String(e?.shortMessage || e?.message || e || '')
+  if (/User rejected|denied|rejected the request/i.test(raw)) return 'Transaction cancelled in wallet.'
+  if (/insufficient funds|InsufficientBudget/i.test(raw)) return 'Not enough USDC balance to fund this job.'
+  if (/allowance|InsufficientAllowance/i.test(raw)) return 'USDC approval needed — approve spending first.'
+  if (/NotClient/i.test(raw)) return 'Only the job poster can do this.'
+  return raw.slice(0, 160) || 'On-chain transaction failed.'
+}
 
 const SEAL = 'sealed on-chain'
 
@@ -63,6 +80,7 @@ export default function CaseFile() {
   const { data: brief, isLoading } = useBrief(id ?? '')
   const { address, isConnected } = useAccount()
   const { openConnectModal } = useConnectModal()
+  const { writeContractAsync } = useGuardedWriteContract()
   const queryClient = useQueryClient()
   const [bidForm, setBidForm] = useState({ message: '', proposedBudget: '' })
   const [deliverForm, setDeliverForm] = useState({ content: '', link: '', notes: '' })
@@ -166,6 +184,124 @@ export default function CaseFile() {
       setCommentText('')
       refresh()
     } catch (e: any) { setActionError(e.message || 'Comment failed') }
+    finally { setBusy(null) }
+  }
+
+  // ── award / select provider (client, on-chain setProvider + /select) ──
+  async function handleSelect(applicantAddress: string) {
+    if (!isConnected) { openConnectModal?.(); return }
+    if (!address || !brief) return
+    setActionError(null); setActionOk(null); setBusy('select')
+    try {
+      const onchainJobId = brief.onchainJobId ? BigInt(brief.onchainJobId) : null
+      if (!onchainJobId) throw new Error('This brief has no on-chain job yet. Fund it from the client side first.')
+
+      // Set the provider on-chain to the platform relay (marketplace custody model),
+      // unless already set.
+      const onchain = await readContract(config, {
+        address: AGENTIC_COMMERCE, abi: AGENTIC_COMMERCE_ABI, functionName: 'getJob', args: [onchainJobId],
+      })
+      if (onchain.provider.toLowerCase() === ZERO_ADDR) {
+        const tx = await writeContractAsync({
+          address: AGENTIC_COMMERCE, abi: AGENTIC_COMMERCE_ABI, functionName: 'setProvider',
+          args: [onchainJobId, applicantAddress as `0x${string}`], chain: arcTestnet,
+        } as any)
+        await waitForTransactionReceipt(config, { hash: tx, confirmations: 1 })
+      }
+      const res = await authFetch(`/open-jobs/${id}/select`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientAddress: address, applicantAddress }),
+      })
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Select failed') }
+      setActionOk('Bidder awarded. Fund the escrow next.')
+      refresh()
+    } catch (e: any) { setActionError(chainErr(e)) }
+    finally { setBusy(null) }
+  }
+
+  // ── fund escrow (client, approve USDC + fund on-chain + /fund) ──
+  async function handleFund() {
+    if (!isConnected) { openConnectModal?.(); return }
+    if (!address || !brief) return
+    setActionError(null); setActionOk(null)
+    const onchainJobId = brief.onchainJobId ? BigInt(brief.onchainJobId) : null
+    if (!onchainJobId) { setActionError('No on-chain job to fund.'); return }
+    const budget = brief.budgetMax ?? brief.budgetMin ?? 0
+    if (!budget) { setActionError('Budget not set for this brief.'); return }
+    const budgetAtomic = parseUnits(String(budget), 6)
+    try {
+      // set budget on-chain if zero
+      setBusy('fund')
+      const onchain = await readContract(config, {
+        address: AGENTIC_COMMERCE, abi: AGENTIC_COMMERCE_ABI, functionName: 'getJob', args: [onchainJobId],
+      })
+      if (onchain.budget === 0n) {
+        const sb = await authFetch(`/open-jobs/${id}/set-budget`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ budget: String(budget), clientAddress: address, onchainJobId: onchainJobId.toString() }),
+        })
+        if (!sb.ok) { const e = await sb.json().catch(() => ({})); throw new Error(e.error || 'Set-budget failed') }
+      }
+      // approve USDC
+      const approveTx = await writeContractAsync({
+        address: USDC_ADDRESS, abi: USDC_ABI, functionName: 'approve',
+        args: [AGENTIC_COMMERCE, budgetAtomic], chain: arcTestnet,
+      } as any)
+      const ar = await waitForTransactionReceipt(config, { hash: approveTx })
+      if (ar.status !== 'success') throw new Error('USDC approval failed on-chain.')
+      // fund
+      const fundTx = await writeContractAsync({
+        address: AGENTIC_COMMERCE, abi: AGENTIC_COMMERCE_ABI, functionName: 'fund',
+        args: [onchainJobId, '0x'], chain: arcTestnet,
+      } as any)
+      const fr = await waitForTransactionReceipt(config, { hash: fundTx })
+      if (fr.status !== 'success') throw new Error('Funding failed on-chain. USDC approved but not transferred.')
+      const res = await authFetch(`/open-jobs/${id}/fund`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientAddress: address, onchainJobId: onchainJobId.toString(), fundTx, budget: String(budget) }),
+      })
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Fund confirm failed') }
+      setActionOk('Escrow funded. The awarded agent can now file their return.')
+      refresh()
+    } catch (e: any) { setActionError(chainErr(e)) }
+    finally { setBusy(null) }
+  }
+
+  // ── approve / complete (client, on-chain complete + payout via /complete) ──
+  async function handleComplete() {
+    if (!isConnected) { openConnectModal?.(); return }
+    if (!address || !brief) return
+    const onchainJobId = brief.onchainJobId ? BigInt(brief.onchainJobId) : null
+    if (!onchainJobId) { setActionError('No on-chain job to approve.'); return }
+    setActionError(null); setActionOk(null); setBusy('approve')
+    try {
+      const res = await authFetch(`/open-jobs/${id}/complete`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientAddress: address, onchainJobId: onchainJobId.toString() }),
+      })
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Approve failed') }
+      setActionOk('Return approved. Payout is being released to the agent.')
+      refresh()
+    } catch (e: any) { setActionError(chainErr(e)) }
+    finally { setBusy(null) }
+  }
+
+  // ── reject (client, /reject → refund via evaluator) ──
+  async function handleReject() {
+    if (!isConnected) { openConnectModal?.(); return }
+    if (!address || !brief) return
+    if (!rejectReason.trim()) { setActionError('Add a brief reason for the rejection.'); return }
+    setActionError(null); setActionOk(null); setBusy('reject')
+    try {
+      const res = await authFetch(`/open-jobs/${id}/reject`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientAddress: address, reason: rejectReason.trim() }),
+      })
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Reject failed') }
+      setRejectReason('')
+      setActionOk('Return rejected. The agent may file a revision, or escrow refunds at the deadline.')
+      refresh()
+    } catch (e: any) { setActionError(chainErr(e)) }
     finally { setBusy(null) }
   }
 
@@ -275,29 +411,36 @@ export default function CaseFile() {
                 <div className="cf-bid-name">{b.agentName}<span className="cf-bid-addr">{b.applicantAddress}</span></div>
                 <div className="cf-bid-budget">{b.proposedBudget.toFixed(2)} USDC</div>
                 <div className="cf-bid-jobs">{b.completedJobs} settled</div>
-                {b.status === 'selected' ? <div className="cf-bid-sel">awarded</div> : <div className="cf-bid-sel" style={{ visibility: 'hidden' }}>—</div>}
+                {b.status === 'selected'
+                  ? <div className="cf-bid-sel">awarded</div>
+                  : (isClient && (status === 'open' || status === 'bidding'))
+                    ? <button className="cf-btn cf-bid-award" type="button" disabled={busy === 'select'}
+                        onClick={() => handleSelect(b.applicantAddress)}>
+                        {busy === 'select' ? 'awarding…' : `${ACTION_VERB.award} ↗`}
+                      </button>
+                    : <div className="cf-bid-sel" style={{ visibility: 'hidden' }}>—</div>}
                 {b.message && <div className="cf-bid-msg">{b.message}</div>}
               </div>
             ))}
           </div>
-          {status === 'bidding' && (
+          {status === 'bidding' && !isClient && (
             <div className="cf-panel" style={{ marginTop: 16 }}>
-              <div className="cf-hint">As the client, award the brief to one bidder. The award is sealed on-chain; the winner is then escrowed.</div>
-              <button className="cf-btn" type="button">{ACTION_VERB.award} ↗</button>
+              <div className="cf-hint">The client awards the brief to one bidder. The award is sealed on-chain; the winner is then escrowed.</div>
             </div>
           )}
         </>
       )}
 
       {/* escrow (client, post-award) */}
-      {canEscrow && (
+      {canEscrow && isClient && (
         <>
           <div className="cf-section-label">{ACTION_VERB.escrow}</div>
           <div className="cf-panel">
             <div className="cf-hint">Fund the escrow. USDC is approved to the commerce contract, then locked against the awarded agent until the return is approved.</div>
             <div className="cf-btn-row">
-              <button className="cf-btn" type="button">1 · approve USDC</button>
-              <button className="cf-btn cf-ghost" type="button">2 · fund escrow</button>
+              <button className="cf-btn" type="button" disabled={busy === 'fund'} onClick={handleFund}>
+                {busy === 'fund' ? 'funding escrow…' : 'approve USDC + fund escrow ↗'}
+              </button>
             </div>
           </div>
         </>
@@ -453,7 +596,7 @@ export default function CaseFile() {
       )}
 
       {/* approve / reject (client, filed/assayed) */}
-      {canReview && (
+      {canReview && isClient && (
         <>
           <div className="cf-section-label">Evaluation</div>
           <div className="cf-panel">
@@ -463,8 +606,12 @@ export default function CaseFile() {
               <input className="cf-input" placeholder="One section needs a second pass…" value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
             </label>
             <div className="cf-btn-row">
-              <button className="cf-btn" type="button">{ACTION_VERB.approve} ↗</button>
-              <button className="cf-btn cf-ghost cf-danger" type="button">{ACTION_VERB.reject}</button>
+              <button className="cf-btn" type="button" disabled={busy === 'approve'} onClick={handleComplete}>
+                {busy === 'approve' ? 'approving…' : `${ACTION_VERB.approve} ↗`}
+              </button>
+              <button className="cf-btn cf-ghost cf-danger" type="button" disabled={busy === 'reject'} onClick={handleReject}>
+                {busy === 'reject' ? 'rejecting…' : ACTION_VERB.reject}
+              </button>
             </div>
           </div>
         </>
@@ -487,7 +634,9 @@ export default function CaseFile() {
           <span className="cf-field-label">Add a comment</span>
           <textarea className="cf-textarea" placeholder="A clarification or a question…" value={commentText} onChange={e => setCommentText(e.target.value)} />
         </label>
-        <button className="cf-btn cf-ghost" type="button">Send</button>
+        <button className="cf-btn cf-ghost" type="button" disabled={busy === 'comment' || !commentText.trim()} onClick={handleComment}>
+          {busy === 'comment' ? 'sending…' : 'Send'}
+        </button>
       </div>
     </div>
   )
