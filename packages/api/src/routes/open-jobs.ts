@@ -82,6 +82,18 @@ openJobs.post('/', requireAuth, async (c) => {
     return c.json({ error: 'Budget is required (set at least budgetMin or budgetMax)' }, 400)
   }
 
+  // Validate budgets: must be finite, non-negative, and min <= max (audit
+  // 2026-06-23: negative budgets were accepted and written to the DB).
+  const minNum = budgetMin != null ? parseFloat(budgetMin) : null
+  const maxNum = budgetMax != null ? parseFloat(budgetMax) : null
+  if ((minNum != null && (!Number.isFinite(minNum) || minNum < 0)) ||
+      (maxNum != null && (!Number.isFinite(maxNum) || maxNum < 0))) {
+    return c.json({ error: 'Budget must be a non-negative number' }, 400)
+  }
+  if (minNum != null && maxNum != null && minNum > maxNum) {
+    return c.json({ error: 'budgetMin cannot exceed budgetMax' }, 400)
+  }
+
   const budgetMinRaw = budgetMin ? BigInt(Math.round(parseFloat(budgetMin) * 1_000_000)).toString() : null
   const budgetMaxRaw = budgetMax ? BigInt(Math.round(parseFloat(budgetMax) * 1_000_000)).toString() : null
 
