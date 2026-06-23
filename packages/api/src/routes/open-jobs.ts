@@ -1203,13 +1203,27 @@ openJobs.post('/:id/cancel', requireAuth, async (c) => {
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found or not your job' }, 404)
   }
-  if (['completed', 'cancelled'].includes(jobResult.rows[0].status)) {
+  const job = jobResult.rows[0]
+  if (['completed', 'cancelled'].includes(job.status)) {
     return c.json({ error: 'Job already finalized' }, 400)
+  }
+
+  // Cancellation is only valid BEFORE a job is funded. Once USDC is escrowed
+  // on-chain, the AgenticCommerce contract has no client-side cancel path —
+  // funds are released only by the evaluator's reject() (instant refund) or
+  // by claimRefund() after the on-chain deadline. Allowing an off-chain
+  // status='cancelled' here would strand the escrow (no refund_tx, funds
+  // locked in the contract). See audit 2026-06-23 finding L3-2.
+  if (job.funded_tx || !['open'].includes(job.status)) {
+    return c.json({
+      error: 'Funded jobs cannot be cancelled. Escrowed funds are refunded automatically if the provider is rejected or the on-chain deadline passes.',
+      status: job.status,
+    }, 400)
   }
 
   await query(
     `UPDATE open_jobs SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
-    [jobResult.rows[0].id]
+    [job.id]
   )
 
   return c.json({ success: true })
