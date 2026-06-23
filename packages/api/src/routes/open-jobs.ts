@@ -1051,7 +1051,10 @@ openJobs.post('/:id/complete', requireAuth, async (c) => {
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found or not your job' }, 404)
   }
-  if (!['delivered', 'funded', 'in_progress', 'evaluating'].includes(jobResult.rows[0].status)) {
+  // revision_requested is included so the client can OVERRIDE the evaluator
+  // and approve anyway — the CaseFile UI shows the Approve button in that
+  // state, so the API must accept it (audit: UI/API state-machine mismatch).
+  if (!['delivered', 'funded', 'in_progress', 'evaluating', 'revision_requested'].includes(jobResult.rows[0].status)) {
     return c.json({ error: 'Job not in a completable state' }, 400)
   }
 
