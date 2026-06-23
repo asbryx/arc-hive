@@ -198,6 +198,14 @@ keys.post('/webhooks', async (c) => {
     return c.json({ error: 'agentAddress, url, and events required' }, 400)
   }
 
+  // Validate event names so a typo / stale-doc subscription fails loudly
+  // instead of silently never firing (audit S5).
+  const { CANONICAL_EVENTS } = await import('../lib/webhooks.js')
+  const unknownEvents = (events as string[]).filter(e => !CANONICAL_EVENTS.includes(e as any))
+  if (unknownEvents.length) {
+    return c.json({ error: `Unknown event(s): ${unknownEvents.join(', ')}. Valid events: ${CANONICAL_EVENTS.join(', ')}` }, 400)
+  }
+
   const isValidUrl = await validateWebhookUrl(url)
   if (!isValidUrl) {
     return c.json({ error: 'Invalid or blocked webhook URL. Only public HTTPS URLs are allowed.' }, 400)

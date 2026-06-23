@@ -5,6 +5,7 @@ import { createWalletClient, createPublicClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { requireAuth, verifyToken } from '../middleware/auth.js'
 import { formatUsdc } from '../lib/format.js'
+import { dispatchWebhooks } from '../lib/webhooks.js'
 
 function requireServiceAuth(c: any): boolean {
   const serviceKey = c.req.header('x-service-key')
@@ -93,83 +94,21 @@ openJobs.post('/', requireAuth, async (c) => {
 
   const newJob = result.rows[0]
 
-  // After successful job insert, fire matching webhooks
-  try {
-    const webhooks = await query(
-      `SELECT * FROM webhooks 
-       WHERE active = true 
-       AND (category IS NULL OR category = $1)
-       AND (budget_min IS NULL OR budget_min <= $2)
-       AND (budget_max IS NULL OR budget_max >= $3)`,
-      [category, budgetMax || 999999, budgetMin || 0]
-    )
-    
-    for (const wh of webhooks.rows) {
-      // Fire webhook (non-blocking, with HMAC signature + retry)
-      const payload = JSON.stringify({
-        event: 'job.created',
-        job: {
-          id: newJob.id,
-          title,
-          category,
-          budget_min: budgetMin,
-          budget_max: budgetMax,
-          deadline_hours: deadlineHours,
-          client_address: clientAddress,
-        },
-        timestamp: new Date().toISOString(),
-      })
-
-      // T-W04: HMAC-SHA256 signature of payload using webhook secret
-      const signature = wh.secret
-        ? createHmac('sha256', wh.secret).update(payload).digest('hex')
-        : ''
-
-      const fireWebhook = async (attempt: number) => {
-        try {
-          // SEC-023: Re-validate URL at fire time to defeat DNS rebinding —
-          // a hostname may have resolved to a public IP at registration and
-          // since rebound to 127.0.0.1 / 169.254.169.254 / Tailscale CGNAT.
-          const { _validateWebhookUrlForDelivery } = await import('./keys.js')
-          const stillSafe = await _validateWebhookUrlForDelivery(wh.url)
-          if (!stillSafe) throw new Error('webhook url no longer resolves to a safe public host')
-
-          const res = await fetch(wh.url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-ArcHive-Event': 'job.created',
-              'X-ArcHive-Signature': signature,
-              'X-ArcHive-Timestamp': new Date().toISOString(),
-              'User-Agent': 'archive-webhook/1.0',
-            },
-            body: payload,
-            redirect: 'manual',                   // SEC-024: don't follow redirects to internal hosts
-            signal: AbortSignal.timeout(10_000),
-          })
-          if (res.status >= 300 && res.status < 400) throw new Error(`webhook redirected (${res.status}) — refusing to follow`)
-          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-          // Reset failure count on success
-          await query(`UPDATE webhooks SET failure_count = 0, last_triggered_at = NOW() WHERE id = $1`, [wh.id])
-        } catch (err: any) {
-          if (attempt < 2) {
-            // T-W02: Retry up to 3 times with exponential backoff
-            await new Promise(r => setTimeout(r, 2000 * (attempt + 1)))
-            return fireWebhook(attempt + 1)
-          }
-          console.warn(`[webhook] Failed to notify ${wh.url} after ${attempt + 1} attempts: ${err.message}`)
-          // Increment failure count; deactivate after 10 consecutive failures
-          await query(
-            `UPDATE webhooks SET failure_count = failure_count + 1, active = CASE WHEN failure_count >= 9 THEN FALSE ELSE active END WHERE id = $1`,
-            [wh.id]
-          )
-        }
-      }
-      fireWebhook(0) // non-blocking
-    }
-  } catch (err: any) {
-    console.warn('[webhook] Matching error:', err.message)
-  }
+  // Fan out job.created to subscribed agents (category/budget matched).
+  await dispatchWebhooks('job.created', {
+    category,
+    budget: budgetMax || budgetMin || null,
+    job: {
+      id: newJob.id,
+      jobId,
+      title,
+      category,
+      budget_min: budgetMin,
+      budget_max: budgetMax,
+      deadline_hours: deadlineHours,
+      client_address: clientAddress,
+    },
+  })
 
   return c.json({ id: newJob.id, jobId }, 201)
 })
@@ -798,13 +737,17 @@ openJobs.post('/:id/select', requireAuth, async (c) => {
     [id, applicantAddress]
   )
 
-  // Notify selected agent
+  // Notify selected agent — in-app + webhook push
   const job = jobResult.rows[0]
   await query(
     `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
      VALUES ($1, 'application_selected', $2, $3)`,
     [applicantAddress.toLowerCase(), job.id, `You were selected for "${job.title}"`]
   )
+  await dispatchWebhooks('job.selected', {
+    agentAddress: applicantAddress,
+    job: { id: job.id, jobId: job.job_id, title: job.title, category: job.category, status: 'assigned' },
+  })
 
     // setBudget is now handled by the /set-budget endpoint during the fund flow
   // (provider must be set on-chain first, which happens in the frontend)
@@ -895,13 +838,17 @@ openJobs.post('/:id/fund', requireAuth, async (c) => {
     [jobResult.rows[0].id, onchainJobId || null, fundTx, budgetRaw]
   )
 
-  // Notify agent that job is funded
+  // Notify agent that job is funded — in-app + webhook push
   if (jobResult.rows[0].selected_applicant) {
     await query(
       `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
        VALUES ($1, 'job_funded', $2, $3)`,
       [jobResult.rows[0].selected_applicant, jobResult.rows[0].id, `"${jobResult.rows[0].title}" is funded. You can start work.`]
     )
+    await dispatchWebhooks('job.funded', {
+      agentAddress: jobResult.rows[0].selected_applicant,
+      job: { id: jobResult.rows[0].id, jobId: jobResult.rows[0].job_id, title: jobResult.rows[0].title, status: 'funded' },
+    })
   }
 
   return c.json({ success: true })
@@ -1119,13 +1066,17 @@ openJobs.post('/:id/complete', requireAuth, async (c) => {
     [jobResult.rows[0].id]
   )
 
-  // Notify agent
+  // Notify agent — in-app + webhook push
   if (jobResult.rows[0].selected_applicant) {
     await query(
       `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
        VALUES ($1, 'deliverable_approved', $2, $3)`,
       [jobResult.rows[0].selected_applicant, jobResult.rows[0].id, `"${jobResult.rows[0].title}" approved! Payment released.`]
     )
+    await dispatchWebhooks('job.completed', {
+      agentAddress: jobResult.rows[0].selected_applicant,
+      job: { id: jobResult.rows[0].id, jobId: jobResult.rows[0].job_id, title: jobResult.rows[0].title, status: 'completed' },
+    })
   }
 
   return c.json({ success: true })
@@ -1172,13 +1123,17 @@ openJobs.post('/:id/reject', requireAuth, async (c) => {
     [jobResult.rows[0].id]
   )
 
-  // Notify agent of revision request
+  // Notify agent of revision request — in-app + webhook push
   if (jobResult.rows[0].selected_applicant) {
     await query(
       `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
        VALUES ($1, 'revision_requested', $2, $3)`,
       [jobResult.rows[0].selected_applicant, jobResult.rows[0].id, `Revision requested on "${jobResult.rows[0].title}": ${reason || 'No details'}`]
     )
+    await dispatchWebhooks('job.revision_requested', {
+      agentAddress: jobResult.rows[0].selected_applicant,
+      job: { id: jobResult.rows[0].id, jobId: jobResult.rows[0].job_id, title: jobResult.rows[0].title, status: 'revision_requested', reason: reason || null },
+    })
   }
 
   return c.json({ success: true })
