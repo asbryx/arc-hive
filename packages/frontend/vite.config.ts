@@ -9,6 +9,24 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split heavy vendor groups out of the main bundle so the landing
+        // page doesn't ship the entire web3 stack up front (audit L1-1:
+        // single 1MB chunk). React-Query/router stay with the app; wallet
+        // libs (wagmi/viem/rainbowkit) and any charting load as separate
+        // cacheable chunks.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          if (/[\\/](wagmi|viem|@rainbow-me|@walletconnect|@coinbase|@metamask)[\\/]/.test(id)) return 'web3'
+          if (/[\\/](react|react-dom|react-router|scheduler)[\\/]/.test(id)) return 'react'
+          if (/[\\/]@tanstack[\\/]/.test(id)) return 'query'
+          return 'vendor'
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
