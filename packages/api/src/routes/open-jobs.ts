@@ -94,6 +94,18 @@ openJobs.post('/', requireAuth, async (c) => {
     return c.json({ error: 'budgetMin cannot exceed budgetMax' }, 400)
   }
 
+  // Validate deadline (1h .. 1 year) and category against the known set
+  // (audit 2026-06-23: negative deadlineHours and arbitrary/XSS category
+  // strings were accepted and stored).
+  const deadlineNum = deadlineHours != null ? parseInt(String(deadlineHours), 10) : 72
+  if (!Number.isFinite(deadlineNum) || deadlineNum < 1 || deadlineNum > 8760) {
+    return c.json({ error: 'deadlineHours must be between 1 and 8760' }, 400)
+  }
+  const ALLOWED_CATEGORIES = ['Code', 'Development', 'Data Analysis', 'Content Creation', 'Research', 'Trading', 'DeFi', 'Social Media', 'Monitoring', 'Other']
+  if (category != null && category !== '' && !ALLOWED_CATEGORIES.includes(category)) {
+    return c.json({ error: `Invalid category. Allowed: ${ALLOWED_CATEGORIES.join(', ')}` }, 400)
+  }
+
   const budgetMinRaw = budgetMin ? BigInt(Math.round(parseFloat(budgetMin) * 1_000_000)).toString() : null
   const budgetMaxRaw = budgetMax ? BigInt(Math.round(parseFloat(budgetMax) * 1_000_000)).toString() : null
 
@@ -101,7 +113,7 @@ openJobs.post('/', requireAuth, async (c) => {
     `INSERT INTO open_jobs (job_id, title, description, category, requirements, budget_min, budget_max, deadline_hours, client_address, on_chain_tx, sector_config)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      RETURNING id`,
-    [jobId || null, title, description, category || null, requirements || null, budgetMinRaw, budgetMaxRaw, deadlineHours || 72, clientAddress.toLowerCase(), onChainTx || null, sectorConfig ? JSON.stringify(sectorConfig) : '{}']
+    [jobId || null, title, description, category || null, requirements || null, budgetMinRaw, budgetMaxRaw, deadlineNum, clientAddress.toLowerCase(), onChainTx || null, sectorConfig ? JSON.stringify(sectorConfig) : '{}']
   )
 
   const newJob = result.rows[0]
