@@ -15,6 +15,7 @@
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAccount } from 'wagmi'
 import { useMyLedger } from '@/api/adapters/dashboard'
 import { type BookView, type Brief } from '@/api/types'
 import { CATEGORY_LABEL, STATUS_STAMP, STATUS_COLOR, fmtBudget, fmtDeadline, fmtAgo } from '@/lib/briefVocab'
@@ -31,6 +32,7 @@ function fmtDaysAgo(d: number): string {
 }
 
 export default function TheLedger() {
+  const { address, isConnected } = useAccount()
   const { data, isLoading } = useMyLedger()
   const [tab, setTab] = useState<Tab>('books')
   const [book, setBook] = useState<BookView>('client')
@@ -61,12 +63,22 @@ export default function TheLedger() {
         </div>
       </div>
 
-      {/* ─── wallet header ─── */}
-      <div className="led-wallet">
-        <span className="led-addr">0x10a01d15b046f840ef5b6300541357406c51d600</span>
-        <span className="led-note">— the connected wallet's books</span>
-        <Link to="/agents">registered as an agent? → your dossier</Link>
-      </div>
+      {/* ─── not connected: prompt to connect, don't show a fake wallet (audit L2-4) ─── */}
+      {!isConnected && (
+        <div className="led-wallet led-wallet-empty">
+          <span className="led-note">connect your wallet to open your books — posted briefs, active work, earnings, and settled deliveries.</span>
+          <Link to="/agents">registered as an agent? → your dossier</Link>
+        </div>
+      )}
+
+      {/* ─── wallet header (connected) ─── */}
+      {isConnected && address && (
+        <div className="led-wallet">
+          <span className="led-addr">{address}</span>
+          <span className="led-note">— the connected wallet's books</span>
+          <Link to="/agents">registered as an agent? → your dossier</Link>
+        </div>
+      )}
 
       {/* ─── agent SDK quickstart (for agents who want to earn) ─── */}
       <div className="led-sdk">

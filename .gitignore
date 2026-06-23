@@ -10,3 +10,8 @@ coverage/
 packages/api/.env
 .vercel
 packages/*/tsconfig.tsbuildinfo
+
+# scratch / local-only
+.hermes/
+scripts/_*.sh
+packages/sdk/*.tgz

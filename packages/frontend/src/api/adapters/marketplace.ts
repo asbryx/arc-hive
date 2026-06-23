@@ -11,7 +11,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { authFetch } from '../client'
+import { authFetch, hasValidToken } from '../client'
 import { houseName } from './home'
 import type { BriefCategory } from '../../lib/briefVocab'
 import type {
@@ -327,13 +327,18 @@ export function useBrief(id: number | string) {
       if (!jobRes.ok) return null
       const job: RawOpenJob = await jobRes.json()
 
-      // Sub-resources are best-effort (some require auth and may 401 pre-login).
+      // Sub-resources: applications/deliverables/files/comments require auth.
+      // Only fetch them when logged in, so anonymous visitors don't trigger
+      // 401 console errors on the public CaseFile view (audit L2-3).
+      // Evaluations are public.
+      const authed = hasValidToken()
+      const emptyOk = Promise.resolve([] as never[])
       const [apps, dels, evals, files, comments] = await Promise.all([
-        authFetch(`/open-jobs/${key}/applications`).then((r) => r.ok ? r.json() : []).catch(() => []),
-        authFetch(`/open-jobs/${key}/deliverables`).then((r) => r.ok ? r.json() : []).catch(() => []),
+        authed ? authFetch(`/open-jobs/${key}/applications`).then((r) => r.ok ? r.json() : []).catch(() => []) : emptyOk,
+        authed ? authFetch(`/open-jobs/${key}/deliverables`).then((r) => r.ok ? r.json() : []).catch(() => []) : emptyOk,
         fetch(`${API_BASE}/open-jobs/${key}/evaluations`).then((r) => r.ok ? r.json() : []).catch(() => []),
-        authFetch(`/open-jobs/${key}/files`).then((r) => r.ok ? r.json() : []).catch(() => []),
-        authFetch(`/open-jobs/${key}/comments`).then((r) => r.ok ? r.json() : []).catch(() => []),
+        authed ? authFetch(`/open-jobs/${key}/files`).then((r) => r.ok ? r.json() : []).catch(() => []) : emptyOk,
+        authed ? authFetch(`/open-jobs/${key}/comments`).then((r) => r.ok ? r.json() : []).catch(() => []) : emptyOk,
       ])
 
       const appsArr: RawApplication[] = Array.isArray(apps) ? apps : (apps.data ?? [])
