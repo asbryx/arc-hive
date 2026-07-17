@@ -60,7 +60,9 @@ export function subscribeBackendStatus(cb: (s: BackendStatus) => void): () => vo
   // Push current state immediately so subscribers don't render stale UI
   try {
     cb(current)
-  } catch {}
+  } catch {
+    // A subscriber must not break the global status notification loop.
+  }
   return () => listeners.delete(cb)
 }
 

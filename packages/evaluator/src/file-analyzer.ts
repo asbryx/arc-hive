@@ -24,33 +24,65 @@ export interface FileAnalysis {
 
 // Language detection by extension
 const CODE_EXTENSIONS: Record<string, string> = {
-  '.ts': 'typescript', '.tsx': 'typescript', '.js': 'javascript', '.jsx': 'javascript',
-  '.py': 'python', '.sol': 'solidity', '.rs': 'rust', '.go': 'go',
-  '.c': 'c', '.cpp': 'cpp', '.java': 'java', '.rb': 'ruby', '.php': 'php',
-  '.swift': 'swift', '.kt': 'kotlin', '.sql': 'sql', '.sh': 'bash',
-  '.html': 'html', '.css': 'css',
+  '.ts': 'typescript',
+  '.tsx': 'typescript',
+  '.js': 'javascript',
+  '.jsx': 'javascript',
+  '.py': 'python',
+  '.sol': 'solidity',
+  '.rs': 'rust',
+  '.go': 'go',
+  '.c': 'c',
+  '.cpp': 'cpp',
+  '.java': 'java',
+  '.rb': 'ruby',
+  '.php': 'php',
+  '.swift': 'swift',
+  '.kt': 'kotlin',
+  '.sql': 'sql',
+  '.sh': 'bash',
+  '.html': 'html',
+  '.css': 'css',
 }
 
 const DATA_EXTENSIONS: Record<string, string> = {
-  '.json': 'json', '.csv': 'csv', '.yaml': 'yaml', '.yml': 'yaml',
-  '.xml': 'xml', '.toml': 'toml',
+  '.json': 'json',
+  '.csv': 'csv',
+  '.yaml': 'yaml',
+  '.yml': 'yaml',
+  '.xml': 'xml',
+  '.toml': 'toml',
 }
 
 const DOC_EXTENSIONS: Record<string, string> = {
-  '.md': 'markdown', '.txt': 'text', '.rst': 'rst',
+  '.md': 'markdown',
+  '.txt': 'text',
+  '.rst': 'rst',
 }
 
 const IMAGE_EXTENSIONS: Record<string, string> = {
-  '.png': 'png', '.jpg': 'jpeg', '.jpeg': 'jpeg', '.gif': 'gif',
-  '.svg': 'svg', '.webp': 'webp', '.bmp': 'bmp',
+  '.png': 'png',
+  '.jpg': 'jpeg',
+  '.jpeg': 'jpeg',
+  '.gif': 'gif',
+  '.svg': 'svg',
+  '.webp': 'webp',
+  '.bmp': 'bmp',
 }
 
 const ARCHIVE_EXTENSIONS: Record<string, string> = {
-  '.zip': 'zip', '.tar': 'tar', '.gz': 'gzip', '.tgz': 'tar+gzip',
-  '.rar': 'rar', '.7z': '7z',
+  '.zip': 'zip',
+  '.tar': 'tar',
+  '.gz': 'gzip',
+  '.tgz': 'tar+gzip',
+  '.rar': 'rar',
+  '.7z': '7z',
 }
 
-export function detectFileType(filename: string): { type: FileAnalysis['fileType']; language?: string } {
+export function detectFileType(filename: string): {
+  type: FileAnalysis['fileType']
+  language?: string
+} {
   const lower = filename.toLowerCase()
 
   for (const [ext, lang] of Object.entries(CODE_EXTENSIONS)) {
@@ -77,7 +109,7 @@ function countLines(content: string): number {
 }
 
 function countWords(content: string): number {
-  return content.split(/\s+/).filter(w => w.length > 0).length
+  return content.split(/\s+/).filter((w) => w.length > 0).length
 }
 
 function countFunctions(content: string, language?: string): number {
@@ -127,17 +159,26 @@ function countJsonKeys(content: string): number {
     if (typeof parsed === 'object' && parsed !== null) {
       return Object.keys(parsed).length
     }
-  } catch {}
+  } catch {
+    // Invalid JSON has no reliably countable top-level keys.
+  }
   return 0
 }
 
-function validateCode(content: string, language?: string): { errors: string[]; warnings: string[] } {
+function validateCode(
+  content: string,
+  language?: string,
+): { errors: string[]; warnings: string[] } {
   const errors: string[] = []
   const warnings: string[] = []
 
   // Basic syntax checks
   if (language === 'json') {
-    try { JSON.parse(content) } catch (e: any) { errors.push(`Invalid JSON: ${e.message}`) }
+    try {
+      JSON.parse(content)
+    } catch (e: any) {
+      errors.push(`Invalid JSON: ${e.message}`)
+    }
   }
 
   if (language === 'typescript' || language === 'javascript') {
@@ -168,7 +209,11 @@ function validateCode(content: string, language?: string): { errors: string[]; w
     if (!content.includes('pragma solidity')) {
       warnings.push('Missing pragma solidity directive')
     }
-    if (!content.includes('contract ') && !content.includes('library ') && !content.includes('interface ')) {
+    if (
+      !content.includes('contract ') &&
+      !content.includes('library ') &&
+      !content.includes('interface ')
+    ) {
       warnings.push('No contract/library/interface declaration found')
     }
   }
@@ -176,7 +221,10 @@ function validateCode(content: string, language?: string): { errors: string[]; w
   return { errors, warnings }
 }
 
-function validateData(content: string, language?: string): { errors: string[]; warnings: string[] } {
+function validateData(
+  content: string,
+  language?: string,
+): { errors: string[]; warnings: string[] } {
   const errors: string[] = []
   const warnings: string[] = []
 
@@ -192,12 +240,12 @@ function validateData(content: string, language?: string): { errors: string[]; w
   }
 
   if (language === 'csv') {
-    const lines = content.split('\n').filter(l => l.trim())
+    const lines = content.split('\n').filter((l) => l.trim())
     if (lines.length < 2) {
       warnings.push('CSV has less than 2 lines (no data rows)')
     } else {
       const headerCols = lines[0].split(',').length
-      const inconsistent = lines.slice(1).filter(l => l.split(',').length !== headerCols)
+      const inconsistent = lines.slice(1).filter((l) => l.split(',').length !== headerCols)
       if (inconsistent.length > 0) {
         warnings.push(`${inconsistent.length} rows have inconsistent column count`)
       }
@@ -251,9 +299,14 @@ export function analyzeFile(filename: string, content: string): FileAnalysis {
   // Empty file check
   if (!content || content.trim().length === 0) {
     return {
-      filename, fileType: type, language,
-      valid: false, errors: ['File is empty'], warnings: [],
-      metrics, summary: `${filename}: empty file`,
+      filename,
+      fileType: type,
+      language,
+      valid: false,
+      errors: ['File is empty'],
+      warnings: [],
+      metrics,
+      summary: `${filename}: empty file`,
     }
   }
 
@@ -275,7 +328,7 @@ export function analyzeFile(filename: string, content: string): FileAnalysis {
       warnings = result.warnings
       metrics.lineCount = countLines(content)
       if (language === 'json') metrics.keyCount = countJsonKeys(content)
-      if (language === 'csv') metrics.lineCount = content.split('\n').filter(l => l.trim()).length
+      if (language === 'csv') metrics.lineCount = content.split('\n').filter((l) => l.trim()).length
       break
     }
     case 'document': {
@@ -314,9 +367,13 @@ export function analyzeFile(filename: string, content: string): FileAnalysis {
   if (metrics.keyCount) parts.push(`${metrics.keyCount} keys`)
 
   return {
-    filename, fileType: type, language,
+    filename,
+    fileType: type,
+    language,
     valid: errors.length === 0,
-    errors, warnings, metrics,
+    errors,
+    warnings,
+    metrics,
     summary: parts.join(' · '),
   }
 }
@@ -324,18 +381,25 @@ export function analyzeFile(filename: string, content: string): FileAnalysis {
 /**
  * Format file analysis for inclusion in LLM prompt
  */
-export function formatFileForPrompt(analysis: FileAnalysis, content: string, maxContentLength: number): string {
+export function formatFileForPrompt(
+  analysis: FileAnalysis,
+  content: string,
+  maxContentLength: number,
+): string {
   const parts: string[] = []
 
   // Header with status
   const status = analysis.valid ? '✅' : '❌'
-  parts.push(`### ${analysis.filename} (${analysis.fileType}${analysis.language ? `, ${analysis.language}` : ''}) ${status}`)
+  parts.push(
+    `### ${analysis.filename} (${analysis.fileType}${analysis.language ? `, ${analysis.language}` : ''}) ${status}`,
+  )
 
   // Metrics line
   const metrics: string[] = []
   if (analysis.metrics.lineCount) metrics.push(`${analysis.metrics.lineCount} lines`)
   if (analysis.metrics.functionCount) metrics.push(`${analysis.metrics.functionCount} functions`)
-  if (analysis.metrics.wordCount && analysis.fileType === 'document') metrics.push(`${analysis.metrics.wordCount} words`)
+  if (analysis.metrics.wordCount && analysis.fileType === 'document')
+    metrics.push(`${analysis.metrics.wordCount} words`)
   if (analysis.metrics.keyCount) metrics.push(`${analysis.metrics.keyCount} keys`)
   if (analysis.metrics.importCount) metrics.push(`${analysis.metrics.importCount} imports`)
   if (metrics.length > 0) parts.push(`- ${metrics.join(', ')}`)

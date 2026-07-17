@@ -47,7 +47,9 @@ export default function MyJobs() {
         const data = await res.json()
         setJobs(data.data || [])
       }
-    } catch {}
+    } catch {
+      // Preserve the previous tab contents if this refresh fails.
+    }
     setLoading(false)
   }
 
@@ -64,14 +66,25 @@ export default function MyJobs() {
       <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>My Jobs</div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--dimmer)', marginBottom: 24 }}>
-        {(['active', 'history'] as Tab[]).map(key => (
+      <div
+        style={{
+          display: 'flex',
+          gap: 0,
+          borderBottom: '1px solid var(--dimmer)',
+          marginBottom: 24,
+        }}
+      >
+        {(['active', 'history'] as Tab[]).map((key) => (
           <button
             key={key}
             onClick={() => setTab(key)}
             style={{
-              padding: '10px 20px', fontSize: 12, fontWeight: tab === key ? 700 : 400,
-              background: 'transparent', border: 'none', cursor: 'pointer',
+              padding: '10px 20px',
+              fontSize: 12,
+              fontWeight: tab === key ? 700 : 400,
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
               color: tab === key ? 'var(--text)' : 'var(--dim)',
               borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent',
               marginBottom: -1,
@@ -91,32 +104,83 @@ export default function MyJobs() {
         </div>
       ) : (
         <div>
-          {jobs.map(job => {
-            const role = job.clientAddress?.toLowerCase() === address?.toLowerCase() ? 'client' : 'agent'
+          {jobs.map((job) => {
+            const role =
+              job.clientAddress?.toLowerCase() === address?.toLowerCase() ? 'client' : 'agent'
             return (
               <Link
                 key={`${job.id}-${job.applicationStatus || ''}`}
                 to={`/marketplace/${job.id}`}
-                style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 12 }}
+                style={{
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  display: 'block',
+                  marginBottom: 12,
+                }}
               >
-                <div style={{ padding: 16, border: '1px solid var(--dimmer)', transition: 'border-color 0.2s' }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--dimmer)')}
+                <div
+                  style={{
+                    padding: 16,
+                    border: '1px solid var(--dimmer)',
+                    transition: 'border-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--dimmer)')}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                    }}
+                  >
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 700 }}>{job.title}</div>
-                      <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        {job.category && (() => {
-                          const sector = getSector(job.category)
-                          return <span>{sector?.icon ? `${sector.icon} ` : ''}{job.category}</span>
-                        })()}
-                        <span style={{ color: statusColor(job.status) }}>{statusLabel(job.status)}</span>
-                        <span style={{ fontSize: 9, padding: '1px 5px', border: '1px solid var(--dimmer)', color: 'var(--dim)' }}>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--dim)',
+                          marginTop: 4,
+                          display: 'flex',
+                          gap: 8,
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        {job.category &&
+                          (() => {
+                            const sector = getSector(job.category)
+                            return (
+                              <span>
+                                {sector?.icon ? `${sector.icon} ` : ''}
+                                {job.category}
+                              </span>
+                            )
+                          })()}
+                        <span style={{ color: statusColor(job.status) }}>
+                          {statusLabel(job.status)}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 9,
+                            padding: '1px 5px',
+                            border: '1px solid var(--dimmer)',
+                            color: 'var(--dim)',
+                          }}
+                        >
                           {role}
                         </span>
                         {job.applicationStatus && role === 'agent' && (
-                          <span style={{ color: job.applicationStatus === 'selected' ? '#4caf50' : job.applicationStatus === 'rejected' ? '#ff4444' : 'var(--dim)' }}>
+                          <span
+                            style={{
+                              color:
+                                job.applicationStatus === 'selected'
+                                  ? '#4caf50'
+                                  : job.applicationStatus === 'rejected'
+                                    ? '#ff4444'
+                                    : 'var(--dim)',
+                            }}
+                          >
                             app: {job.applicationStatus}
                           </span>
                         )}
@@ -124,7 +188,13 @@ export default function MyJobs() {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 13, fontWeight: 700 }}>
-                        {job.finalBudget ? `${job.finalBudget} USDC` : job.appProposedBudget ? `${job.appProposedBudget} USDC` : job.budgetMin && job.budgetMax ? `${job.budgetMin} – ${job.budgetMax}` : '—'}
+                        {job.finalBudget
+                          ? `${job.finalBudget} USDC`
+                          : job.appProposedBudget
+                            ? `${job.appProposedBudget} USDC`
+                            : job.budgetMin && job.budgetMax
+                              ? `${job.budgetMin} – ${job.budgetMax}`
+                              : '—'}
                       </div>
                       <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>
                         {getTimeAgo(job.completedAt || job.appliedAt || job.createdAt)}
@@ -143,39 +213,67 @@ export default function MyJobs() {
 
 function statusColor(status: string): string {
   switch (status) {
-    case 'open': return '#4a9ead'
-    case 'assigned': return '#ff9800'
-    case 'funded': return '#2196f3'
-    case 'in_progress': return '#2196f3'
-    case 'delivered': return '#9c27b0'
-    case 'evaluating': return '#9c27b0'
-    case 'completed': return '#4caf50'
-    case 'failed': return '#ff4444'
-    case 'rejected': return '#ff4444'
-    case 'refunded': return '#4caf50'
-    case 'cancelled': return '#666'
-    case 'revision_requested': return '#ff9800'
-    case 'expired': return '#ff4444'
-    default: return 'var(--dim)'
+    case 'open':
+      return '#4a9ead'
+    case 'assigned':
+      return '#ff9800'
+    case 'funded':
+      return '#2196f3'
+    case 'in_progress':
+      return '#2196f3'
+    case 'delivered':
+      return '#9c27b0'
+    case 'evaluating':
+      return '#9c27b0'
+    case 'completed':
+      return '#4caf50'
+    case 'failed':
+      return '#ff4444'
+    case 'rejected':
+      return '#ff4444'
+    case 'refunded':
+      return '#4caf50'
+    case 'cancelled':
+      return '#666'
+    case 'revision_requested':
+      return '#ff9800'
+    case 'expired':
+      return '#ff4444'
+    default:
+      return 'var(--dim)'
   }
 }
 
 function statusLabel(status: string): string {
   switch (status) {
-    case 'open': return 'Open'
-    case 'assigned': return 'Assigned'
-    case 'funded': return 'Funded'
-    case 'in_progress': return 'In Progress'
-    case 'delivered': return 'Delivered'
-    case 'evaluating': return 'Evaluating'
-    case 'completed': return '✓ Completed'
-    case 'failed': return '✗ Failed'
-    case 'rejected': return '✗ Rejected'
-    case 'refunded': return '↩ Refunded'
-    case 'cancelled': return 'Cancelled'
-    case 'revision_requested': return '⚠ Revision'
-    case 'expired': return 'Expired'
-    default: return status
+    case 'open':
+      return 'Open'
+    case 'assigned':
+      return 'Assigned'
+    case 'funded':
+      return 'Funded'
+    case 'in_progress':
+      return 'In Progress'
+    case 'delivered':
+      return 'Delivered'
+    case 'evaluating':
+      return 'Evaluating'
+    case 'completed':
+      return '✓ Completed'
+    case 'failed':
+      return '✗ Failed'
+    case 'rejected':
+      return '✗ Rejected'
+    case 'refunded':
+      return '↩ Refunded'
+    case 'cancelled':
+      return 'Cancelled'
+    case 'revision_requested':
+      return '⚠ Revision'
+    case 'expired':
+      return 'Expired'
+    default:
+      return status
   }
 }
 

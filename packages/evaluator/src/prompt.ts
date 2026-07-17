@@ -8,11 +8,23 @@ import { formatFileForPrompt } from './file-analyzer.js'
  * Detects common prompt injection patterns and redacts them.
  */
 function sanitizeForPrompt(content: string): string {
-  let sanitized = content
-    .replace(/\b(ignore|disregard|forget|override)\s+(all\s+)?(previous|above|prior|earlier|system)\s+(instructions?|prompts?|rules?|context?|directives?)/gi, '[CONTENT REDACTED: injection attempt]')
-    .replace(/\b(you\s+are\s+now|act\s+as|pretend\s+to\s+be|your\s+new\s+role|from\s+now\s+on\s+you)/gi, '[CONTENT REDACTED: injection attempt]')
-    .replace(/\b(system\s*:\s*|assistant\s*:\s*|<\|system\|>|<\|assistant\|>)/gi, '[CONTENT REDACTED: injection attempt]')
-    .replace(/\b(give\s+(me\s+)?(a\s+)?score\s+of\s+\d+|rate\s+(this\s+)?(\d+|perfect|100)|always\s+(approve|give\s+100))/gi, '[CONTENT REDACTED: injection attempt]')
+  const sanitized = content
+    .replace(
+      /\b(ignore|disregard|forget|override)\s+(all\s+)?(previous|above|prior|earlier|system)\s+(instructions?|prompts?|rules?|context?|directives?)/gi,
+      '[CONTENT REDACTED: injection attempt]',
+    )
+    .replace(
+      /\b(you\s+are\s+now|act\s+as|pretend\s+to\s+be|your\s+new\s+role|from\s+now\s+on\s+you)/gi,
+      '[CONTENT REDACTED: injection attempt]',
+    )
+    .replace(
+      /\b(system\s*:\s*|assistant\s*:\s*|<\|system\|>|<\|assistant\|>)/gi,
+      '[CONTENT REDACTED: injection attempt]',
+    )
+    .replace(
+      /\b(give\s+(me\s+)?(a\s+)?score\s+of\s+\d+|rate\s+(this\s+)?(\d+|perfect|100)|always\s+(approve|give\s+100))/gi,
+      '[CONTENT REDACTED: injection attempt]',
+    )
   return sanitized
 }
 
@@ -21,13 +33,13 @@ function sanitizeForPrompt(content: string): string {
  * Used alongside SECTOR_HINTS to provide detailed scoring direction per category.
  */
 const SECTOR_CRITERIA: Record<string, string> = {
-  'Code': `Evaluate: correctness (does it work?), efficiency, test coverage, documentation quality, error handling, code style. Deduct heavily for bugs, security issues, or missing tests.`,
+  Code: `Evaluate: correctness (does it work?), efficiency, test coverage, documentation quality, error handling, code style. Deduct heavily for bugs, security issues, or missing tests.`,
   'Content Creation': `Evaluate: accuracy of information, readability, engagement level, SEO optimization, originality, grammar/spelling. Deduct for plagiarism indicators or factual errors.`,
   'Data Analysis': `Evaluate: methodology rigor, accuracy of findings, quality of visualizations, actionability of insights, statistical validity. Deduct for cherry-picked data or unsupported conclusions.`,
-  'Research': `Evaluate: depth of research, source quality and diversity, objectivity, completeness, proper citations, novel insights. Deduct for missing citations or one-sided analysis.`,
-  'Design': `Evaluate: visual aesthetics, usability considerations, consistency, accessibility compliance, brand alignment, deliverable formats. Deduct for inconsistent styling or missing responsive considerations.`,
-  'Trading': `Evaluate: strategy logic, risk management, backtesting quality, edge case handling, documentation. Deduct for unrealistic assumptions or missing risk controls.`,
-  'default': `Evaluate: completeness (was everything requested delivered?), quality (how well was it done?), effort (how much work went in?), format (was it well-organized and professional?).`,
+  Research: `Evaluate: depth of research, source quality and diversity, objectivity, completeness, proper citations, novel insights. Deduct for missing citations or one-sided analysis.`,
+  Design: `Evaluate: visual aesthetics, usability considerations, consistency, accessibility compliance, brand alignment, deliverable formats. Deduct for inconsistent styling or missing responsive considerations.`,
+  Trading: `Evaluate: strategy logic, risk management, backtesting quality, edge case handling, documentation. Deduct for unrealistic assumptions or missing risk controls.`,
+  default: `Evaluate: completeness (was everything requested delivered?), quality (how well was it done?), effort (how much work went in?), format (was it well-organized and professional?).`,
 }
 
 export interface EvalContext {
@@ -85,7 +97,7 @@ export function buildEvaluationPrompt(ctx: EvalContext): string {
     if (details && typeof details === 'object' && Object.keys(details).length > 0) {
       sectorContext += `\nClient-provided sector details:\n`
       for (const [key, value] of Object.entries(details)) {
-        const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())
+        const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())
         sectorContext += `- ${label}: ${value}\n`
       }
     }
@@ -113,14 +125,16 @@ export function buildEvaluationPrompt(ctx: EvalContext): string {
   }
 
   // Scoring guide
-  const scoringGuide = sectorId && SECTOR_HINTS[sectorId]
-    ? `Scoring criteria (weighted for ${sectorId}):\n- Completeness: Does it address all requirements? (0-${SECTOR_HINTS[sectorId].weights.completeness} points)\n- Quality: Is the content accurate and well-crafted? (0-${SECTOR_HINTS[sectorId].weights.quality} points)\n- Effort: Does it show genuine effort vs low-quality filler? (0-${SECTOR_HINTS[sectorId].weights.effort} points)\n- Format: Is it properly structured and readable? (0-${SECTOR_HINTS[sectorId].weights.format} points)`
-    : `Scoring criteria:\n- Completeness: Does it address all requirements? (0-30 points)\n- Quality: Is the content accurate and well-written? (0-30 points)\n- Effort: Does it show genuine effort vs low-quality filler? (0-20 points)\n- Format: Is it properly structured and readable? (0-20 points)`
+  const scoringGuide =
+    sectorId && SECTOR_HINTS[sectorId]
+      ? `Scoring criteria (weighted for ${sectorId}):\n- Completeness: Does it address all requirements? (0-${SECTOR_HINTS[sectorId].weights.completeness} points)\n- Quality: Is the content accurate and well-crafted? (0-${SECTOR_HINTS[sectorId].weights.quality} points)\n- Effort: Does it show genuine effort vs low-quality filler? (0-${SECTOR_HINTS[sectorId].weights.effort} points)\n- Format: Is it properly structured and readable? (0-${SECTOR_HINTS[sectorId].weights.format} points)`
+      : `Scoring criteria:\n- Completeness: Does it address all requirements? (0-30 points)\n- Quality: Is the content accurate and well-written? (0-30 points)\n- Effort: Does it show genuine effort vs low-quality filler? (0-20 points)\n- Format: Is it properly structured and readable? (0-20 points)`
 
   // Build final breakdown template
-  const breakdownTemplate = sectorId && SECTOR_HINTS[sectorId]
-    ? `{ "completeness": <0-${SECTOR_HINTS[sectorId].weights.completeness}>, "quality": <0-${SECTOR_HINTS[sectorId].weights.quality}>, "effort": <0-${SECTOR_HINTS[sectorId].weights.effort}>, "format": <0-${SECTOR_HINTS[sectorId].weights.format}> }`
-    : `{ "completeness": <0-30>, "quality": <0-30>, "effort": <0-20>, "format": <0-20> }`
+  const breakdownTemplate =
+    sectorId && SECTOR_HINTS[sectorId]
+      ? `{ "completeness": <0-${SECTOR_HINTS[sectorId].weights.completeness}>, "quality": <0-${SECTOR_HINTS[sectorId].weights.quality}>, "effort": <0-${SECTOR_HINTS[sectorId].weights.effort}>, "format": <0-${SECTOR_HINTS[sectorId].weights.format}> }`
+      : `{ "completeness": <0-30>, "quality": <0-30>, "effort": <0-20>, "format": <0-20> }`
 
   return `You are an impartial job evaluator for ArcHive marketplace.
 
@@ -182,7 +196,7 @@ export function parseEvaluationResponse(response: string): {
   // Try JSON parse first
   try {
     // Strip markdown code fences if present
-    let cleaned = response.replace(/```json\s*/g, '').replace(/```\s*/g, '')
+    const cleaned = response.replace(/```json\s*/g, '').replace(/```\s*/g, '')
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])
@@ -190,7 +204,12 @@ export function parseEvaluationResponse(response: string): {
       let clamped = null
       if (parsed.breakdown) {
         // Default maxes — overridden by sector config if available
-        const maxes: Record<string, number> = { completeness: 30, quality: 30, effort: 20, format: 20 }
+        const maxes: Record<string, number> = {
+          completeness: 30,
+          quality: 30,
+          effort: 20,
+          format: 20,
+        }
         // Try to read sector weights from context (passed through from evaluateDeliverable)
         clamped = { ...parsed.breakdown }
         for (const [key, max] of Object.entries(maxes)) {

@@ -7,14 +7,15 @@ import dns from 'node:dns/promises'
 // resolution. Same threat model as keys.ts validateWebhookUrl.
 
 function isPrivateIPv4(ip: string): boolean {
-  const parts = ip.split('.').map(p => parseInt(p, 10))
-  if (parts.length !== 4 || parts.some(n => !Number.isInteger(n) || n < 0 || n > 255)) return false
+  const parts = ip.split('.').map((p) => parseInt(p, 10))
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255))
+    return false
   const [a, b, c, d] = parts
   if (a === 10 || a === 127 || a === 0) return true
   if (a === 169 && b === 254) return true
   if (a === 172 && b >= 16 && b <= 31) return true
   if (a === 192 && b === 168) return true
-  if (a === 100 && b >= 64 && b <= 127) return true     // CGNAT / Tailscale
+  if (a === 100 && b >= 64 && b <= 127) return true // CGNAT / Tailscale
   if (a >= 224) return true
   if (a === 100 && b === 100 && c === 100 && d === 200) return true // Alibaba
   return false
@@ -34,10 +35,17 @@ async function isSafePublicHost(hostname: string): Promise<boolean> {
   if (!hostname) return false
   const lower = hostname.toLowerCase()
   if (lower === 'localhost') return false
-  if (lower.endsWith('.internal') || lower.endsWith('.local') ||
-      lower.endsWith('.localdomain') || lower.endsWith('.lan') ||
-      lower.endsWith('.intranet') || lower.endsWith('.corp') ||
-      lower.endsWith('.home') || lower.endsWith('.private')) return false
+  if (
+    lower.endsWith('.internal') ||
+    lower.endsWith('.local') ||
+    lower.endsWith('.localdomain') ||
+    lower.endsWith('.lan') ||
+    lower.endsWith('.intranet') ||
+    lower.endsWith('.corp') ||
+    lower.endsWith('.home') ||
+    lower.endsWith('.private')
+  )
+    return false
   if (lower === 'metadata.google.internal') return false
 
   if (/^[\d.]+$/.test(lower)) return !isPrivateIPv4(lower)
@@ -48,12 +56,16 @@ async function isSafePublicHost(hostname: string): Promise<boolean> {
     const a = await dns.resolve4(lower)
     resolvedAny ||= a.length > 0
     for (const ip of a) if (isPrivateIPv4(ip)) return false
-  } catch {}
+  } catch {
+    // A missing A record is handled by the fail-closed resolvedAny gate.
+  }
   try {
     const a6 = await dns.resolve6(lower)
     resolvedAny ||= a6.length > 0
     for (const ip of a6) if (isPrivateIPv6(ip)) return false
-  } catch {}
+  } catch {
+    // A missing AAAA record is handled by the fail-closed resolvedAny gate.
+  }
   return resolvedAny
 }
 
@@ -73,7 +85,9 @@ export async function fetchPendingMetadata(): Promise<void> {
 
       // SEC-031: SSRF guard — reject http(s) URIs that resolve to internal hosts.
       let parsed: URL
-      try { parsed = new URL(uri) } catch {
+      try {
+        parsed = new URL(uri)
+      } catch {
         await db.markMetadataFailed(BigInt(item.agent_id), 'Invalid URL')
         continue
       }
@@ -92,8 +106,8 @@ export async function fetchPendingMetadata(): Promise<void> {
 
       const response = await fetch(uri, {
         signal: AbortSignal.timeout(15_000),
-        headers: { 'Accept': 'application/json', 'User-Agent': 'arc-hive-indexer/1.0' },
-        redirect: 'manual',           // SEC-032: don't follow redirects to internal hosts
+        headers: { Accept: 'application/json', 'User-Agent': 'arc-hive-indexer/1.0' },
+        redirect: 'manual', // SEC-032: don't follow redirects to internal hosts
       })
 
       if (response.status >= 300 && response.status < 400) {
@@ -120,7 +134,10 @@ export async function fetchPendingMetadata(): Promise<void> {
         imageUri: typeof json.image === 'string' ? json.image.slice(0, 500) : null,
         agentType: typeof json.agent_type === 'string' ? json.agent_type.slice(0, 100) : null,
         capabilities: Array.isArray(json.capabilities)
-          ? json.capabilities.filter((c: unknown) => typeof c === 'string').slice(0, 32).map((s: string) => s.slice(0, 100))
+          ? json.capabilities
+              .filter((c: unknown) => typeof c === 'string')
+              .slice(0, 32)
+              .map((s: string) => s.slice(0, 100))
           : null,
         version: typeof json.version === 'string' ? json.version.slice(0, 50) : null,
       })
@@ -141,7 +158,7 @@ function resolveUri(uri: string): string | null {
 
   if (uri.startsWith('ipfs://')) {
     const cid = uri.replace('ipfs://', '').split(/[?#]/)[0]
-    if (!/^[a-zA-Z0-9./_-]+$/.test(cid)) return null     // SEC-035: refuse weird CIDs
+    if (!/^[a-zA-Z0-9./_-]+$/.test(cid)) return null // SEC-035: refuse weird CIDs
     return `${gateway}${cid}`
   }
 

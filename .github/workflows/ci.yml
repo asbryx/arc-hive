@@ -84,6 +84,9 @@ jobs:
       - name: Type check (sdk)
         run: cd packages/sdk && npx tsc --noEmit
 
+      - name: Lint
+        run: pnpm lint
+
       - name: Test
         run: pnpm test
 

@@ -17,7 +17,7 @@ interface SyncProgress {
   eventsProcessed: number
 }
 
-let progress: SyncProgress[] = []
+const progress: SyncProgress[] = []
 
 export function getSyncProgress(): SyncProgress[] {
   return progress
@@ -39,16 +39,19 @@ export async function runHistoricalSync(): Promise<void> {
       continue
     }
 
-    const startBlock = state.last_synced_block > 0
-      ? BigInt(state.last_synced_block) + 1n
-      : BigInt(state.deployment_block)
+    const startBlock =
+      state.last_synced_block > 0
+        ? BigInt(state.last_synced_block) + 1n
+        : BigInt(state.deployment_block)
 
     if (startBlock >= headBlock) {
       console.log(`[Sync] ${state.contract_name}: already synced to head`)
       continue
     }
 
-    console.log(`[Sync] ${state.contract_name}: syncing ${startBlock} → ${headBlock} (${headBlock - startBlock} blocks)`)
+    console.log(
+      `[Sync] ${state.contract_name}: syncing ${startBlock} → ${headBlock} (${headBlock - startBlock} blocks)`,
+    )
     await db.setSyncing(address, true)
 
     const contractProgress: SyncProgress = {
@@ -78,16 +81,15 @@ async function syncContract(
   address: string,
   fromBlock: bigint,
   toBlock: bigint,
-  progress: SyncProgress
+  progress: SyncProgress,
 ): Promise<void> {
   const client = getHttpClient()
   let currentFrom = fromBlock
   let chunkSize = BigInt(CHUNK_SIZE)
 
   while (currentFrom <= toBlock) {
-    const currentTo = currentFrom + chunkSize - 1n > toBlock
-      ? toBlock
-      : currentFrom + chunkSize - 1n
+    const currentTo =
+      currentFrom + chunkSize - 1n > toBlock ? toBlock : currentFrom + chunkSize - 1n
 
     let logs: Log[] = []
     let retries = 0
@@ -123,7 +125,9 @@ async function syncContract(
 
     // Don't advance sync state on failure — will retry on next run
     if (chunkFailed) {
-      console.error(`[Sync] Stopping ${progress.name} at block ${currentFrom} due to persistent failure`)
+      console.error(
+        `[Sync] Stopping ${progress.name} at block ${currentFrom} due to persistent failure`,
+      )
       break
     }
 
@@ -145,8 +149,10 @@ async function syncContract(
 
     // Log progress every 50 chunks
     if ((currentTo - fromBlock) % (chunkSize * 50n) === 0n || currentTo === toBlock) {
-      const pct = Number((currentTo - fromBlock) * 100n / (toBlock - fromBlock))
-      console.log(`[Sync] ${progress.name}: ${pct}% (block ${currentTo}, ${progress.eventsProcessed} events)`)
+      const pct = Number(((currentTo - fromBlock) * 100n) / (toBlock - fromBlock))
+      console.log(
+        `[Sync] ${progress.name}: ${pct}% (block ${currentTo}, ${progress.eventsProcessed} events)`,
+      )
     }
 
     currentFrom = currentTo + 1n
@@ -164,8 +170,8 @@ const timestampCache = new Map<bigint, Date>()
 
 async function getBlockTimestamps(client: any, logs: Log[]): Promise<Map<bigint, Date>> {
   const result = new Map<bigint, Date>()
-  const uniqueBlocks = [...new Set(logs.map(l => l.blockNumber!))]
-  const uncached = uniqueBlocks.filter(b => !timestampCache.has(b))
+  const uniqueBlocks = [...new Set(logs.map((l) => l.blockNumber!))]
+  const uncached = uniqueBlocks.filter((b) => !timestampCache.has(b))
 
   // Return cached immediately
   for (const blockNum of uniqueBlocks) {
@@ -179,7 +185,7 @@ async function getBlockTimestamps(client: any, logs: Log[]): Promise<Map<bigint,
   for (let i = 0; i < uncached.length; i += BATCH) {
     const batch = uncached.slice(i, i + BATCH)
     const results = await Promise.allSettled(
-      batch.map(blockNum => client.getBlock({ blockNumber: blockNum }))
+      batch.map((blockNum) => client.getBlock({ blockNumber: blockNum })),
     )
     for (let j = 0; j < batch.length; j++) {
       const r = results[j]
@@ -205,5 +211,5 @@ async function getBlockTimestamps(client: any, logs: Log[]): Promise<Map<bigint,
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }

@@ -71,7 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return
           }
         }
-      } catch {}
+      } catch {
+        // A malformed cache entry falls through to wallet sign-in.
+      }
     }
 
     // No valid token — prompt signature
@@ -117,11 +119,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Step 4: Store token
       setToken(result.token)
-      localStorage.setItem('arc-hive-auth', JSON.stringify({
-        token: result.token,
-        wallet: result.wallet,
-        expiresAt: result.expiresAt,
-      }))
+      localStorage.setItem(
+        'arc-hive-auth',
+        JSON.stringify({
+          token: result.token,
+          wallet: result.wallet,
+          expiresAt: result.expiresAt,
+        }),
+      )
     } catch (err: any) {
       setError(err.message || 'Authentication failed')
       console.error('[auth] Sign-in error:', err.message)
@@ -136,21 +141,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{
-      token,
-      wallet: address?.toLowerCase() || null,
-      isAuthenticated: !!token,
-      isLoading,
-      error,
-      signOut,
-    }}>
+    <AuthContext.Provider
+      value={{
+        token,
+        wallet: address?.toLowerCase() || null,
+        isAuthenticated: !!token,
+        isLoading,
+        error,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )
 }
 
 // Helper: add auth header to fetch options
-export function authHeaders(token: string | null, extra?: Record<string, string>): Record<string, string> {
+export function authHeaders(
+  token: string | null,
+  extra?: Record<string, string>,
+): Record<string, string> {
   const headers: Record<string, string> = { ...extra }
   if (token) {
     headers['Authorization'] = `Bearer ${token}`

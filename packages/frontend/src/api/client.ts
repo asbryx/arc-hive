@@ -174,8 +174,7 @@ export const getJobs = (params?: Record<string, string>) => {
   const qs = params ? '?' + new URLSearchParams(params).toString() : ''
   return fetchApi<PaginatedResponse<Job>>(`/jobs${qs}`)
 }
-export const getOpenJobs = (page = 1) =>
-  fetchApi<PaginatedResponse<Job>>(`/jobs/open?page=${page}`)
+export const getOpenJobs = (page = 1) => fetchApi<PaginatedResponse<Job>>(`/jobs/open?page=${page}`)
 export const getJob = (id: string) => fetchApi<JobDetail>(`/jobs/${id}`)
 export interface MarketplaceStats {
   totalJobs: number
@@ -189,7 +188,8 @@ export interface MarketplaceStats {
 
 export const getMarketplaceStats = () => fetchApi<MarketplaceStats>('/stats/marketplace')
 
-export const fetchHealth = () => fetchApi<{ syncing: boolean; liveSync: boolean; block: string | null }>('/health')
+export const fetchHealth = () =>
+  fetchApi<{ syncing: boolean; liveSync: boolean; block: string | null }>('/health')
 
 // Authenticated fetch — auto-attaches JWT for write operations
 export function authFetch(path: string, options: RequestInit = {}): Promise<Response> {
@@ -201,9 +201,13 @@ export function authFetch(path: string, options: RequestInit = {}): Promise<Resp
 
   if (options.headers) {
     if (options.headers instanceof Headers) {
-      options.headers.forEach((v, k) => { headers[k] = v })
+      options.headers.forEach((v, k) => {
+        headers[k] = v
+      })
     } else if (Array.isArray(options.headers)) {
-      options.headers.forEach(([k, v]) => { headers[k] = v })
+      options.headers.forEach(([k, v]) => {
+        headers[k] = v
+      })
     } else {
       Object.assign(headers, options.headers)
     }
@@ -218,7 +222,9 @@ export function authFetch(path: string, options: RequestInit = {}): Promise<Resp
         headers['Authorization'] = `Bearer ${data.token}`
       }
     }
-  } catch {}
+  } catch {
+    // Treat malformed local auth state as unauthenticated.
+  }
 
   return fetch(url, { ...options, headers })
     .then((res) => {

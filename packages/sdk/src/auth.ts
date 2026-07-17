@@ -3,19 +3,19 @@
  * Authentication module for wallet-based auth via message signing
  */
 
-import { privateKeyToAccount } from 'viem/accounts';
-import type { HttpClient } from './client.js';
-import type { AuthResult } from './types.js';
+import { privateKeyToAccount } from 'viem/accounts'
+import type { HttpClient } from './client.js'
+import type { AuthResult } from './types.js'
 
 /**
  * Authentication module for connecting to ArcHive via wallet signature.
  * Uses EIP-191 message signing with viem.
  */
 export class AuthModule {
-  private client: HttpClient;
-  private wallet: string | null = null;
-  private privateKey: string | null = null;
-  private apiUrl: string;
+  private client: HttpClient
+  private wallet: string | null = null
+  private privateKey: string | null = null
+  private apiUrl: string
 
   /**
    * Create a new AuthModule
@@ -23,8 +23,8 @@ export class AuthModule {
    * @param apiUrl - API base URL
    */
   constructor(client: HttpClient, apiUrl: string) {
-    this.client = client;
-    this.apiUrl = apiUrl;
+    this.client = client
+    this.apiUrl = apiUrl
   }
 
   /**
@@ -38,8 +38,8 @@ export class AuthModule {
    * @throws If authentication fails
    */
   async connect(wallet: string, privateKey: string, apiUrl?: string): Promise<AuthResult> {
-    this.wallet = wallet;
-    this.privateKey = privateKey;
+    this.wallet = wallet
+    this.privateKey = privateKey
 
     try {
       // Step 1: Get nonce message to sign.
@@ -48,57 +48,65 @@ export class AuthModule {
       // body. (Bug fixed 2026-06-15: previously this was a GET with the wallet
       // in a query string, which 404'd against the live API. Same flavour of
       // bug that hit the frontend AuthContext — see arc-hive PR #11.)
-      const nonceResponse = await this.client.post<{ message: string; nonce: string; timestamp: string }>(
-        '/api/auth/nonce',
-        { wallet }
-      );
+      const nonceResponse = await this.client.post<{
+        message: string
+        nonce: string
+        timestamp: string
+      }>('/api/auth/nonce', { wallet })
 
       if (!nonceResponse?.message) {
-        throw new Error('Failed to get authentication nonce. The API may be unavailable.');
+        throw new Error('Failed to get authentication nonce. The API may be unavailable.')
       }
 
       // Step 2: Sign the message with viem
-      const normalizedKey = (privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`) as `0x${string}`;
-      const account = privateKeyToAccount(normalizedKey);
+      const normalizedKey = (
+        privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`
+      ) as `0x${string}`
+      const account = privateKeyToAccount(normalizedKey)
       const signature = await account.signMessage({
         message: nonceResponse.message,
-      });
+      })
 
       // Step 3: Verify signature and get token
       const result = await this.client.post<AuthResult>('/api/auth/verify', {
         wallet,
         signature,
-      });
+      })
 
       if (!result?.token) {
-        throw new Error('Authentication failed: no token received from server.');
+        throw new Error('Authentication failed: no token received from server.')
       }
 
       // Store token
-      this.client.setToken(result.token);
+      this.client.setToken(result.token)
 
-      return result;
+      return result
     } catch (error: any) {
       // Give the operator a useful error rather than blaming their credentials.
       // Most failures here are SDK/API mismatch (404), network problems (DNS,
       // offline), or a server outage — not bad keys.
-      const status = error?.response?.status ?? error?.status ?? null;
-      const detail = error?.message || 'Unknown error';
-      let hint = '';
+      const status = error?.response?.status ?? error?.status ?? null
+      const detail = error?.message || 'Unknown error'
+      let hint = ''
       if (status === 404) {
-        hint = ' This usually means the SDK is calling a path the server does not expose — likely an SDK/API version mismatch. Update @archivee/agent.';
+        hint =
+          ' This usually means the SDK is calling a path the server does not expose — likely an SDK/API version mismatch. Update @archivee/agent.'
       } else if (status === 401 || status === 403) {
-        hint = ' The signature did not verify. Make sure the privateKey corresponds to the wallet address.';
+        hint =
+          ' The signature did not verify. Make sure the privateKey corresponds to the wallet address.'
       } else if (status >= 500) {
-        hint = ' The server returned an error. Try again, or check status at https://arcs-hive.vercel.app/api/health.';
+        hint =
+          ' The server returned an error. Try again, or check status at https://arcs-hive.vercel.app/api/health.'
       } else if (!status) {
-        hint = ' Could not reach the server — check your network and the apiUrl config.';
+        hint = ' Could not reach the server — check your network and the apiUrl config.'
       }
-      const wrapped = new Error(`Authentication failed (status=${status ?? 'no response'}): ${detail}.${hint}`);
+      const wrapped = new Error(
+        `Authentication failed (status=${status ?? 'no response'}): ${detail}.${hint}`,
+      )
       // Preserve the original cause so callers can introspect.
-      ;(wrapped as any).cause = error;
-      ;(wrapped as any).status = status;
-      throw wrapped;
+      ;(wrapped as any).cause = error
+      ;(wrapped as any).status = status
+      throw wrapped
     }
   }
 
@@ -106,9 +114,9 @@ export class AuthModule {
    * Disconnect from ArcHive by clearing the stored authentication token.
    */
   disconnect(): void {
-    this.wallet = null;
-    this.privateKey = null;
-    this.client.clearToken();
+    this.wallet = null
+    this.privateKey = null
+    this.client.clearToken()
   }
 
   /**
@@ -118,16 +126,16 @@ export class AuthModule {
    * @throws If not connected or token is invalid
    */
   async verify(): Promise<boolean> {
-    const token = this.client.getToken();
+    const token = this.client.getToken()
     if (!token) {
-      throw new Error('Not connected. Call connect() first.');
+      throw new Error('Not connected. Call connect() first.')
     }
 
     try {
-      await this.client.get('/api/auth/verify');
-      return true;
+      await this.client.get('/api/auth/verify')
+      return true
     } catch {
-      return false;
+      return false
     }
   }
 
@@ -136,6 +144,6 @@ export class AuthModule {
    * @returns Wallet address or null if not connected
    */
   getWallet(): string | null {
-    return this.wallet;
+    return this.wallet
   }
 }
