@@ -518,12 +518,17 @@ export default function MarketplaceDetail() {
   async function handleReject() {
     if (!address) return
     setRejecting(true)
+    setActionError(null)
     try {
-      await authFetch(`/open-jobs/${id}/reject`, {
+      const response = await authFetch(`/open-jobs/${id}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientAddress: address, reason: rejectReason }),
       })
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Could not request a revision' }))
+        throw new Error(error.error || 'Could not request a revision')
+      }
       setRejectReason('')
       fetchJob()
     } catch (err: any) {
@@ -798,6 +803,61 @@ export default function MarketplaceDetail() {
           </>
         )}
       </div>
+
+      {/* ═══ CLIENT: Evaluator provider failure recovery ═══ */}
+      {isClient && job.status === 'evaluating_pending' && (
+        <div
+          style={{
+            borderTop: '1px solid #ff980066',
+            borderBottom: '1px solid #ff980066',
+            padding: 16,
+            marginBottom: 24,
+            background: '#ff98000d',
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#ff9800', marginBottom: 6 }}>
+            Evaluation provider unavailable
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 12 }}>
+            The evaluator could not reach any configured AI provider. No settlement was sent and the
+            deliverable remains private. Request a revision to return the job to the agent.
+          </div>
+          <textarea
+            value={rejectReason}
+            onChange={(event) => setRejectReason(event.target.value)}
+            placeholder="Optional revision instructions for the agent"
+            style={{
+              display: 'block',
+              width: '100%',
+              minHeight: 72,
+              marginBottom: 10,
+              padding: 10,
+              background: 'var(--bg)',
+              border: '1px solid var(--dimmer)',
+              color: 'var(--text)',
+              fontFamily: 'var(--font)',
+              fontSize: 12,
+              resize: 'vertical',
+            }}
+          />
+          <button
+            onClick={handleReject}
+            disabled={rejecting}
+            style={{
+              padding: '10px 16px',
+              fontSize: 11,
+              fontWeight: 700,
+              background: '#ff9800',
+              color: '#111111',
+              border: 'none',
+              cursor: rejecting ? 'wait' : 'pointer',
+              opacity: rejecting ? 0.6 : 1,
+            }}
+          >
+            {rejecting ? 'Requesting...' : 'Request Revision'}
+          </button>
+        </div>
+      )}
 
       {/* ═══ CLIENT: Fund Button (after selection, before funding) ═══ */}
       {isClient && job.status === 'assigned' && (
@@ -2055,6 +2115,7 @@ function StatusTimeline({ job, selectedApp }: { job: OpenJob; selectedApp?: Appl
     'in_progress',
     'delivered',
     'evaluating',
+    'evaluating_pending',
     'revision_requested',
     'completed',
     'failed',
@@ -2066,13 +2127,21 @@ function StatusTimeline({ job, selectedApp }: { job: OpenJob; selectedApp?: Appl
     'in_progress',
     'delivered',
     'evaluating',
+    'evaluating_pending',
     'revision_requested',
     'completed',
     'failed',
     'refunded',
     'expired',
   ]
-  const evalStatuses = ['evaluating', 'revision_requested', 'completed', 'failed', 'refunded']
+  const evalStatuses = [
+    'evaluating',
+    'evaluating_pending',
+    'revision_requested',
+    'completed',
+    'failed',
+    'refunded',
+  ]
 
   // Determine current step index based on status
   function getCurrentStep(): number {
@@ -2088,6 +2157,7 @@ function StatusTimeline({ job, selectedApp }: { job: OpenJob; selectedApp?: Appl
       case 'delivered':
         return 3
       case 'evaluating':
+      case 'evaluating_pending':
         return 4
       case 'revision_requested':
         return 4
@@ -2130,11 +2200,13 @@ function StatusTimeline({ job, selectedApp }: { job: OpenJob; selectedApp?: Appl
       label: 'Evaluating',
       done: ['completed', 'failed', 'refunded'].includes(job.status),
       detail:
-        job.status === 'revision_requested'
-          ? 'Revision requested'
-          : job.status === 'evaluating'
-            ? 'Evaluating...'
-            : undefined,
+        job.status === 'evaluating_pending'
+          ? 'Evaluator unavailable — client action required'
+          : job.status === 'revision_requested'
+            ? 'Revision requested'
+            : job.status === 'evaluating'
+              ? 'Evaluating...'
+              : undefined,
     },
     {
       label:

@@ -1414,9 +1414,14 @@ openJobs.post('/:id/reject', requireAuth, async (c) => {
     return c.json({ error: 'Job not found or not your job' }, 404)
   }
   // A deliverable exists once the job is delivered/evaluating/revision_requested.
-  // The CaseFile Reject button shows for all of these (they map to 'filed'),
-  // so the API must accept them all — not just 'delivered' (UI/API mismatch).
-  if (!['delivered', 'evaluating', 'revision_requested'].includes(jobResult.rows[0].status)) {
+  // `evaluating_pending` means every configured evaluator provider was unavailable;
+  // the client must be able to request a revision instead of leaving funded escrow
+  // and the submitted artifact permanently stuck in an operational-error state.
+  if (
+    !['delivered', 'evaluating', 'evaluating_pending', 'revision_requested'].includes(
+      jobResult.rows[0].status,
+    )
+  ) {
     return c.json({ error: 'Job must have a deliverable to reject' }, 400)
   }
 
