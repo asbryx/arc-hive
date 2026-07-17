@@ -1,14 +1,30 @@
 import { CONFIG } from './config.js'
 import {
   query,
-  getPendingEvaluations, getPreviousEvaluations, storeEvaluation,
-  updateJobAfterEvaluation, notifyAgent, recordRefund,
-  getExpiredFundedJobs, getExpiredAssignedJobs,
-  getStaleOpenJobs, getStaleAssignedUnfundedJobs,
-  claimPayoutSlot, recordPayoutTx, releasePayoutSlot,
+  getPendingEvaluations,
+  getPreviousEvaluations,
+  storeEvaluation,
+  updateJobAfterEvaluation,
+  notifyAgent,
+  recordRefund,
+  getExpiredFundedJobs,
+  getExpiredAssignedJobs,
+  getStaleOpenJobs,
+  getStaleAssignedUnfundedJobs,
+  claimPayoutSlot,
+  recordPayoutTx,
+  releasePayoutSlot,
 } from './db.js'
 import { evaluateDeliverable, EvalResult } from './evaluate.js'
-import { executeSubmit, executeComplete, executeReject, executeClaimRefund, executePayoutForward, getOnchainJobStatus, getOnchainJob } from './execute.js'
+import {
+  executeSubmit,
+  executeComplete,
+  executeReject,
+  executeClaimRefund,
+  executePayoutForward,
+  getOnchainJobStatus,
+  getOnchainJob,
+} from './execute.js'
 
 export async function initWatcher() {
   console.log('[evaluator] Watcher initialized — polling DB for deliverables to evaluate')
@@ -31,10 +47,12 @@ export async function pollForEvaluations() {
         `UPDATE open_jobs SET status = 'evaluating', updated_at = NOW()
          WHERE status = 'evaluating_locked'
          AND updated_at < NOW() - INTERVAL '2 minutes'
-         RETURNING id, title`
+         RETURNING id, title`,
       )
       if (expiredLocks.rows.length > 0) {
-        console.log(`[evaluator] Released ${expiredLocks.rows.length} stale locks: ${expiredLocks.rows.map((r: any) => r.id).join(', ')}`)
+        console.log(
+          `[evaluator] Released ${expiredLocks.rows.length} stale locks: ${expiredLocks.rows.map((r: any) => r.id).join(', ')}`,
+        )
       }
     } catch (err: any) {
       console.error('[evaluator] Lock cleanup error:', err.message)
@@ -58,11 +76,17 @@ export async function pollForRefunds() {
     // 0. Clean up stale open jobs (no applications after 48 hours)
     const staleOpen = await getStaleOpenJobs()
     if (staleOpen.length > 0) {
-      console.log(`[deadline] Closed ${staleOpen.length} stale open job(s) (no applications after 48h)`)
+      console.log(
+        `[deadline] Closed ${staleOpen.length} stale open job(s) (no applications after 48h)`,
+      )
       for (const job of staleOpen) {
         if (job.client_address) {
-          await notifyAgent(job.client_address, 'job_expired', job.id,
-            `"${job.title}" closed — no applications received after 48 hours.`)
+          await notifyAgent(
+            job.client_address,
+            'job_expired',
+            job.id,
+            `"${job.title}" closed — no applications received after 48 hours.`,
+          )
         }
       }
     }
@@ -70,15 +94,25 @@ export async function pollForRefunds() {
     // 0b. Clean up stale assigned jobs (selected but not funded after 24 hours)
     const staleAssigned = await getStaleAssignedUnfundedJobs()
     if (staleAssigned.length > 0) {
-      console.log(`[deadline] Expired ${staleAssigned.length} stale assigned job(s) (not funded after 24h)`)
+      console.log(
+        `[deadline] Expired ${staleAssigned.length} stale assigned job(s) (not funded after 24h)`,
+      )
       for (const job of staleAssigned) {
         if (job.selected_applicant) {
-          await notifyAgent(job.selected_applicant, 'job_expired', job.id,
-            `"${job.title}" expired — client did not fund within 24 hours.`)
+          await notifyAgent(
+            job.selected_applicant,
+            'job_expired',
+            job.id,
+            `"${job.title}" expired — client did not fund within 24 hours.`,
+          )
         }
         if (job.client_address) {
-          await notifyAgent(job.client_address, 'job_expired', job.id,
-            `"${job.title}" expired — you did not fund within 24 hours of selecting an agent.`)
+          await notifyAgent(
+            job.client_address,
+            'job_expired',
+            job.id,
+            `"${job.title}" expired — you did not fund within 24 hours of selecting an agent.`,
+          )
         }
       }
     }
@@ -89,12 +123,20 @@ export async function pollForRefunds() {
       console.log(`[deadline] Expired ${expiredAssigned.length} unfunded assigned job(s)`)
       for (const job of expiredAssigned) {
         if (job.selected_applicant) {
-          await notifyAgent(job.selected_applicant, 'job_expired', job.id,
-            `"${job.title}" expired — client did not fund in time.`)
+          await notifyAgent(
+            job.selected_applicant,
+            'job_expired',
+            job.id,
+            `"${job.title}" expired — client did not fund in time.`,
+          )
         }
         if (job.client_address) {
-          await notifyAgent(job.client_address, 'job_expired', job.id,
-            `"${job.title}" expired — deadline passed without funding.`)
+          await notifyAgent(
+            job.client_address,
+            'job_expired',
+            job.id,
+            `"${job.title}" expired — deadline passed without funding.`,
+          )
         }
       }
     }
@@ -111,11 +153,17 @@ export async function pollForRefunds() {
 
       if (!jobId) {
         const { query } = await import('./db.js')
-        await query(`UPDATE open_jobs SET status = 'expired', updated_at = NOW() WHERE id = $1`, [openJobId])
+        await query(`UPDATE open_jobs SET status = 'expired', updated_at = NOW() WHERE id = $1`, [
+          openJobId,
+        ])
         console.log(`[deadline] Expired marketplace job ${openJobId} (no on-chain job)`)
         if (job.client_address) {
-          await notifyAgent(job.client_address, 'job_expired', openJobId,
-            `"${job.title}" expired — deadline passed, no on-chain escrow.`)
+          await notifyAgent(
+            job.client_address,
+            'job_expired',
+            openJobId,
+            `"${job.title}" expired — deadline passed, no on-chain escrow.`,
+          )
         }
         continue
       }
@@ -140,19 +188,21 @@ export async function pollForRefunds() {
         // status='failed', refund_tx IS NULL — see getExpiredFundedJobs
         // for the actual selector.
         const includeStatus4 = await needsLegacyClaimRefund(openJobId)
-        const eligibleStatuses = includeStatus4
-          ? [1, 4, 5]
-          : [1, 5]
+        const eligibleStatuses = includeStatus4 ? [1, 4, 5] : [1, 5]
         if (onchainExpired && eligibleStatuses.includes(onchainStatus)) {
-          console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) deadline passed (expiredAt=${new Date(Number(onchainJob.expiredAt) * 1000).toISOString()}), claiming refund...`)
+          console.log(
+            `[deadline] Job ${openJobId} (on-chain ${jobId}) deadline passed (expiredAt=${new Date(Number(onchainJob.expiredAt) * 1000).toISOString()}), claiming refund...`,
+          )
           const txHash = await claimRefundWithRetry(BigInt(jobId))
           if (!txHash) {
             const { query } = await import('./db.js')
             await query(
               `UPDATE open_jobs SET status = 'refund_failed', updated_at = NOW() WHERE id = $1`,
-              [openJobId]
+              [openJobId],
             )
-            console.error(`[CRITICAL] claimRefund failed after 3 attempts for job ${openJobId}. Manual intervention required.`)
+            console.error(
+              `[CRITICAL] claimRefund failed after 3 attempts for job ${openJobId}. Manual intervention required.`,
+            )
             continue
           }
           console.log(`[deadline] Refund claimed for job ${openJobId} — tx=${txHash}`)
@@ -160,20 +210,30 @@ export async function pollForRefunds() {
           const { query } = await import('./db.js')
           await query(
             `UPDATE open_jobs SET status = 'refunded', refund_tx = $2, refunded_at = NOW(), updated_at = NOW() WHERE id = $1`,
-            [openJobId, txHash]
+            [openJobId, txHash],
           )
 
           if (job.client_address) {
-            await notifyAgent(job.client_address, 'job_refunded', openJobId,
-              `"${job.title}" expired. USDC refunded. tx: ${txHash}`)
+            await notifyAgent(
+              job.client_address,
+              'job_refunded',
+              openJobId,
+              `"${job.title}" expired. USDC refunded. tx: ${txHash}`,
+            )
           }
           if (job.selected_applicant) {
-            await notifyAgent(job.selected_applicant, 'job_expired', openJobId,
-              `"${job.title}" expired — deadline passed, USDC refunded to client.`)
+            await notifyAgent(
+              job.selected_applicant,
+              'job_expired',
+              openJobId,
+              `"${job.title}" expired — deadline passed, USDC refunded to client.`,
+            )
           }
         } else if (onchainStatus === 1) {
           // Funded on-chain, deadline NOT passed yet
-          console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) still funded on-chain, deadline not passed yet`)
+          console.log(
+            `[deadline] Job ${openJobId} (on-chain ${jobId}) still funded on-chain, deadline not passed yet`,
+          )
         } else if (onchainStatus === 2) {
           // Submitted on-chain. If the deadline has passed and the client never
           // approved/rejected, the job would otherwise strand at SUBMITTED with
@@ -182,30 +242,53 @@ export async function pollForRefunds() {
           // release escrow, and forward payout to the agent. If not yet expired,
           // leave it for the client to act on.
           if (onchainExpired) {
-            console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) SUBMITTED + past deadline — completing as evaluator to release escrow`)
+            console.log(
+              `[deadline] Job ${openJobId} (on-chain ${jobId}) SUBMITTED + past deadline — completing as evaluator to release escrow`,
+            )
             try {
-              const tx = await executeComplete(BigInt(jobId), 'deadline passed after submission — evaluator resolution')
+              const tx = await executeComplete(
+                BigInt(jobId),
+                'deadline passed after submission — evaluator resolution',
+              )
               const { query } = await import('./db.js')
-              await query(`UPDATE open_jobs SET status = 'completed', completed_tx = $2, updated_at = NOW() WHERE id = $1`, [openJobId, tx])
+              await query(
+                `UPDATE open_jobs SET status = 'completed', completed_tx = $2, updated_at = NOW() WHERE id = $1`,
+                [openJobId, tx],
+              )
               await forwardPayoutToAgent(openJobId, job).catch((err: any) =>
-                console.error(`[deadline] Job ${openJobId} payout forward failed: ${err.message} — reconcile sweep will retry`))
+                console.error(
+                  `[deadline] Job ${openJobId} payout forward failed: ${err.message} — reconcile sweep will retry`,
+                ),
+              )
               console.log(`[deadline] Job ${openJobId} resolved (SUBMITTED→COMPLETED) tx=${tx}`)
             } catch (err: any) {
-              console.error(`[deadline] Job ${openJobId} SUBMITTED-resolution failed: ${err.message} — needs manual intervention`)
+              console.error(
+                `[deadline] Job ${openJobId} SUBMITTED-resolution failed: ${err.message} — needs manual intervention`,
+              )
             }
           } else {
-            console.log(`[deadline] Job ${openJobId} (on-chain ${jobId}) submitted on-chain, deadline not passed — awaiting client`)
+            console.log(
+              `[deadline] Job ${openJobId} (on-chain ${jobId}) submitted on-chain, deadline not passed — awaiting client`,
+            )
           }
         } else {
           // Completed/Rejected on-chain — sync marketplace status
           const { query } = await import('./db.js')
           const statusMap: Record<number, string> = { 3: 'completed', 4: 'failed', 5: 'refunded' }
           const newStatus = statusMap[onchainStatus] || 'expired'
-          await query(`UPDATE open_jobs SET status = $2, updated_at = NOW() WHERE id = $1`, [openJobId, newStatus])
-          console.log(`[deadline] Synced job ${openJobId} to status ${newStatus} (on-chain status=${onchainStatus})`)
+          await query(`UPDATE open_jobs SET status = $2, updated_at = NOW() WHERE id = $1`, [
+            openJobId,
+            newStatus,
+          ])
+          console.log(
+            `[deadline] Synced job ${openJobId} to status ${newStatus} (on-chain status=${onchainStatus})`,
+          )
         }
       } catch (err: any) {
-        console.error(`[deadline] Error processing job ${openJobId} (on-chain ${jobId}):`, err.message)
+        console.error(
+          `[deadline] Error processing job ${openJobId} (on-chain ${jobId}):`,
+          err.message,
+        )
       }
     }
   } catch (err) {
@@ -219,9 +302,12 @@ async function claimRefundWithRetry(jobId: bigint, maxAttempts = 3): Promise<str
       const txHash = await executeClaimRefund(jobId)
       return txHash
     } catch (err: any) {
-      console.error(`[evaluator] claimRefund attempt ${attempt + 1}/${maxAttempts} failed for job ${jobId}:`, err.message)
+      console.error(
+        `[evaluator] claimRefund attempt ${attempt + 1}/${maxAttempts} failed for job ${jobId}:`,
+        err.message,
+      )
       if (attempt < maxAttempts - 1) {
-        await new Promise(r => setTimeout(r, 5000 * (attempt + 1)))
+        await new Promise((r) => setTimeout(r, 5000 * (attempt + 1)))
       }
     }
   }
@@ -231,7 +317,9 @@ async function claimRefundWithRetry(jobId: bigint, maxAttempts = 3): Promise<str
 async function processEvaluation(job: any) {
   const jobId = job.job_id // on-chain job ID
   const openJobId = job.id
-  console.log(`[evaluator] Evaluating job "${job.title}" (id=${openJobId}, on-chain=${jobId}, version=${job.version})`)
+  console.log(
+    `[evaluator] Evaluating job "${job.title}" (id=${openJobId}, on-chain=${jobId}, version=${job.version})`,
+  )
 
   if (!job.deliverable_content) {
     console.log(`[evaluator] Job ${openJobId} has no deliverable content, skipping`)
@@ -242,7 +330,7 @@ async function processEvaluation(job: any) {
   const { query } = await import('./db.js')
   const lockResult = await query(
     `UPDATE open_jobs SET status = 'evaluating_locked' WHERE id = $1 AND status = 'evaluating' RETURNING id`,
-    [openJobId]
+    [openJobId],
   )
   if (lockResult.rows.length === 0) {
     // Another poll already grabbed it
@@ -254,9 +342,10 @@ async function processEvaluation(job: any) {
   const revisionNumber = prevEvals.length // 0 = first attempt, 1 = first revision, etc.
 
   // Parse sector_config if stored as string (pg JSONB should auto-parse, but safety)
-  const sectorConfig = typeof job.sector_config === 'string'
-    ? JSON.parse(job.sector_config)
-    : job.sector_config || null
+  const sectorConfig =
+    typeof job.sector_config === 'string'
+      ? JSON.parse(job.sector_config)
+      : job.sector_config || null
 
   // === PRE-VALIDATION: reject garbage before wasting LLM tokens ===
   const { preValidate } = await import('./validate.js')
@@ -277,13 +366,13 @@ async function processEvaluation(job: any) {
   // per-file content), but worth revisiting if jobs accumulate many
   // revisions with bulky files.
   const { analyzeFile } = await import('./file-analyzer.js')
-  let fileContents: { filename: string; fileType: string; content: string; analysis?: any }[] = []
+  const fileContents: { filename: string; fileType: string; content: string; analysis?: any }[] = []
   let dbFileCount = 0
   let fetchFailures = 0
   try {
     const filesResult = await query(
-      `SELECT filename, file_type, storage_path FROM deliverable_files WHERE open_job_id = $1 ORDER BY id ASC`,
-      [openJobId]
+      `SELECT filename, file_type, storage_path FROM deliverable_files WHERE deliverable_id = $1 ORDER BY id ASC`,
+      [job.deliverable_id],
     )
     dbFileCount = filesResult.rows.length
     for (const file of filesResult.rows) {
@@ -301,7 +390,9 @@ async function processEvaluation(job: any) {
           })
         } else {
           fetchFailures++
-          console.warn(`[evaluator] File fetch returned empty for ${file.filename} (path=${file.storage_path}) — see [supabase] error above`)
+          console.warn(
+            `[evaluator] File fetch returned empty for ${file.filename} (path=${file.storage_path}) — see [supabase] error above`,
+          )
         }
       } catch (err) {
         fetchFailures++
@@ -309,7 +400,9 @@ async function processEvaluation(job: any) {
       }
     }
     if (fileContents.length > 0) {
-      console.log(`[evaluator] Loaded ${fileContents.length}/${dbFileCount} files for job ${openJobId}`)
+      console.log(
+        `[evaluator] Loaded ${fileContents.length}/${dbFileCount} files for job ${openJobId}`,
+      )
     } else if (dbFileCount > 0) {
       console.error(
         `[evaluator] CRITICAL: deliverable_files has ${dbFileCount} rows for job ${openJobId} ` +
@@ -330,7 +423,7 @@ async function processEvaluation(job: any) {
     await query(
       `INSERT INTO evaluations (open_job_id, version, score, reasoning, suggestions, status, llm_model, evaluator_address)
        VALUES ($1, $2, 0, $3, 'Improve your deliverable and resubmit.', 'failed', 'pre-validation', $4)`,
-      [openJobId, revisionNumber + 1, validation.reason, CONFIG.EVALUATOR_ADDRESS.toLowerCase()]
+      [openJobId, revisionNumber + 1, validation.reason, CONFIG.EVALUATOR_ADDRESS.toLowerCase()],
     )
 
     // Audit T9 (2026-06-15): pre-validation failures must count as strikes.
@@ -344,14 +437,22 @@ async function processEvaluation(job: any) {
     const isFinalStrike = revisionNumber + 1 >= maxStrikes
 
     if (isFinalStrike && jobId) {
-      console.log(`[evaluator] Pre-validation: final strike (${revisionNumber + 1}/${maxStrikes}) for job ${openJobId} — failing job`)
+      console.log(
+        `[evaluator] Pre-validation: final strike (${revisionNumber + 1}/${maxStrikes}) for job ${openJobId} — failing job`,
+      )
       await failJobOnChain(openJobId, jobId, job, validation.reason!, revisionNumber)
     } else if (jobId) {
-      console.log(`[evaluator] Pre-validation: strike ${revisionNumber + 1}/${maxStrikes} for job ${openJobId} — revision requested`)
-      await updateJobAfterEvaluation(openJobId, 'revision_requested', { revisionCount: revisionNumber + 1 })
+      console.log(
+        `[evaluator] Pre-validation: strike ${revisionNumber + 1}/${maxStrikes} for job ${openJobId} — revision requested`,
+      )
+      await updateJobAfterEvaluation(openJobId, 'revision_requested', {
+        revisionCount: revisionNumber + 1,
+      })
     } else {
       // No on-chain job — purely off-chain test path
-      await updateJobAfterEvaluation(openJobId, 'revision_requested', { revisionCount: revisionNumber + 1 })
+      await updateJobAfterEvaluation(openJobId, 'revision_requested', {
+        revisionCount: revisionNumber + 1,
+      })
     }
     return
   }
@@ -362,25 +463,31 @@ async function processEvaluation(job: any) {
   // === CALL LLM (with fallback + multi-model) ===
   let result: EvalResult
   try {
-    result = await evaluateDeliverable({
-      jobTitle: job.title,
-      jobDescription: job.description,
-      requirements: job.requirements,
-      deliverableContent: job.deliverable_content,
-      deliverableLink: job.deliverable_link,
-      deliverableNotes: job.deliverable_notes,
-      revisionNumber,
-      previousEvaluations: prevEvals.map(e => ({
-        score: e.score,
-        reasoning: e.reasoning,
-        suggestions: e.suggestions,
-      })),
-      category: job.category || null,
-      sectorConfig,
-      files: fileContents.length > 0 ? fileContents : undefined,
-    }, job.max_revisions ?? CONFIG.MAX_REVISIONS)
+    result = await evaluateDeliverable(
+      {
+        jobTitle: job.title,
+        jobDescription: job.description,
+        requirements: job.requirements,
+        deliverableContent: job.deliverable_content,
+        deliverableLink: job.deliverable_link,
+        deliverableNotes: job.deliverable_notes,
+        revisionNumber,
+        previousEvaluations: prevEvals.map((e) => ({
+          score: e.score,
+          reasoning: e.reasoning,
+          suggestions: e.suggestions,
+        })),
+        category: job.category || null,
+        sectorConfig,
+        files: fileContents.length > 0 ? fileContents : undefined,
+      },
+      job.max_revisions ?? CONFIG.MAX_REVISIONS,
+    )
   } catch (err) {
-    console.error(`[evaluator] All LLM providers failed for job ${openJobId}:`, (err as Error).message)
+    console.error(
+      `[evaluator] All LLM providers failed for job ${openJobId}:`,
+      (err as Error).message,
+    )
     // Queue for manual review instead of getting stuck in retry loop (E-06)
     await query(`UPDATE open_jobs SET status = 'evaluating_pending' WHERE id = $1`, [openJobId])
     console.warn(`[evaluator] Job ${openJobId} set to evaluating_pending — manual review needed`)
@@ -388,7 +495,9 @@ async function processEvaluation(job: any) {
   }
 
   const totalTokens = result.tokensUsed.input + result.tokensUsed.output
-  console.log(`[evaluator] Job ${openJobId}: score=${result.score} decision=${result.decision} provider=${result.providerUsed} tokens=${totalTokens} cost=$${result.estimatedCost.toFixed(4)}`)
+  console.log(
+    `[evaluator] Job ${openJobId}: score=${result.score} decision=${result.decision} provider=${result.providerUsed} tokens=${totalTokens} cost=$${result.estimatedCost.toFixed(4)}`,
+  )
 
   let txHash: string | null = null
 
@@ -397,7 +506,7 @@ async function processEvaluation(job: any) {
     try {
       // Check on-chain status — if already funded (1), need to submit first
       const onchainStatus = await getOnchainJobStatus(BigInt(jobId))
-      
+
       if (onchainStatus === 1) {
         // Funded — provider needs to submit on-chain
         console.log(`[evaluator] Submitting on-chain for job ${jobId}...`)
@@ -428,7 +537,9 @@ async function processEvaluation(job: any) {
         // Do NOT throw — `complete()` has already landed and the job is in
         // 'completed' status. A payout failure here is recoverable via the
         // reconcile sweep (getUnpaidCompletedJobs / scripts/backfill-payouts.ts).
-        console.error(`[evaluator] Payout forward failed for job ${openJobId}: ${err.message} — will be picked up by reconcile sweep`)
+        console.error(
+          `[evaluator] Payout forward failed for job ${openJobId}: ${err.message} — will be picked up by reconcile sweep`,
+        )
       })
     } catch (err: any) {
       console.error(`[evaluator] On-chain error for job ${openJobId}:`, err.message)
@@ -436,14 +547,13 @@ async function processEvaluation(job: any) {
       try {
         await query(
           `UPDATE open_jobs SET status = 'funded', updated_at = NOW() WHERE id = $1 AND status = 'evaluating_locked'`,
-          [openJobId]
+          [openJobId],
         )
       } catch (unlockErr: any) {
         console.error(`[evaluator] Failed to release lock for job ${openJobId}:`, unlockErr.message)
       }
       return // Don't store evaluation — retry next poll
     }
-
   } else if (result.decision === 'failed' && jobId) {
     // FINAL FAILURE: submit on-chain → reject on-chain (which refunds the client).
     try {
@@ -453,17 +563,18 @@ async function processEvaluation(job: any) {
       try {
         await query(
           `UPDATE open_jobs SET status = 'funded', updated_at = NOW() WHERE id = $1 AND status = 'evaluating_locked'`,
-          [openJobId]
+          [openJobId],
         )
       } catch (unlockErr: any) {
         console.error(`[evaluator] Failed to release lock for job ${openJobId}:`, unlockErr.message)
       }
       return
     }
-
   } else if (result.decision === 'rejected') {
     // REVISION REQUESTED: off-chain only
-    console.log(`[evaluator] Revision ${revisionNumber + 1}/${job.max_revisions ?? CONFIG.MAX_REVISIONS} requested for job ${openJobId}`)
+    console.log(
+      `[evaluator] Revision ${revisionNumber + 1}/${job.max_revisions ?? CONFIG.MAX_REVISIONS} requested for job ${openJobId}`,
+    )
     await updateJobAfterEvaluation(openJobId, 'revision_requested', {
       revisionCount: revisionNumber + 1,
     })
@@ -570,7 +681,9 @@ async function failJobOnChain(
     // Belt-and-braces fallback: if reject() ever stops auto-refunding (contract
     // upgrade, etc.), don't lie to the client. Mark as 'failed' and let the
     // deadline cron call claimRefund() after expiredAt.
-    console.warn(`[evaluator] reject() did NOT emit a USDC Transfer log — falling back to deferred-refund flow. Investigate contract behaviour.`)
+    console.warn(
+      `[evaluator] reject() did NOT emit a USDC Transfer log — falling back to deferred-refund flow. Investigate contract behaviour.`,
+    )
     await updateJobAfterEvaluation(openJobId, 'failed', { revisionCount: revisionNumber + 1 })
   }
 
@@ -627,7 +740,9 @@ async function forwardPayoutToAgent(openJobId: number, job: any): Promise<void> 
 
   const amount = BigInt(String(finalBudget))
   if (amount <= 0n) {
-    console.warn(`[payout] Job ${openJobId}: non-positive final_budget=${finalBudget}, skipping payout`)
+    console.warn(
+      `[payout] Job ${openJobId}: non-positive final_budget=${finalBudget}, skipping payout`,
+    )
     return
   }
 
@@ -649,13 +764,21 @@ async function forwardPayoutToAgent(openJobId: number, job: any): Promise<void> 
   if (jobIdOnchain) {
     try {
       const st = await getOnchainJobStatus(BigInt(jobIdOnchain))
-      if (st === 1) { // FUNDED — needs submit + complete
-        await executeSubmit(BigInt(jobIdOnchain), job.deliverable_content || 'deliverable').catch(() => {})
+      if (st === 1) {
+        // FUNDED — needs submit + complete
+        await executeSubmit(BigInt(jobIdOnchain), job.deliverable_content || 'deliverable').catch(
+          () => {},
+        )
         await executeComplete(BigInt(jobIdOnchain), 'client approved')
-        console.log(`[payout] Job ${openJobId}: released on-chain escrow (FUNDED→COMPLETED) before forward`)
-      } else if (st === 2) { // SUBMITTED — needs complete
+        console.log(
+          `[payout] Job ${openJobId}: released on-chain escrow (FUNDED→COMPLETED) before forward`,
+        )
+      } else if (st === 2) {
+        // SUBMITTED — needs complete
         await executeComplete(BigInt(jobIdOnchain), 'client approved')
-        console.log(`[payout] Job ${openJobId}: completed on-chain (SUBMITTED→COMPLETED) before forward`)
+        console.log(
+          `[payout] Job ${openJobId}: completed on-chain (SUBMITTED→COMPLETED) before forward`,
+        )
       }
       // st === 3 (COMPLETED already) → escrow already released, just forward.
     } catch (err: any) {
@@ -678,7 +801,9 @@ async function forwardPayoutToAgent(openJobId: number, job: any): Promise<void> 
 
   // Phase 3: record the tx hash, locking the unique partial index.
   await recordPayoutTx(openJobId, payoutTx)
-  console.log(`[payout] Job ${openJobId}: forwarded ${amount} USDC base-units to ${recipient} — tx=${payoutTx}`)
+  console.log(
+    `[payout] Job ${openJobId}: forwarded ${amount} USDC base-units to ${recipient} — tx=${payoutTx}`,
+  )
 }
 
 /**

@@ -16,17 +16,30 @@ function requireServiceAuth(c: any): boolean {
   const a = Buffer.from(serviceKey)
   const b = Buffer.from(expected)
   if (a.length !== b.length) return false
-  try { return timingSafeEqual(a, b) } catch { return false }
+  try {
+    return timingSafeEqual(a, b)
+  } catch {
+    return false
+  }
 }
 
 /** Verify JWT and return authenticated wallet. Returns null + sets status on failure.
  *  SEC-006: Uses central verifyToken which enforces alg=HS256 + iss/aud, rejects alg=none. */
 async function requireWalletAuth(c: any, address: string): Promise<string | null> {
   const authHeader = c.req.header('authorization')
-  if (!authHeader?.startsWith('Bearer ')) { c.status(401); return null }
+  if (!authHeader?.startsWith('Bearer ')) {
+    c.status(401)
+    return null
+  }
   const result = verifyToken(authHeader.slice(7))
-  if (!result) { c.status(401); return null }
-  if (result.wallet !== address.toLowerCase()) { c.status(403); return null }
+  if (!result) {
+    c.status(401)
+    return null
+  }
+  if (result.wallet !== address.toLowerCase()) {
+    c.status(403)
+    return null
+  }
   return result.wallet
 }
 
@@ -35,22 +48,51 @@ if (!PROVIDER_KEY) throw new Error('PROVIDER_PRIVATE_KEY env var required')
 const ARC_RPC = 'https://rpc.testnet.arc.network'
 const AGENTIC_COMMERCE = '0x0747EEf0706327138c69792bF28Cd525089e4583'
 const USDC = '0x3600000000000000000000000000000000000000'
-const arcChain = { id: 5042002, name: 'Arc Testnet', nativeCurrency: { name: 'ARC', symbol: 'ARC', decimals: 18 }, rpcUrls: { default: { http: [ARC_RPC] } } } as const
+const arcChain = {
+  id: 5042002,
+  name: 'Arc Testnet',
+  nativeCurrency: { name: 'ARC', symbol: 'ARC', decimals: 18 },
+  rpcUrls: { default: { http: [ARC_RPC] } },
+} as const
 
-const SET_BUDGET_ABI = [{ inputs: [{ name: 'jobId', type: 'uint256' }, { name: 'amount', type: 'uint256' }, { name: 'optParams', type: 'bytes' }], name: 'setBudget', outputs: [], stateMutability: 'nonpayable', type: 'function' }]
-const GET_JOB_ABI = [{
-  inputs: [{ name: 'jobId', type: 'uint256' }],
-  name: 'getJob',
-  outputs: [{
-    components: [
-      { name: 'id', type: 'uint256' }, { name: 'client', type: 'address' },
-      { name: 'provider', type: 'address' }, { name: 'evaluator', type: 'address' },
-      { name: 'description', type: 'string' }, { name: 'budget', type: 'uint256' },
-      { name: 'expiredAt', type: 'uint256' }, { name: 'status', type: 'uint8' },
-      { name: 'hook', type: 'address' },
-    ], name: '', type: 'tuple',
-  }], stateMutability: 'view', type: 'function',
-}] as const
+const SET_BUDGET_ABI = [
+  {
+    inputs: [
+      { name: 'jobId', type: 'uint256' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'optParams', type: 'bytes' },
+    ],
+    name: 'setBudget',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+]
+const GET_JOB_ABI = [
+  {
+    inputs: [{ name: 'jobId', type: 'uint256' }],
+    name: 'getJob',
+    outputs: [
+      {
+        components: [
+          { name: 'id', type: 'uint256' },
+          { name: 'client', type: 'address' },
+          { name: 'provider', type: 'address' },
+          { name: 'evaluator', type: 'address' },
+          { name: 'description', type: 'string' },
+          { name: 'budget', type: 'uint256' },
+          { name: 'expiredAt', type: 'uint256' },
+          { name: 'status', type: 'uint8' },
+          { name: 'hook', type: 'address' },
+        ],
+        name: '',
+        type: 'tuple',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const
 
 const FIELD_LIMITS = {
   title: 200,
@@ -62,7 +104,10 @@ const FIELD_LIMITS = {
   feedback: 2000,
 } as const
 
-function validateFieldLength(value: string | undefined, field: keyof typeof FIELD_LIMITS): string | null {
+function validateFieldLength(
+  value: string | undefined,
+  field: keyof typeof FIELD_LIMITS,
+): string | null {
   if (!value) return null
   if (value.length > FIELD_LIMITS[field]) {
     return `${field} must be ${FIELD_LIMITS[field]} characters or less (got ${value.length})`
@@ -75,7 +120,19 @@ export const openJobs = new Hono()
 // POST /api/open-jobs — create an open job listing
 openJobs.post('/', requireAuth, async (c) => {
   const body = await c.req.json()
-  const { title, description, category, requirements, budgetMin, budgetMax, deadlineHours, clientAddress, jobId, onChainTx, sectorConfig } = body
+  const {
+    title,
+    description,
+    category,
+    requirements,
+    budgetMin,
+    budgetMax,
+    deadlineHours,
+    clientAddress,
+    jobId,
+    onChainTx,
+    sectorConfig,
+  } = body
   const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   const titleErr = validateFieldLength(title, 'title')
@@ -92,17 +149,28 @@ openJobs.post('/', requireAuth, async (c) => {
     return c.json({ error: 'Can only create jobs for your own wallet' }, 403)
   }
   if (!jobId || !onChainTx || !/^0x[a-fA-F0-9]{64}$/.test(onChainTx)) {
-    return c.json({ error: 'A verified on-chain job ID and creation transaction are required' }, 400)
+    return c.json(
+      { error: 'A verified on-chain job ID and creation transaction are required' },
+      400,
+    )
   }
 
   let verifiedJobId: bigint
   try {
     verifiedJobId = BigInt(jobId)
     if (verifiedJobId <= 0n) throw new Error('invalid job ID')
-    const receipt = await createPublicClient({ chain: arcChain, transport: http(ARC_RPC) })
-      .getTransactionReceipt({ hash: onChainTx as `0x${string}` })
+    const receipt = await createPublicClient({
+      chain: arcChain,
+      transport: http(ARC_RPC),
+    }).getTransactionReceipt({ hash: onChainTx as `0x${string}` })
     if (!hasCommerceEvent(receipt, 'JobCreated', verifiedJobId, clientAddress)) {
-      return c.json({ error: 'Creation transaction is not a successful JobCreated event for this wallet and job' }, 400)
+      return c.json(
+        {
+          error:
+            'Creation transaction is not a successful JobCreated event for this wallet and job',
+        },
+        400,
+      )
     }
   } catch {
     return c.json({ error: 'Creation transaction was not found on Arc Testnet' }, 400)
@@ -116,8 +184,10 @@ openJobs.post('/', requireAuth, async (c) => {
   // 2026-06-23: negative budgets were accepted and written to the DB).
   const minNum = budgetMin != null ? parseFloat(budgetMin) : null
   const maxNum = budgetMax != null ? parseFloat(budgetMax) : null
-  if ((minNum != null && (!Number.isFinite(minNum) || minNum < 0)) ||
-      (maxNum != null && (!Number.isFinite(maxNum) || maxNum < 0))) {
+  if (
+    (minNum != null && (!Number.isFinite(minNum) || minNum < 0)) ||
+    (maxNum != null && (!Number.isFinite(maxNum) || maxNum < 0))
+  ) {
     return c.json({ error: 'Budget must be a non-negative number' }, 400)
   }
   if (minNum != null && maxNum != null && minNum > maxNum) {
@@ -131,13 +201,28 @@ openJobs.post('/', requireAuth, async (c) => {
   if (!Number.isFinite(deadlineNum) || deadlineNum < 1 || deadlineNum > 8760) {
     return c.json({ error: 'deadlineHours must be between 1 and 8760' }, 400)
   }
-  const ALLOWED_CATEGORIES = ['Code', 'Development', 'Data Analysis', 'Content Creation', 'Research', 'Trading', 'DeFi', 'Social Media', 'Monitoring', 'Other']
+  const ALLOWED_CATEGORIES = [
+    'Code',
+    'Development',
+    'Data Analysis',
+    'Content Creation',
+    'Research',
+    'Trading',
+    'DeFi',
+    'Social Media',
+    'Monitoring',
+    'Other',
+  ]
   if (category != null && category !== '' && !ALLOWED_CATEGORIES.includes(category)) {
     return c.json({ error: `Invalid category. Allowed: ${ALLOWED_CATEGORIES.join(', ')}` }, 400)
   }
 
-  const budgetMinRaw = budgetMin ? BigInt(Math.round(parseFloat(budgetMin) * 1_000_000)).toString() : null
-  const budgetMaxRaw = budgetMax ? BigInt(Math.round(parseFloat(budgetMax) * 1_000_000)).toString() : null
+  const budgetMinRaw = budgetMin
+    ? BigInt(Math.round(parseFloat(budgetMin) * 1_000_000)).toString()
+    : null
+  const budgetMaxRaw = budgetMax
+    ? BigInt(Math.round(parseFloat(budgetMax) * 1_000_000)).toString()
+    : null
 
   // Idempotent retry: a valid on-chain JobCreated receipt may outlive a lost
   // browser/API response. Let the unique job_id constraint arbitrate concurrent
@@ -147,11 +232,25 @@ openJobs.post('/', requireAuth, async (c) => {
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      ON CONFLICT (job_id) DO NOTHING
      RETURNING id`,
-    [verifiedJobId.toString(), title, description, category || null, requirements || null, budgetMinRaw, budgetMaxRaw, deadlineNum, clientAddress.toLowerCase(), onChainTx, sectorConfig ? JSON.stringify(sectorConfig) : '{}']
+    [
+      verifiedJobId.toString(),
+      title,
+      description,
+      category || null,
+      requirements || null,
+      budgetMinRaw,
+      budgetMaxRaw,
+      deadlineNum,
+      clientAddress.toLowerCase(),
+      onChainTx,
+      sectorConfig ? JSON.stringify(sectorConfig) : '{}',
+    ],
   )
 
   if (result.rows.length === 0) {
-    const existing = await query(`SELECT id FROM open_jobs WHERE job_id = $1`, [verifiedJobId.toString()])
+    const existing = await query(`SELECT id FROM open_jobs WHERE job_id = $1`, [
+      verifiedJobId.toString(),
+    ])
     return c.json({ id: existing.rows[0].id, jobId: verifiedJobId.toString(), existing: true }, 200)
   }
 
@@ -231,7 +330,7 @@ openJobs.get('/', async (c) => {
      FROM open_jobs oj ${where}
      ORDER BY oj.created_at DESC
      LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
-    [...params, limit, offset]
+    [...params, limit, offset],
   )
 
   return c.json({
@@ -263,16 +362,16 @@ openJobs.get('/my-applications', async (c) => {
      JOIN open_jobs oj ON oj.id = ja.job_id
      WHERE lower(ja.applicant_address) = lower($1)
      ORDER BY ja.created_at DESC`,
-    [address]
+    [address],
   )
 
   return c.json({
-    data: result.rows.map(row => ({
+    data: result.rows.map((row) => ({
       ...formatOpenJob(row),
       applicationStatus: row.application_status,
       appProposedBudget: formatUsdc(row.app_proposed_budget),
       appliedAt: row.applied_at,
-    }))
+    })),
   })
 })
 
@@ -294,7 +393,7 @@ openJobs.get('/my-active', async (c) => {
      WHERE lower(oj.selected_applicant) = lower($1)
      AND oj.status IN ('assigned', 'funded', 'in_progress', 'delivered')
      ORDER BY oj.updated_at DESC`,
-    [address]
+    [address],
   )
 
   return c.json({ data: result.rows.map(formatOpenJob) })
@@ -330,17 +429,17 @@ openJobs.get('/my-active-all', async (c) => {
        OR (ja_mine.id IS NOT NULL AND ja_mine.status = 'pending' AND oj.status = 'open')
      )
      ORDER BY oj.updated_at DESC`,
-    [address]
+    [address],
   )
 
   return c.json({
-    data: result.rows.map(row => ({
+    data: result.rows.map((row) => ({
       ...formatOpenJob(row),
       applicationStatus: row.application_status,
       appProposedBudget: row.app_proposed_budget ? formatUsdc(row.app_proposed_budget) : null,
       appliedAt: row.applied_at,
       role: row.role,
-    }))
+    })),
   })
 })
 
@@ -374,17 +473,19 @@ openJobs.get('/my-history', async (c) => {
      WHERE (lower(oj.client_address) = lower($1) OR lower(oj.selected_applicant) = lower($1))
      AND oj.status IN ('completed', 'failed', 'rejected', 'refunded', 'cancelled', 'expired')
      ORDER BY oj.updated_at DESC`,
-    [address]
+    [address],
   )
 
-  return c.json({ data: result.rows.map(row => ({
-    ...formatOpenJob(row),
-    role: row.role,
-    evalScore: row.eval_score ?? null,
-    evalReasoning: row.eval_reasoning ?? null,
-    evalStatus: row.eval_status ?? null,
-    evalBreakdown: row.eval_breakdown ?? null,
-  })) })
+  return c.json({
+    data: result.rows.map((row) => ({
+      ...formatOpenJob(row),
+      role: row.role,
+      evalScore: row.eval_score ?? null,
+      evalReasoning: row.eval_reasoning ?? null,
+      evalStatus: row.eval_status ?? null,
+      evalBreakdown: row.eval_breakdown ?? null,
+    })),
+  })
 })
 
 // GET /api/open-jobs/my-completed?address=0x...
@@ -406,7 +507,7 @@ openJobs.get('/my-completed', async (c) => {
      WHERE (lower(oj.selected_applicant) = lower($1) OR lower(oj.client_address) = lower($1))
      AND oj.status IN ('completed', 'failed', 'rejected')
      ORDER BY oj.updated_at DESC`,
-    [address]
+    [address],
   )
 
   return c.json({ data: result.rows.map(formatOpenJob) })
@@ -429,7 +530,7 @@ openJobs.get('/my-posted', async (c) => {
      FROM open_jobs oj
      WHERE lower(oj.client_address) = lower($1)
      ORDER BY oj.created_at DESC`,
-    [address]
+    [address],
   )
 
   return c.json({ data: result.rows.map(formatOpenJob) })
@@ -449,9 +550,9 @@ openJobs.get('/recommended', async (c) => {
   const catResult = await query(
     `SELECT DISTINCT oj.category FROM open_jobs oj
      WHERE lower(oj.selected_applicant) = lower($1) AND oj.category IS NOT NULL`,
-    [address]
+    [address],
   )
-  const categories = catResult.rows.map(r => r.category)
+  const categories = catResult.rows.map((r) => r.category)
 
   let result
   if (categories.length > 0) {
@@ -461,7 +562,7 @@ openJobs.get('/recommended', async (c) => {
        WHERE oj.status = 'open' AND oj.category = ANY($1)
        AND lower(oj.client_address) != lower($2)
        ORDER BY oj.created_at DESC LIMIT 10`,
-      [categories, address]
+      [categories, address],
     )
   } else {
     result = await query(
@@ -469,7 +570,7 @@ openJobs.get('/recommended', async (c) => {
        FROM open_jobs oj
        WHERE oj.status = 'open' AND lower(oj.client_address) != lower($1)
        ORDER BY oj.created_at DESC LIMIT 10`,
-      [address]
+      [address],
     )
   }
 
@@ -492,17 +593,21 @@ openJobs.get('/agent-ratings', async (c) => {
      JOIN open_jobs oj ON oj.id = mr.open_job_id
      WHERE lower(mr.agent_address) = lower($1)
      ORDER BY mr.created_at DESC`,
-    [address]
+    [address],
   )
   const avg = await query(
     `SELECT AVG(rating)::numeric(3,2) as avg_rating, COUNT(*) as total FROM marketplace_ratings WHERE lower(agent_address) = lower($1)`,
-    [address]
+    [address],
   )
 
   return c.json({
-    data: result.rows.map(row => ({
-      id: row.id, rating: row.rating, comment: row.comment,
-      clientAddress: row.client_address, jobTitle: row.title, createdAt: row.created_at,
+    data: result.rows.map((row) => ({
+      id: row.id,
+      rating: row.rating,
+      comment: row.comment,
+      clientAddress: row.client_address,
+      jobTitle: row.title,
+      createdAt: row.created_at,
     })),
     avgRating: parseFloat(avg.rows[0].avg_rating) || 0,
     totalRatings: parseInt(avg.rows[0].total),
@@ -514,21 +619,26 @@ openJobs.get('/notifications', requireAuth, async (c) => {
   const address = c.req.query('address')
   const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   if (!address) return c.json({ error: 'address required' }, 400)
-  if (authWallet !== address.toLowerCase()) return c.json({ error: 'Can only read your own notifications' }, 403)
+  if (authWallet !== address.toLowerCase())
+    return c.json({ error: 'Can only read your own notifications' }, 403)
 
   const result = await query(
     `SELECT * FROM agent_notifications WHERE lower(agent_address) = lower($1) ORDER BY created_at DESC LIMIT 50`,
-    [address]
+    [address],
   )
   const unreadCount = await query(
     `SELECT COUNT(*) FROM agent_notifications WHERE lower(agent_address) = lower($1) AND read = FALSE`,
-    [address]
+    [address],
   )
 
   return c.json({
-    data: result.rows.map(row => ({
-      id: row.id, type: row.type, referenceId: row.reference_id,
-      message: row.message, read: row.read, createdAt: row.created_at,
+    data: result.rows.map((row) => ({
+      id: row.id,
+      type: row.type,
+      referenceId: row.reference_id,
+      message: row.message,
+      read: row.read,
+      createdAt: row.created_at,
     })),
     unreadCount: parseInt(unreadCount.rows[0].count),
   })
@@ -540,17 +650,18 @@ openJobs.post('/notifications/read', requireAuth, async (c) => {
   const { address, ids } = body
   const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
   if (!address) return c.json({ error: 'address required' }, 400)
-  if (authWallet !== address.toLowerCase()) return c.json({ error: 'Can only update your own notifications' }, 403)
+  if (authWallet !== address.toLowerCase())
+    return c.json({ error: 'Can only update your own notifications' }, 403)
 
   if (ids && ids.length > 0) {
     await query(
       `UPDATE agent_notifications SET read = TRUE WHERE lower(agent_address) = lower($1) AND id = ANY($2)`,
-      [address, ids]
+      [address, ids],
     )
   } else {
     await query(
       `UPDATE agent_notifications SET read = TRUE WHERE lower(agent_address) = lower($1)`,
-      [address]
+      [address],
     )
   }
   return c.json({ success: true })
@@ -565,7 +676,7 @@ openJobs.post('/expire-check', requireAuth, async (c) => {
     `UPDATE open_jobs SET status = 'expired', updated_at = NOW()
      WHERE status = 'assigned'
      AND updated_at + (deadline_hours * INTERVAL '1 hour') < NOW()
-     RETURNING id, title, selected_applicant`
+     RETURNING id, title, selected_applicant`,
   )
 
   // Notify agents of expired jobs
@@ -574,12 +685,12 @@ openJobs.post('/expire-check', requireAuth, async (c) => {
       await query(
         `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
          VALUES ($1, 'job_expired', $2, $3)`,
-        [row.selected_applicant, row.id, `"${row.title}" expired — client did not fund in time.`]
+        [row.selected_applicant, row.id, `"${row.title}" expired — client did not fund in time.`],
       )
     }
   }
 
-  return c.json({ expired: result.rows.length, jobs: result.rows.map(r => r.id) })
+  return c.json({ expired: result.rows.length, jobs: result.rows.map((r) => r.id) })
 })
 
 // GET /api/open-jobs/:id — single open job detail
@@ -594,7 +705,7 @@ openJobs.get('/:id', async (c) => {
       (SELECT COUNT(*) FROM job_applications ja WHERE ja.job_id = oj.id) as application_count,
       (SELECT j.created_tx FROM jobs j WHERE j.job_id = oj.job_id LIMIT 1) as indexed_tx
      FROM open_jobs oj WHERE oj.id = $1 OR oj.job_id = $1::bigint`,
-    [id]
+    [id],
   )
 
   if (result.rows.length === 0) {
@@ -623,10 +734,9 @@ openJobs.post('/:id/apply', requireAuth, async (c) => {
     return c.json({ error: 'Can only apply as your own wallet' }, 403)
   }
 
-  const jobResult = await query(
-    `SELECT * FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
-    [id]
-  )
+  const jobResult = await query(`SELECT * FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`, [
+    id,
+  ])
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found' }, 404)
   }
@@ -642,21 +752,29 @@ openJobs.post('/:id/apply', requireAuth, async (c) => {
     const minBudget = openJob.budget_min ? BigInt(openJob.budget_min) : null
     const maxBudget = openJob.budget_max ? BigInt(openJob.budget_max) : null
     if (minBudget && proposedRaw < minBudget) {
-      return c.json({ error: `Proposed budget below minimum (${Number(minBudget) / 1_000_000} USDC)` }, 400)
+      return c.json(
+        { error: `Proposed budget below minimum (${Number(minBudget) / 1_000_000} USDC)` },
+        400,
+      )
     }
     if (maxBudget && proposedRaw > maxBudget) {
-      return c.json({ error: `Proposed budget exceeds maximum (${Number(maxBudget) / 1_000_000} USDC)` }, 400)
+      return c.json(
+        { error: `Proposed budget exceeds maximum (${Number(maxBudget) / 1_000_000} USDC)` },
+        400,
+      )
     }
   }
 
-  const budgetRaw = proposedBudget ? BigInt(Math.round(parseFloat(proposedBudget) * 1_000_000)).toString() : null
+  const budgetRaw = proposedBudget
+    ? BigInt(Math.round(parseFloat(proposedBudget) * 1_000_000)).toString()
+    : null
 
   try {
     const result = await query(
       `INSERT INTO job_applications (job_id, applicant_address, agent_id, message, proposed_budget)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id`,
-      [openJob.id, applicantAddress.toLowerCase(), agentId || null, message || null, budgetRaw]
+      [openJob.id, applicantAddress.toLowerCase(), agentId || null, message || null, budgetRaw],
     )
     return c.json({ id: result.rows[0].id }, 201)
   } catch (e: any) {
@@ -675,7 +793,7 @@ openJobs.get('/:id/applications', requireAuth, async (c) => {
   // Get open_jobs.id and verify ownership
   const jobResult = await query(
     `SELECT id, client_address FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
-    [id]
+    [id],
   )
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found' }, 404)
@@ -693,22 +811,22 @@ openJobs.get('/:id/applications', requireAuth, async (c) => {
      FROM job_applications ja
      WHERE ja.job_id = $1
      ORDER BY ja.created_at ASC`,
-    [openJobId]
+    [openJobId],
   )
 
   // Enrich with agent names from explorer DB
-  const addresses = result.rows.map(r => r.applicant_address?.toLowerCase()).filter(Boolean)
-  let agentMap: Record<string, { name: string; score: number; completed_jobs: number }> = {}
+  const addresses = result.rows.map((r) => r.applicant_address?.toLowerCase()).filter(Boolean)
+  const agentMap: Record<string, { name: string; score: number; completed_jobs: number }> = {}
   if (addresses.length > 0) {
     const agentResult = await queryAgents(
       `SELECT owner_address, name, agent_id FROM agents WHERE lower(owner_address) = ANY($1)`,
-      [addresses]
+      [addresses],
     )
     // Get completed jobs count from marketplace DB
     for (const agent of agentResult.rows) {
       const jobCount = await query(
         `SELECT COUNT(*) FROM jobs WHERE provider_agent_id = $1 AND status = 3`,
-        [agent.agent_id]
+        [agent.agent_id],
       )
       agentMap[agent.owner_address.toLowerCase()] = {
         name: agent.name,
@@ -719,7 +837,7 @@ openJobs.get('/:id/applications', requireAuth, async (c) => {
   }
 
   return c.json({
-    data: result.rows.map(row => ({
+    data: result.rows.map((row) => ({
       id: row.id,
       applicantAddress: row.applicant_address,
       agentId: row.agent_id ? parseInt(row.agent_id) : null,
@@ -753,10 +871,18 @@ openJobs.post('/:id/link-chain', requireAuth, async (c) => {
   try {
     verifiedJobId = BigInt(jobId)
     if (verifiedJobId <= 0n) throw new Error('invalid job ID')
-    const receipt = await createPublicClient({ chain: arcChain, transport: http(ARC_RPC) })
-      .getTransactionReceipt({ hash: onChainTx as `0x${string}` })
+    const receipt = await createPublicClient({
+      chain: arcChain,
+      transport: http(ARC_RPC),
+    }).getTransactionReceipt({ hash: onChainTx as `0x${string}` })
     if (!hasCommerceEvent(receipt, 'JobCreated', verifiedJobId, clientAddress)) {
-      return c.json({ error: 'Creation transaction is not a successful JobCreated event for this wallet and job' }, 400)
+      return c.json(
+        {
+          error:
+            'Creation transaction is not a successful JobCreated event for this wallet and job',
+        },
+        400,
+      )
     }
   } catch {
     return c.json({ error: 'Creation transaction was not found on Arc Testnet' }, 400)
@@ -765,13 +891,13 @@ openJobs.post('/:id/link-chain', requireAuth, async (c) => {
   // Verify job ownership
   const ownerCheck = await query(
     `SELECT id FROM open_jobs WHERE id = $1 AND lower(client_address) = lower($2)`,
-    [id, clientAddress]
+    [id, clientAddress],
   )
   if (ownerCheck.rows.length === 0) return c.json({ error: 'Job not found or not yours' }, 404)
 
   await query(
     `UPDATE open_jobs SET job_id = $2, on_chain_tx = $3, updated_at = NOW() WHERE id = $1`,
-    [id, verifiedJobId.toString(), onChainTx]
+    [id, verifiedJobId.toString(), onChainTx],
   )
   return c.json({ success: true })
 })
@@ -792,7 +918,7 @@ openJobs.post('/:id/select', requireAuth, async (c) => {
 
   const jobResult = await query(
     `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
-    [id, clientAddress]
+    [id, clientAddress],
   )
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found or not your job' }, 404)
@@ -804,13 +930,20 @@ openJobs.post('/:id/select', requireAuth, async (c) => {
   }
   try {
     const relay = privateKeyToAccount(PROVIDER_KEY as `0x${string}`).address
-    const onchainJob = await createPublicClient({ chain: arcChain, transport: http(ARC_RPC) }).readContract({
+    const onchainJob = await createPublicClient({
+      chain: arcChain,
+      transport: http(ARC_RPC),
+    }).readContract({
       address: AGENTIC_COMMERCE as `0x${string}`,
       abi: GET_JOB_ABI,
       functionName: 'getJob',
       args: [BigInt(job.job_id)],
     })
-    if (onchainJob.client.toLowerCase() !== clientAddress.toLowerCase() || Number(onchainJob.status) !== 0 || onchainJob.provider.toLowerCase() !== relay.toLowerCase()) {
+    if (
+      onchainJob.client.toLowerCase() !== clientAddress.toLowerCase() ||
+      Number(onchainJob.status) !== 0 ||
+      onchainJob.provider.toLowerCase() !== relay.toLowerCase()
+    ) {
       return c.json({ error: 'On-chain job is not ready for this provider selection' }, 400)
     }
   } catch {
@@ -824,7 +957,7 @@ openJobs.post('/:id/select', requireAuth, async (c) => {
     `UPDATE job_applications SET status = 'selected'
      WHERE job_id = $1 AND lower(applicant_address) = lower($2) AND status = 'pending'
      RETURNING id`,
-    [jobResult.rows[0].id, applicantAddress]
+    [jobResult.rows[0].id, applicantAddress],
   )
   if (selected.rows.length === 0) {
     return c.json({ error: 'Applicant has no pending application for this job' }, 400)
@@ -832,26 +965,32 @@ openJobs.post('/:id/select', requireAuth, async (c) => {
   // Reject others
   await query(
     `UPDATE job_applications SET status = 'rejected' WHERE job_id = $1 AND lower(applicant_address) != lower($2) AND status = 'pending'`,
-    [jobResult.rows[0].id, applicantAddress]
+    [jobResult.rows[0].id, applicantAddress],
   )
   // Update open job status + store selected applicant
   await query(
     `UPDATE open_jobs SET status = 'assigned', selected_applicant = lower($2), updated_at = NOW() WHERE id = $1 OR job_id = $1::bigint`,
-    [id, applicantAddress]
+    [id, applicantAddress],
   )
 
   // Notify selected agent — in-app + webhook push
   await query(
     `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
      VALUES ($1, 'application_selected', $2, $3)`,
-    [applicantAddress.toLowerCase(), job.id, `You were selected for "${job.title}"`]
+    [applicantAddress.toLowerCase(), job.id, `You were selected for "${job.title}"`],
   )
   await dispatchWebhooks('job.selected', {
     agentAddress: applicantAddress,
-    job: { id: job.id, jobId: job.job_id, title: job.title, category: job.category, status: 'assigned' },
+    job: {
+      id: job.id,
+      jobId: job.job_id,
+      title: job.title,
+      category: job.category,
+      status: 'assigned',
+    },
   })
 
-    // setBudget is now handled by the /set-budget endpoint during the fund flow
+  // setBudget is now handled by the /set-budget endpoint during the fund flow
   // (provider must be set on-chain first, which happens in the frontend)
 
   return c.json({ success: true })
@@ -888,12 +1027,13 @@ openJobs.post('/:id/set-budget', requireAuth, async (c) => {
 
   const jobResult = await query(
     `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
-    [id, clientAddress]
+    [id, clientAddress],
   )
   if (jobResult.rows.length === 0) return c.json({ error: 'Job not found or not yours' }, 404)
 
   const job = jobResult.rows[0]
-  if (job.status !== 'assigned') return c.json({ error: 'Job must have a selected agent before setting budget' }, 400)
+  if (job.status !== 'assigned')
+    return c.json({ error: 'Job must have a selected agent before setting budget' }, 400)
   // A browser may not substitute a different contract job than the one this
   // listing was created from. The provider relay would otherwise fund/set
   // budget on arbitrary jobs with platform funds.
@@ -961,7 +1101,7 @@ openJobs.post('/:id/fund', requireAuth, async (c) => {
 
   const jobResult = await query(
     `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
-    [id, clientAddress]
+    [id, clientAddress],
   )
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found or not your job' }, 404)
@@ -984,7 +1124,10 @@ openJobs.post('/:id/fund', requireAuth, async (c) => {
     const publicClient = createPublicClient({ chain: arcChain, transport: http(ARC_RPC) })
     const receipt = await publicClient.getTransactionReceipt({ hash: fundTx as `0x${string}` })
     if (!hasCommerceEvent(receipt, 'JobFunded', actualOnchainJobId, clientAddress)) {
-      return c.json({ error: 'fundTx is not a successful funding transaction for this job and client' }, 400)
+      return c.json(
+        { error: 'fundTx is not a successful funding transaction for this job and client' },
+        400,
+      )
     }
     const onchainJob = await publicClient.readContract({
       address: AGENTIC_COMMERCE as `0x${string}`,
@@ -992,7 +1135,10 @@ openJobs.post('/:id/fund', requireAuth, async (c) => {
       functionName: 'getJob',
       args: [actualOnchainJobId],
     })
-    if (onchainJob.client.toLowerCase() !== clientAddress.toLowerCase() || Number(onchainJob.status) !== 1) {
+    if (
+      onchainJob.client.toLowerCase() !== clientAddress.toLowerCase() ||
+      Number(onchainJob.status) !== 1
+    ) {
       return c.json({ error: 'On-chain job is not funded by this client' }, 400)
     }
     fundedBudget = onchainJob.budget.toString()
@@ -1002,7 +1148,7 @@ openJobs.post('/:id/fund', requireAuth, async (c) => {
 
   await query(
     `UPDATE open_jobs SET status = 'funded', onchain_job_id = $2, funded_tx = $3, funded_at = NOW(), final_budget = $4, updated_at = NOW() WHERE id = $1`,
-    [job.id, actualOnchainJobId.toString(), fundTx, fundedBudget]
+    [job.id, actualOnchainJobId.toString(), fundTx, fundedBudget],
   )
 
   // Notify agent
@@ -1010,11 +1156,20 @@ openJobs.post('/:id/fund', requireAuth, async (c) => {
     await query(
       `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
        VALUES ($1, 'job_funded', $2, $3)`,
-      [jobResult.rows[0].selected_applicant, jobResult.rows[0].id, `"${jobResult.rows[0].title}" is funded. You can start work.`]
+      [
+        jobResult.rows[0].selected_applicant,
+        jobResult.rows[0].id,
+        `"${jobResult.rows[0].title}" is funded. You can start work.`,
+      ],
     )
     await dispatchWebhooks('job.funded', {
       agentAddress: jobResult.rows[0].selected_applicant,
-      job: { id: jobResult.rows[0].id, jobId: jobResult.rows[0].job_id, title: jobResult.rows[0].title, status: 'funded' },
+      job: {
+        id: jobResult.rows[0].id,
+        jobId: jobResult.rows[0].job_id,
+        title: jobResult.rows[0].title,
+        status: 'funded',
+      },
     })
   }
 
@@ -1037,7 +1192,7 @@ openJobs.post('/:id/start', requireAuth, async (c) => {
 
   const jobResult = await query(
     `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(selected_applicant) = lower($2)`,
-    [id, applicantAddress]
+    [id, applicantAddress],
   )
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found or not assigned to you' }, 404)
@@ -1046,10 +1201,9 @@ openJobs.post('/:id/start', requireAuth, async (c) => {
     return c.json({ error: 'Job must be funded before starting work' }, 400)
   }
 
-  await query(
-    `UPDATE open_jobs SET status = 'in_progress', updated_at = NOW() WHERE id = $1`,
-    [jobResult.rows[0].id]
-  )
+  await query(`UPDATE open_jobs SET status = 'in_progress', updated_at = NOW() WHERE id = $1`, [
+    jobResult.rows[0].id,
+  ])
 
   return c.json({ success: true })
 })
@@ -1073,82 +1227,93 @@ openJobs.get('/:id/deliverables', async (c) => {
 
   const jobResult = await query(
     `SELECT id, client_address, selected_applicant, status FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
-    [id]
+    [id],
   )
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found' }, 404)
   }
 
   const job = jobResult.rows[0]
-  const isClient = requester && job.client_address && requester === job.client_address.toLowerCase()
-  const isProvider = requester && job.selected_applicant && requester === job.selected_applicant.toLowerCase()
+  const isClient = requester === job.client_address?.toLowerCase()
+  const isProvider = requester === job.selected_applicant?.toLowerCase()
+  const isParticipant = isClient || isProvider
 
-  // Visibility rules (2026-06-15):
-  //   AGENT (provider): always sees their own content/files.
-  //   CLIENT: sees a deliverable's content ONLY when that deliverable's status
-  //           is 'approved' (= it scored ≥70 and money was released). Across
-  //           the 3-attempt cycle:
-  //             - attempts 1 & 2 score <70 → 'revision_requested', client sees
-  //               reasoning via /evaluations but NOT content/files.
-  //             - attempt 3 scores <70 → job goes 'failed'/'refunded'. Money
-  //               returns to client. Client sees all 3 reasonings but NEVER
-  //               the content/files (they didn't pay for it; agent keeps work).
-  //             - any attempt scores ≥70 → that deliverable is 'approved',
-  //               job is 'completed', client unlocks content/files.
-  //   ANON: only sees deliverables of jobs that reached 'completed' (= an
-  //         approved deliverable exists). 'failed'/'refunded' jobs stay
-  //         private — there's no public artefact to show.
+  // Before settlement, the work and even its submission metadata belong only
+  // to the job parties. Completed jobs expose the approved artefact publicly.
   const isJobCompleted = job.status === 'completed'
-  if (!requester && !isJobCompleted) {
-    return c.json({ error: 'Authentication required' }, 401)
+  if (!isParticipant && !isJobCompleted) {
+    return c.json(
+      { error: requester ? 'Access denied' : 'Authentication required' },
+      requester ? 403 : 401,
+    )
   }
 
   const result = await query(
     `SELECT * FROM marketplace_deliverables WHERE open_job_id = $1 ORDER BY version DESC`,
-    [job.id]
+    [job.id],
   )
+  const visibleRows = isParticipant
+    ? result.rows
+    : result.rows.filter((row) => row.status === 'approved')
 
   return c.json({
-    data: result.rows.map(row => {
+    data: visibleRows.map((row) => {
       const isThisApproved = row.status === 'approved'
-      // Provider: always see own work.
-      // Client / anon: see content only if this specific deliverable is approved.
       const canSeeContent = isProvider || isThisApproved
 
       return {
         id: row.id,
         providerAddress: row.provider_address,
         content: canSeeContent ? row.content : null,
-        link:    canSeeContent ? row.link    : null,
-        notes:   canSeeContent ? row.notes   : null,
+        link: canSeeContent ? row.link : null,
+        notes: canSeeContent ? row.notes : null,
         version: row.version,
         status: row.status,
-        clientFeedback: row.client_feedback,
+        clientFeedback: isParticipant ? row.client_feedback : null,
         createdAt: row.created_at,
       }
-    })
+    }),
   })
 })
 
-// GET /api/open-jobs/:id/evaluations — list evaluations for a job
+// GET /api/open-jobs/:id/evaluations — participant review; public only after approval
 openJobs.get('/:id/evaluations', async (c) => {
   const id = c.req.param('id')
+  const authHeader = c.req.header('authorization')
+  const requester = authHeader?.startsWith('Bearer ')
+    ? verifyToken(authHeader.slice(7))?.wallet || null
+    : null
 
   const jobResult = await query(
-    `SELECT id FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
-    [id]
+    `SELECT id, client_address, selected_applicant, status
+     FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
+    [id],
   )
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found' }, 404)
   }
 
+  const job = jobResult.rows[0]
+  const isClient = requester === job.client_address?.toLowerCase()
+  const isProvider = requester === job.selected_applicant?.toLowerCase()
+  const isParticipant = isClient || isProvider
+  if (!isParticipant && job.status !== 'completed') {
+    return c.json(
+      { error: requester ? 'Access denied' : 'Authentication required' },
+      requester ? 403 : 401,
+    )
+  }
+
   const result = await query(
     `SELECT * FROM evaluations WHERE open_job_id = $1 ORDER BY version ASC`,
-    [jobResult.rows[0].id]
+    [job.id],
   )
+  const visibleRows = isParticipant
+    ? result.rows
+    : result.rows.filter((row) => row.status === 'approved')
 
   return c.json({
-    data: result.rows.map(row => ({
+    data: visibleRows.map((row) => ({
       id: row.id,
       version: row.version,
       score: row.score,
@@ -1159,7 +1324,7 @@ openJobs.get('/:id/evaluations', async (c) => {
       txHash: row.tx_hash,
       llmModel: row.llm_model,
       createdAt: row.created_at,
-    }))
+    })),
   })
 })
 
@@ -1168,13 +1333,13 @@ openJobs.get('/:id/suggested-agents', async (c) => {
   const id = c.req.param('id')
   const jobResult = await query(
     `SELECT id, category FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
-    [id]
+    [id],
   )
   if (jobResult.rows.length === 0) return c.json({ error: 'Job not found' }, 404)
 
   // Get agents from explorer DB
   const agentsResult = await queryAgents(
-    `SELECT agent_id, name, owner_address FROM agents WHERE name IS NOT NULL`
+    `SELECT agent_id, name, owner_address FROM agents WHERE name IS NOT NULL`,
   )
 
   // Count completed jobs from marketplace DB for each agent
@@ -1182,7 +1347,7 @@ openJobs.get('/:id/suggested-agents', async (c) => {
     agentsResult.rows.map(async (agent) => {
       const jobCount = await query(
         `SELECT COUNT(*) FROM jobs WHERE provider_agent_id = $1 AND status = 3`,
-        [agent.agent_id]
+        [agent.agent_id],
       )
       return {
         agentId: parseInt(agent.agent_id),
@@ -1190,14 +1355,14 @@ openJobs.get('/:id/suggested-agents', async (c) => {
         ownerAddress: agent.owner_address,
         completedJobs: parseInt(jobCount.rows[0].count),
       }
-    })
+    }),
   )
 
   // Sort by completed jobs, take top 10
   agentsWithJobs.sort((a, b) => b.completedJobs - a.completedJobs)
 
   return c.json({
-    data: agentsWithJobs.slice(0, 10)
+    data: agentsWithJobs.slice(0, 10),
   })
 })
 
@@ -1205,9 +1370,12 @@ openJobs.get('/:id/suggested-agents', async (c) => {
 // that can settle the contract; it writes the DB only after its own confirmed
 // JobCompleted receipt. A wallet JWT is proof of identity, not proof of escrow.
 openJobs.post('/:id/complete', requireAuth, (c) => {
-  return c.json({
-    error: 'Settlement is performed by the evaluator service after on-chain verification',
-  }, 410)
+  return c.json(
+    {
+      error: 'Settlement is performed by the evaluator service after on-chain verification',
+    },
+    410,
+  )
 })
 
 // POST /api/open-jobs/:id/reject — client rejects deliverable (request revision)
@@ -1226,11 +1394,12 @@ openJobs.post('/:id/reject', requireAuth, async (c) => {
   if (!clientAddress) {
     return c.json({ error: 'clientAddress required' }, 400)
   }
-  if (authWallet !== clientAddress.toLowerCase()) return c.json({ error: 'Can only reject deliverables for your own jobs' }, 403)
+  if (authWallet !== clientAddress.toLowerCase())
+    return c.json({ error: 'Can only reject deliverables for your own jobs' }, 403)
 
   const jobResult = await query(
     `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
-    [id, clientAddress]
+    [id, clientAddress],
   )
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found or not your job' }, 404)
@@ -1246,12 +1415,12 @@ openJobs.post('/:id/reject', requireAuth, async (c) => {
   await query(
     `UPDATE marketplace_deliverables SET status = 'revision_requested', client_feedback = $2
      WHERE open_job_id = $1 AND status = 'submitted'`,
-    [jobResult.rows[0].id, reason || null]
+    [jobResult.rows[0].id, reason || null],
   )
 
   await query(
     `UPDATE open_jobs SET status = 'in_progress', rejected_at = NOW(), updated_at = NOW() WHERE id = $1`,
-    [jobResult.rows[0].id]
+    [jobResult.rows[0].id],
   )
 
   // Notify agent of revision request — in-app + webhook push
@@ -1259,11 +1428,21 @@ openJobs.post('/:id/reject', requireAuth, async (c) => {
     await query(
       `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
        VALUES ($1, 'revision_requested', $2, $3)`,
-      [jobResult.rows[0].selected_applicant, jobResult.rows[0].id, `Revision requested on "${jobResult.rows[0].title}": ${reason || 'No details'}`]
+      [
+        jobResult.rows[0].selected_applicant,
+        jobResult.rows[0].id,
+        `Revision requested on "${jobResult.rows[0].title}": ${reason || 'No details'}`,
+      ],
     )
     await dispatchWebhooks('job.revision_requested', {
       agentAddress: jobResult.rows[0].selected_applicant,
-      job: { id: jobResult.rows[0].id, jobId: jobResult.rows[0].job_id, title: jobResult.rows[0].title, status: 'revision_requested', reason: reason || null },
+      job: {
+        id: jobResult.rows[0].id,
+        jobId: jobResult.rows[0].job_id,
+        title: jobResult.rows[0].title,
+        status: 'revision_requested',
+        reason: reason || null,
+      },
     })
   }
 
@@ -1280,11 +1459,12 @@ openJobs.post('/:id/cancel', requireAuth, async (c) => {
   if (!clientAddress) {
     return c.json({ error: 'clientAddress required' }, 400)
   }
-  if (authWallet !== clientAddress.toLowerCase()) return c.json({ error: 'Can only cancel your own jobs' }, 403)
+  if (authWallet !== clientAddress.toLowerCase())
+    return c.json({ error: 'Can only cancel your own jobs' }, 403)
 
   const jobResult = await query(
     `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
-    [id, clientAddress]
+    [id, clientAddress],
   )
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found or not your job' }, 404)
@@ -1301,16 +1481,19 @@ openJobs.post('/:id/cancel', requireAuth, async (c) => {
   // status='cancelled' here would strand the escrow (no refund_tx, funds
   // locked in the contract). See audit 2026-06-23 finding L3-2.
   if (job.funded_tx || !['open'].includes(job.status)) {
-    return c.json({
-      error: 'Funded jobs cannot be cancelled. Escrowed funds are refunded automatically if the provider is rejected or the on-chain deadline passes.',
-      status: job.status,
-    }, 400)
+    return c.json(
+      {
+        error:
+          'Funded jobs cannot be cancelled. Escrowed funds are refunded automatically if the provider is rejected or the on-chain deadline passes.',
+        status: job.status,
+      },
+      400,
+    )
   }
 
-  await query(
-    `UPDATE open_jobs SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
-    [job.id]
-  )
+  await query(`UPDATE open_jobs SET status = 'cancelled', updated_at = NOW() WHERE id = $1`, [
+    job.id,
+  ])
 
   return c.json({ success: true })
 })
@@ -1328,7 +1511,10 @@ openJobs.post('/:id/extend', requireAuth, async (c) => {
   }
 
   // Verify ownership
-  const job = await query(`SELECT client_address, deadline_hours, created_at FROM open_jobs WHERE id = $1`, [id])
+  const job = await query(
+    `SELECT client_address, deadline_hours, created_at FROM open_jobs WHERE id = $1`,
+    [id],
+  )
   if (!job.rows.length) return c.json({ error: 'Job not found' }, 404)
   if (job.rows[0].client_address?.toLowerCase() !== authWallet) {
     return c.json({ error: 'Only the job owner can extend deadline' }, 403)
@@ -1336,7 +1522,7 @@ openJobs.post('/:id/extend', requireAuth, async (c) => {
 
   await query(
     `UPDATE open_jobs SET deadline_hours = deadline_hours + $2, updated_at = NOW() WHERE id = $1`,
-    [id, additionalHours]
+    [id, additionalHours],
   )
 
   return c.json({ message: `Deadline extended by ${additionalHours} hours` })
@@ -1347,24 +1533,23 @@ openJobs.post('/:id/extend', requireAuth, async (c) => {
 // GET /api/open-jobs/:id/comments
 openJobs.get('/:id/comments', async (c) => {
   const id = c.req.param('id')
-  const jobResult = await query(
-    `SELECT id FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
-    [id]
-  )
+  const jobResult = await query(`SELECT id FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`, [
+    id,
+  ])
   if (jobResult.rows.length === 0) return c.json({ error: 'Job not found' }, 404)
 
   const result = await query(
     `SELECT * FROM marketplace_comments WHERE open_job_id = $1 ORDER BY created_at ASC`,
-    [jobResult.rows[0].id]
+    [jobResult.rows[0].id],
   )
 
   return c.json({
-    data: result.rows.map(row => ({
+    data: result.rows.map((row) => ({
       id: row.id,
       senderAddress: row.sender_address,
       message: row.message,
       createdAt: row.created_at,
-    }))
+    })),
   })
 })
 
@@ -1387,16 +1572,15 @@ openJobs.post('/:id/comments', requireAuth, async (c) => {
     return c.json({ error: 'Can only post comments as your own wallet' }, 403)
   }
 
-  const jobResult = await query(
-    `SELECT * FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`,
-    [id]
-  )
+  const jobResult = await query(`SELECT * FROM open_jobs WHERE id = $1 OR job_id = $1::bigint`, [
+    id,
+  ])
   if (jobResult.rows.length === 0) return c.json({ error: 'Job not found' }, 404)
 
   const result = await query(
     `INSERT INTO marketplace_comments (open_job_id, sender_address, message)
      VALUES ($1, $2, $3) RETURNING id, created_at`,
-    [jobResult.rows[0].id, senderAddress.toLowerCase(), message]
+    [jobResult.rows[0].id, senderAddress.toLowerCase(), message],
   )
 
   return c.json({ id: result.rows[0].id, createdAt: result.rows[0].created_at }, 201)
@@ -1424,17 +1608,24 @@ openJobs.post('/:id/rate', requireAuth, async (c) => {
 
   const jobResult = await query(
     `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
-    [id, clientAddress]
+    [id, clientAddress],
   )
   if (jobResult.rows.length === 0) return c.json({ error: 'Job not found or not your job' }, 404)
-  if (jobResult.rows[0].status !== 'completed') return c.json({ error: 'Job must be completed to rate' }, 400)
+  if (jobResult.rows[0].status !== 'completed')
+    return c.json({ error: 'Job must be completed to rate' }, 400)
   if (!jobResult.rows[0].selected_applicant) return c.json({ error: 'No agent to rate' }, 400)
 
   try {
     const result = await query(
       `INSERT INTO marketplace_ratings (open_job_id, agent_address, client_address, rating, comment)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [jobResult.rows[0].id, jobResult.rows[0].selected_applicant, clientAddress.toLowerCase(), rating, comment || null]
+      [
+        jobResult.rows[0].id,
+        jobResult.rows[0].selected_applicant,
+        clientAddress.toLowerCase(),
+        rating,
+        comment || null,
+      ],
     )
     return c.json({ id: result.rows[0].id }, 201)
   } catch (e: any) {
@@ -1450,12 +1641,18 @@ openJobs.get('/:id/ratings', async (c) => {
     `SELECT mr.*, oj.title FROM marketplace_ratings mr
      JOIN open_jobs oj ON oj.id = mr.open_job_id
      WHERE mr.open_job_id = (SELECT id FROM open_jobs WHERE id = $1 OR job_id = $1::bigint LIMIT 1)`,
-    [id]
+    [id],
   )
-  return c.json({ data: result.rows.map(row => ({
-    id: row.id, rating: row.rating, comment: row.comment,
-    clientAddress: row.client_address, jobTitle: row.title, createdAt: row.created_at,
-  })) })
+  return c.json({
+    data: result.rows.map((row) => ({
+      id: row.id,
+      rating: row.rating,
+      comment: row.comment,
+      clientAddress: row.client_address,
+      jobTitle: row.title,
+      createdAt: row.created_at,
+    })),
+  })
 })
 
 // ─── Admin Override & Appeals ─────────────────────────────────────────────────
@@ -1482,14 +1679,14 @@ openJobs.post('/:id/override-evaluation', requireAuth, async (c) => {
   // Update evaluation
   await query(
     `UPDATE evaluations SET decision = $2, reasoning = $3, status = 'overridden' WHERE open_job_id = $1`,
-    [id, decision, `[OVERRIDE by ${authWallet}] ${reason}`]
+    [id, decision, `[OVERRIDE by ${authWallet}] ${reason}`],
   )
 
   // Update job status
-  await query(
-    `UPDATE open_jobs SET status = $2 WHERE id = $1`,
-    [id, decision === 'approved' ? 'completed' : 'rejected']
-  )
+  await query(`UPDATE open_jobs SET status = $2 WHERE id = $1`, [
+    id,
+    decision === 'approved' ? 'completed' : 'rejected',
+  ])
 
   return c.json({ message: `Evaluation overridden: ${decision}` })
 })
@@ -1511,7 +1708,10 @@ openJobs.post('/:id/appeal', requireAuth, async (c) => {
   }
 
   // Check for existing appeal
-  const existing = await query(`SELECT id FROM evaluation_appeals WHERE open_job_id = $1 AND status = 'pending'`, [id])
+  const existing = await query(
+    `SELECT id FROM evaluation_appeals WHERE open_job_id = $1 AND status = 'pending'`,
+    [id],
+  )
   if (existing.rows.length) {
     return c.json({ error: 'An appeal is already pending' }, 409)
   }
@@ -1521,7 +1721,7 @@ openJobs.post('/:id/appeal', requireAuth, async (c) => {
 
   await query(
     `INSERT INTO evaluation_appeals (evaluation_id, open_job_id, agent_address, reason) VALUES ($1, $2, $3, $4)`,
-    [evalResult.rows[0]?.id || null, id, authWallet, reason]
+    [evalResult.rows[0]?.id || null, id, authWallet, reason],
   )
 
   return c.json({ message: 'Appeal submitted' }, 201)
@@ -1540,7 +1740,7 @@ openJobs.get('/appeals/pending', async (c) => {
      LEFT JOIN evaluations e ON a.evaluation_id = e.id
      LEFT JOIN open_jobs j ON a.open_job_id = j.id
      WHERE a.status = 'pending'
-     ORDER BY a.created_at ASC`
+     ORDER BY a.created_at ASC`,
   )
 
   return c.json({ data: result.rows })
@@ -1579,4 +1779,3 @@ function formatOpenJob(row: any) {
     createdAt: row.created_at,
   }
 }
-

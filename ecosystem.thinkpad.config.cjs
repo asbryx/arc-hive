@@ -41,12 +41,9 @@ module.exports = {
       ...COMMON,
       name: 'archivehub-indexer-thinkpad',
       script: `${ROOT}/packages/indexer/dist/index.js`,
-      // Override: indexer reads sync_state etc. from archiveagents.
-      // The new client.ts prefers AGENTS_DATABASE_URL, so this stays correct
-      // even if someone later flips DATABASE_URL back.
-      env: {
-        AGENTS_DATABASE_URL: 'postgresql://archiveagents:archiveagents@localhost:5432/archiveagents',
-      },
+      // Indexer reads sync_state and agents from AGENTS_DATABASE_URL in the
+      // shared env file; do not duplicate database credentials in PM2 config.
+
       error_file: `${ROOT}/logs/indexer-error.log`,
       out_file: `${ROOT}/logs/indexer-out.log`,
     },
@@ -57,15 +54,6 @@ module.exports = {
       cwd: `${ROOT}/packages/evaluator`,
       error_file: `${ROOT}/logs/evaluator-error.log`,
       out_file: `${ROOT}/logs/evaluator-out.log`,
-    },
-    {
-      ...COMMON,
-      name: 'archivehub-cleanup',
-      script: 'npx',
-      args: 'tsx scripts/cleanup-expired-files.ts',
-      cron_restart: '0 * * * *',
-      autorestart: false,
-      instances: 1,
     },
   ],
 }

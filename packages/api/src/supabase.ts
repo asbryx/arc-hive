@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { dirname, isAbsolute, relative, resolve } from 'node:path'
 
 const supabaseUrl = process.env.SUPABASE_URL
 // SEC-010: User-facing client must use anon key only.
@@ -6,28 +8,56 @@ const supabaseUrl = process.env.SUPABASE_URL
 // effectively turning every storage download into root-level access.
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
 const supabaseAdminKey = process.env.SUPABASE_SERVICE_KEY
+const storageBackend = process.env.FILE_STORAGE_BACKEND === 'local' ? 'local' : 'supabase'
+const localDeliverablesDir =
+  storageBackend === 'local' && process.env.LOCAL_DELIVERABLES_DIR
+    ? resolve(process.env.LOCAL_DELIVERABLES_DIR)
+    : null
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('[supabase] WARNING: SUPABASE_URL or SUPABASE_ANON_KEY not set — file downloads disabled')
+if (storageBackend === 'supabase' && (!supabaseUrl || !supabaseAnonKey)) {
+  console.warn(
+    '[supabase] WARNING: SUPABASE_URL or SUPABASE_ANON_KEY not set — file downloads disabled',
+  )
 }
-if (!supabaseAdminKey) {
+if (storageBackend === 'supabase' && !supabaseAdminKey) {
   console.warn('[supabase] WARNING: SUPABASE_SERVICE_KEY not set — file uploads/cleanup disabled')
+}
+if (storageBackend === 'local' && !localDeliverablesDir) {
+  console.warn('[storage] WARNING: LOCAL_DELIVERABLES_DIR not set — local file storage disabled')
 }
 
 // User-facing client (respects RLS). Never falls back to the service key.
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } })
-  : null
+export const supabase =
+  supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } })
+    : null
 
 // Admin client for uploads/cleanup (bypasses RLS) — never exposed to user input paths.
-export const supabaseAdmin = supabaseUrl && supabaseAdminKey
-  ? createClient(supabaseUrl, supabaseAdminKey, { auth: { persistSession: false } })
-  : null
+export const supabaseAdmin =
+  supabaseUrl && supabaseAdminKey
+    ? createClient(supabaseUrl, supabaseAdminKey, { auth: { persistSession: false } })
+    : null
 
 const BUCKET = 'deliverables'
 
 // File type detection by extension
-const CODE_EXTS = ['.ts', '.js', '.py', '.sol', '.rs', '.go', '.jsx', '.tsx', '.c', '.cpp', '.java', '.rb', '.php', '.swift', '.kt']
+const CODE_EXTS = [
+  '.ts',
+  '.js',
+  '.py',
+  '.sol',
+  '.rs',
+  '.go',
+  '.jsx',
+  '.tsx',
+  '.c',
+  '.cpp',
+  '.java',
+  '.rb',
+  '.php',
+  '.swift',
+  '.kt',
+]
 const DOC_EXTS = ['.md', '.txt', '.doc', '.docx', '.pdf', '.rtf']
 const DATA_EXTS = ['.json', '.csv', '.yaml', '.yml', '.xml', '.toml', '.sql']
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp']
@@ -37,11 +67,11 @@ const ARCHIVE_EXTS = ['.zip', '.tar', '.tar.gz', '.tgz', '.rar', '.7z']
 
 export function detectFileType(filename: string): string {
   const lower = filename.toLowerCase()
-  if (CODE_EXTS.some(ext => lower.endsWith(ext))) return 'code'
-  if (DOC_EXTS.some(ext => lower.endsWith(ext))) return 'document'
-  if (DATA_EXTS.some(ext => lower.endsWith(ext))) return 'data'
-  if (IMAGE_EXTS.some(ext => lower.endsWith(ext))) return 'image'
-  if (ARCHIVE_EXTS.some(ext => lower.endsWith(ext))) return 'archive'
+  if (CODE_EXTS.some((ext) => lower.endsWith(ext))) return 'code'
+  if (DOC_EXTS.some((ext) => lower.endsWith(ext))) return 'document'
+  if (DATA_EXTS.some((ext) => lower.endsWith(ext))) return 'data'
+  if (IMAGE_EXTS.some((ext) => lower.endsWith(ext))) return 'image'
+  if (ARCHIVE_EXTS.some((ext) => lower.endsWith(ext))) return 'archive'
   return 'other'
 }
 
@@ -54,88 +84,166 @@ function assertSafeStoragePath(path: string): void {
   }
 }
 
-// Upload file to Supabase Storage
+function localStoragePath(storagePath: string): string {
+  if (!localDeliverablesDir) throw new Error('Local deliverables directory is not configured')
+  if (!storagePath.startsWith('local/')) throw new Error('Invalid local storage path')
+
+  const relativePath = storagePath.slice('local/'.length)
+  assertSafeStoragePath(relativePath)
+  const absolutePath = resolve(localDeliverablesDir, ...relativePath.split('/'))
+  const escaped = relative(localDeliverablesDir, absolutePath)
+  if (!escaped || escaped.startsWith('..') || isAbsolute(escaped)) {
+    throw new Error('Unsafe local storage path')
+  }
+  return absolutePath
+}
+
+function toArrayBuffer(buffer: Buffer): ArrayBuffer {
+  return buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength,
+  ) as ArrayBuffer
+}
+
+// Upload file to configured private storage.
 export async function uploadFile(
-  jobId: number,
+  jobId: string | number,
   version: number,
   filename: string,
   fileBuffer: ArrayBuffer,
-  mimeType: string
+  mimeType: string,
 ): Promise<{ path: string; error?: string }> {
-  if (!supabaseAdmin) return { path: '', error: 'Supabase not configured' }
-  if (!Number.isFinite(jobId) || !Number.isFinite(version)) {
+  if (storageBackend === 'supabase' && !supabaseAdmin)
+    return { path: '', error: 'Supabase not configured' }
+
+  // PostgreSQL BIGINT values can exceed JavaScript's safe integer range. Keep
+  // the chain job ID as a decimal string so storage paths cannot be rounded or
+  // collide for large job IDs.
+  const normalizedJobId = String(jobId)
+  if (!/^\d+$/.test(normalizedJobId) || !Number.isFinite(version) || version < 1) {
     return { path: '', error: 'Invalid jobId/version' }
   }
 
   const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200)
-  const path = `${Math.floor(jobId)}/${Math.floor(version)}/${safeFilename}`
-  try { assertSafeStoragePath(path) } catch (e: any) { return { path: '', error: e.message } }
+  const path =
+    storageBackend === 'local'
+      ? `local/${normalizedJobId}/${Math.floor(version)}/${safeFilename}`
+      : `${normalizedJobId}/${Math.floor(version)}/${safeFilename}`
+  try {
+    assertSafeStoragePath(path)
+  } catch (error) {
+    return { path: '', error: error instanceof Error ? error.message : 'Invalid storage path' }
+  }
 
-  const { error } = await supabaseAdmin.storage
-    .from(BUCKET)
-    .upload(path, fileBuffer, {
-      contentType: mimeType,
-      upsert: false,
-    })
+  if (storageBackend === 'local') {
+    try {
+      const target = localStoragePath(path)
+      await mkdir(dirname(target), { recursive: true })
+      await writeFile(target, Buffer.from(fileBuffer), { flag: 'wx' })
+      return { path }
+    } catch (error) {
+      return {
+        path: '',
+        error: error instanceof Error ? error.message : 'Local file upload failed',
+      }
+    }
+  }
+
+  const { error } = await supabaseAdmin!.storage.from(BUCKET).upload(path, fileBuffer, {
+    contentType: mimeType,
+    upsert: false,
+  })
 
   if (error) return { path: '', error: error.message }
   return { path }
 }
 
-// Download file from Supabase Storage (uses admin client because the deliverables
-// bucket is private; per-job access control is enforced in the route handler).
+// Download file from configured private storage. Route-level authorization
+// decides who can reach this function; storage credentials never leave the API.
 export async function downloadFile(
-  storagePath: string
+  storagePath: string,
 ): Promise<{ data: ArrayBuffer | null; error?: string }> {
+  if (storageBackend === 'local') {
+    if (!storagePath.startsWith('local/')) {
+      return { data: null, error: 'Non-local storage path rejected by local backend' }
+    }
+    try {
+      return { data: toArrayBuffer(await readFile(localStoragePath(storagePath))) }
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Local file download failed',
+      }
+    }
+  }
+  if (storagePath.startsWith('local/')) {
+    return { data: null, error: 'Local storage path rejected by Supabase backend' }
+  }
+
   const client = supabaseAdmin || supabase
   if (!client) return { data: null, error: 'Supabase not configured' }
-  try { assertSafeStoragePath(storagePath) } catch (e: any) { return { data: null, error: e.message } }
+  try {
+    assertSafeStoragePath(storagePath)
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'Invalid storage path' }
+  }
 
-  const { data, error } = await client.storage
-    .from(BUCKET)
-    .download(storagePath)
+  const { data, error } = await client.storage.from(BUCKET).download(storagePath)
 
   if (error) return { data: null, error: error.message }
-  const buffer = await data.arrayBuffer()
-  return { data: buffer }
+  return { data: await data.arrayBuffer() }
 }
 
 // Get file as text (for evaluator)
 export async function getFileAsText(storagePath: string): Promise<string | null> {
-  const client = supabaseAdmin || supabase
-  if (!client) return null
-  try { assertSafeStoragePath(storagePath) } catch { return null }
-
-  const { data, error } = await client.storage
-    .from(BUCKET)
-    .download(storagePath)
-
-  if (error) return null
-  return await data.text()
+  const result = await downloadFile(storagePath)
+  if (!result.data) return null
+  return new TextDecoder().decode(result.data)
 }
 
-// Delete file from Supabase Storage
+// Delete file from configured private storage.
 export async function deleteFile(storagePath: string): Promise<boolean> {
-  if (!supabaseAdmin) return false
-  try { assertSafeStoragePath(storagePath) } catch { return false }
+  if (storageBackend === 'local') {
+    if (!storagePath.startsWith('local/')) return false
+    try {
+      await rm(localStoragePath(storagePath), { force: true })
+      return true
+    } catch {
+      return false
+    }
+  }
+  if (storagePath.startsWith('local/')) return false
 
-  const { error } = await supabaseAdmin.storage
-    .from(BUCKET)
-    .remove([storagePath])
+  if (!supabaseAdmin) return false
+  try {
+    assertSafeStoragePath(storagePath)
+  } catch {
+    return false
+  }
+
+  const { error } = await supabaseAdmin.storage.from(BUCKET).remove([storagePath])
 
   return !error
 }
 
-// Delete multiple files
+// Delete multiple files. Mixed backends are refused so cleanup cannot delete
+// one side and leave the other inconsistent.
 export async function deleteFiles(storagePaths: string[]): Promise<boolean> {
-  if (!supabaseAdmin || storagePaths.length === 0) return false
-  for (const p of storagePaths) {
-    try { assertSafeStoragePath(p) } catch { return false }
+  if (storagePaths.length === 0) return false
+  if (storagePaths.every((storagePath) => storagePath.startsWith('local/'))) {
+    const results = await Promise.all(storagePaths.map((storagePath) => deleteFile(storagePath)))
+    return results.every(Boolean)
+  }
+  if (storagePaths.some((storagePath) => storagePath.startsWith('local/')) || !supabaseAdmin)
+    return false
+
+  try {
+    for (const storagePath of storagePaths) assertSafeStoragePath(storagePath)
+  } catch {
+    return false
   }
 
-  const { error } = await supabaseAdmin.storage
-    .from(BUCKET)
-    .remove(storagePaths)
+  const { error } = await supabaseAdmin.storage.from(BUCKET).remove(storagePaths)
 
   return !error
 }

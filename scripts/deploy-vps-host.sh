@@ -25,18 +25,28 @@ fi
 
 pnpm install --frozen-lockfile
 pnpm -r build
+# Cleanup runs inside the API process every hour. Remove the legacy PM2 task,
+# which depended on npx/tsx and could silently remain stopped in production.
+pm2 delete archivehub-cleanup >/dev/null 2>&1 || true
 # First VPS deploy has no PM2 app yet; later deploys reload the same config.
 pm2 startOrReload ecosystem.vps.config.cjs --update-env
-pm2 save
 
 # PM2 reports reload completion before Node has necessarily bound the API port.
 # Poll locally so a deploy only succeeds once the replacement process is ready.
+healthy=0
 for attempt in {1..20}; do
   if curl -fsS --max-time 15 http://127.0.0.1:3000/api/health; then
-    exit 0
+    healthy=1
+    break
   fi
   sleep 3
 done
 
-echo "API did not become healthy after PM2 reload" >&2
-exit 1
+if [[ "$healthy" != "1" ]]; then
+  echo "API did not become healthy after PM2 reload" >&2
+  exit 1
+fi
+
+# Persist only after the health gate succeeds, so a failed deployment does not
+# turn a broken/reloading process list into the restart baseline.
+pm2 save

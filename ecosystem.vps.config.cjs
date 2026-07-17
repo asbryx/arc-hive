@@ -34,14 +34,5 @@ module.exports = {
       error_file: `${ROOT}/logs/evaluator-error.log`,
       out_file: `${ROOT}/logs/evaluator-out.log`,
     },
-    {
-      ...COMMON,
-      name: 'archivehub-cleanup',
-      script: 'npx',
-      args: 'tsx scripts/cleanup-expired-files.ts',
-      cron_restart: '0 * * * *',
-      autorestart: false,
-      instances: 1,
-    },
   ],
 }

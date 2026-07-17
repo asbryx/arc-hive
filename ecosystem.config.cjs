@@ -37,15 +37,5 @@ module.exports = {
       error_file: '/root/building-arc/agent-hub/logs/evaluator-error.log',
       out_file: '/root/building-arc/agent-hub/logs/evaluator-out.log',
     },
-    {
-      name: 'archivehub-cleanup',
-      script: 'npx',
-      args: 'tsx scripts/cleanup-expired-files.ts',
-      cwd: '/root/building-arc/agent-hub',
-      env_file: '/root/building-arc/agent-hub/.env',
-      cron_restart: '0 * * * *',
-      autorestart: false,
-      instances: 1
-    }
-  ]
+  ],
 }

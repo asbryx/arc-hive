@@ -3,27 +3,28 @@
  * Jobs module for browsing, applying to, and managing marketplace jobs
  */
 
-import type { HttpClient } from './client.js';
+import type { HttpClient } from './client.js'
 import type {
   Job,
   Application,
   Deliverable,
   DeliverableFile,
+  SubmitResult,
   Evaluation,
   JobFilters,
   ApplyOptions,
   SubmitOptions,
   WaitOptions,
   JobStatus,
-} from './types.js';
+} from './types.js'
 
 /**
  * Jobs module for interacting with the ArcHive job marketplace.
  * Supports browsing open jobs, applying, submitting deliverables, and polling for results.
  */
 export class JobsModule {
-  private client: HttpClient;
-  private getWallet: () => string | null;
+  private client: HttpClient
+  private getWallet: () => string | null
 
   /**
    * Create a new JobsModule
@@ -31,8 +32,8 @@ export class JobsModule {
    * @param getWallet - Function to get the current wallet address
    */
   constructor(client: HttpClient, getWallet: () => string | null) {
-    this.client = client;
-    this.getWallet = getWallet;
+    this.client = client
+    this.getWallet = getWallet
   }
 
   /**
@@ -47,16 +48,16 @@ export class JobsModule {
    * ```
    */
   async open(filters?: JobFilters): Promise<Job[]> {
-    const params: Record<string, string | number | undefined> = {};
+    const params: Record<string, string | number | undefined> = {}
     if (filters) {
-      if (filters.status) params.status = filters.status;
-      if (filters.category) params.category = filters.category;
-      if (filters.minBudget !== undefined) params.minBudget = filters.minBudget;
-      if (filters.maxBudget !== undefined) params.maxBudget = filters.maxBudget;
-      if (filters.limit !== undefined) params.limit = filters.limit;
-      if (filters.page !== undefined) params.page = filters.page;
+      if (filters.status) params.status = filters.status
+      if (filters.category) params.category = filters.category
+      if (filters.minBudget !== undefined) params.minBudget = filters.minBudget
+      if (filters.maxBudget !== undefined) params.maxBudget = filters.maxBudget
+      if (filters.limit !== undefined) params.limit = filters.limit
+      if (filters.page !== undefined) params.page = filters.page
     }
-    return this.client.get<Job[]>('/api/open-jobs', params);
+    return this.client.get<Job[]>('/api/open-jobs', params)
   }
 
   /**
@@ -73,7 +74,7 @@ export class JobsModule {
    * ```
    */
   async get(jobId: string): Promise<Job> {
-    return this.client.get<Job>(`/api/open-jobs/${jobId}`);
+    return this.client.get<Job>(`/api/open-jobs/${jobId}`)
   }
 
   /**
@@ -94,16 +95,16 @@ export class JobsModule {
    * ```
    */
   async apply(jobId: string, opts: ApplyOptions = {}): Promise<Application> {
-    const wallet = this.getWallet();
+    const wallet = this.getWallet()
     if (!wallet) {
-      throw new Error('Not connected. Call connect() before applying to jobs.');
+      throw new Error('Not connected. Call connect() before applying to jobs.')
     }
 
     return this.client.post<Application>(`/api/open-jobs/${jobId}/apply`, {
       applicantAddress: wallet,
       message: opts.message || '',
       proposedBudget: opts.proposedBudget,
-    });
+    })
   }
 
   /**
@@ -119,8 +120,8 @@ export class JobsModule {
    * ```
    */
   async status(jobId: string): Promise<JobStatus> {
-    const job = await this.get(jobId);
-    return job.status;
+    const job = await this.get(jobId)
+    return job.status
   }
 
   /**
@@ -142,38 +143,35 @@ export class JobsModule {
    * });
    * ```
    */
-  async submit(jobId: string, opts: SubmitOptions = {}): Promise<Deliverable> {
-    const wallet = this.getWallet();
+  async submit(jobId: string, opts: SubmitOptions = {}): Promise<SubmitResult> {
+    const wallet = this.getWallet()
     if (!wallet) {
-      throw new Error('Not connected. Call connect() before submitting deliverables.');
+      throw new Error('Not connected. Call connect() before submitting deliverables.')
     }
 
     // Use multipart if files are included
     if (opts.files && opts.files.length > 0) {
-      const formData = new FormData();
-      formData.append('applicantAddress', wallet);
-      if (opts.content) formData.append('content', opts.content);
-      if (opts.link) formData.append('link', opts.link);
-      if (opts.notes) formData.append('notes', opts.notes);
+      const formData = new FormData()
+      formData.append('applicantAddress', wallet)
+      if (opts.content) formData.append('content', opts.content)
+      if (opts.link) formData.append('link', opts.link)
+      if (opts.notes) formData.append('notes', opts.notes)
 
       for (const file of opts.files) {
-        const blob = new Blob([file.content], { type: file.type || 'application/octet-stream' });
-        formData.append('files', blob, file.name);
+        const blob = new Blob([file.content], { type: file.type || 'application/octet-stream' })
+        formData.append('files', blob, file.name)
       }
 
-      return this.client.postMultipart<Deliverable>(
-        `/api/open-jobs/${jobId}/deliver`,
-        formData
-      );
+      return this.client.postMultipart<SubmitResult>(`/api/open-jobs/${jobId}/deliver`, formData)
     }
 
     // JSON submission (no files)
-    return this.client.post<Deliverable>(`/api/open-jobs/${jobId}/deliver`, {
+    return this.client.post<SubmitResult>(`/api/open-jobs/${jobId}/deliver`, {
       applicantAddress: wallet,
       content: opts.content,
       link: opts.link,
       notes: opts.notes,
-    });
+    })
   }
 
   /**
@@ -183,7 +181,7 @@ export class JobsModule {
    * @returns Array of applications
    */
   async applications(jobId: string): Promise<Application[]> {
-    return this.client.get<Application[]>(`/api/open-jobs/${jobId}/applications`);
+    return this.client.get<Application[]>(`/api/open-jobs/${jobId}/applications`)
   }
 
   /**
@@ -193,7 +191,7 @@ export class JobsModule {
    * @returns Array of deliverables
    */
   async deliverables(jobId: string): Promise<Deliverable[]> {
-    return this.client.get<Deliverable[]>(`/api/open-jobs/${jobId}/deliverables`);
+    return this.client.get<Deliverable[]>(`/api/open-jobs/${jobId}/deliverables`)
   }
 
   /**
@@ -203,7 +201,7 @@ export class JobsModule {
    * @returns Array of evaluations
    */
   async evaluations(jobId: string): Promise<Evaluation[]> {
-    return this.client.get<Evaluation[]>(`/api/open-jobs/${jobId}/evaluations`);
+    return this.client.get<Evaluation[]>(`/api/open-jobs/${jobId}/evaluations`)
   }
 
   /**
@@ -213,7 +211,7 @@ export class JobsModule {
    * @returns Array of deliverable files
    */
   async files(jobId: string): Promise<DeliverableFile[]> {
-    return this.client.get<DeliverableFile[]>(`/api/open-jobs/${jobId}/files`);
+    return this.client.get<DeliverableFile[]>(`/api/open-jobs/${jobId}/files`)
   }
 
   /**
@@ -226,16 +224,16 @@ export class JobsModule {
    * @throws If not authenticated or file not found
    */
   async downloadFile(jobId: string, fileId: string): Promise<Buffer> {
-    const url = `/api/open-jobs/${jobId}/files/${fileId}/download`;
+    const url = `/api/open-jobs/${jobId}/files/${fileId}/download`
     // Use ofetch directly for binary data
-    const { ofetch } = await import('ofetch');
-    const token = this.client.getToken();
+    const { ofetch } = await import('ofetch')
+    const token = this.client.getToken()
     const response = await ofetch(`${(this.client as any).baseUrl}${url}`, {
       method: 'GET',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       responseType: 'arrayBuffer',
-    });
-    return Buffer.from(response);
+    })
+    return Buffer.from(response)
   }
 
   /**
@@ -251,11 +249,11 @@ export class JobsModule {
    * ```
    */
   async history(address?: string): Promise<Job[]> {
-    const wallet = address || this.getWallet();
+    const wallet = address || this.getWallet()
     if (!wallet) {
-      throw new Error('Not connected and no address provided.');
+      throw new Error('Not connected and no address provided.')
     }
-    return this.client.get<Job[]>('/api/open-jobs/my-history', { address: wallet });
+    return this.client.get<Job[]>('/api/open-jobs/my-history', { address: wallet })
   }
 
   /**
@@ -279,37 +277,37 @@ export class JobsModule {
    * ```
    */
   async waitUntilSelected(jobId: string, opts?: WaitOptions): Promise<Job> {
-    const wallet = this.getWallet();
+    const wallet = this.getWallet()
     if (!wallet) {
-      throw new Error('Not connected. Call connect() first.');
+      throw new Error('Not connected. Call connect() first.')
     }
 
-    const timeout = opts?.timeout ?? 3600000; // 1 hour default
-    const pollInterval = opts?.pollInterval ?? 10000; // 10s default
-    const startTime = Date.now();
+    const timeout = opts?.timeout ?? 3600000 // 1 hour default
+    const pollInterval = opts?.pollInterval ?? 10000 // 10s default
+    const startTime = Date.now()
 
     while (Date.now() - startTime < timeout) {
-      const job = await this.get(jobId);
+      const job = await this.get(jobId)
 
       if (job.selectedApplicant?.toLowerCase() === wallet.toLowerCase()) {
-        return job;
+        return job
       }
 
       // If job is no longer open/funded, we won't be selected
       if (['completed', 'failed', 'cancelled', 'expired', 'refunded'].includes(job.status)) {
         throw new Error(
           `Job is ${job.status} and you were not selected. ` +
-          `Check job.selectedApplicant for details.`
-        );
+            `Check job.selectedApplicant for details.`,
+        )
       }
 
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      await new Promise((resolve) => setTimeout(resolve, pollInterval))
     }
 
     throw new Error(
       `Timeout waiting for selection on job ${jobId} after ${timeout / 1000}s. ` +
-      `Increase timeout or pollInterval if needed.`
-    );
+        `Increase timeout or pollInterval if needed.`,
+    )
   }
 
   /**
@@ -329,24 +327,24 @@ export class JobsModule {
    * ```
    */
   async waitForResult(jobId: string, opts?: WaitOptions): Promise<Job> {
-    const timeout = opts?.timeout ?? 600000; // 10 minutes default
-    const pollInterval = opts?.pollInterval ?? 15000; // 15s default
-    const startTime = Date.now();
-    const terminalStatuses: JobStatus[] = ['completed', 'revision_requested', 'failed'];
+    const timeout = opts?.timeout ?? 600000 // 10 minutes default
+    const pollInterval = opts?.pollInterval ?? 15000 // 15s default
+    const startTime = Date.now()
+    const terminalStatuses: JobStatus[] = ['completed', 'revision_requested', 'failed']
 
     while (Date.now() - startTime < timeout) {
-      const job = await this.get(jobId);
+      const job = await this.get(jobId)
 
       if (terminalStatuses.includes(job.status)) {
-        return job;
+        return job
       }
 
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      await new Promise((resolve) => setTimeout(resolve, pollInterval))
     }
 
     throw new Error(
       `Timeout waiting for result on job ${jobId} after ${timeout / 1000}s. ` +
-      `Current status may still be processing.`
-    );
+        `Current status may still be processing.`,
+    )
   }
 }

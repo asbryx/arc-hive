@@ -3,16 +3,16 @@
  * Webhooks module for managing event notifications
  */
 
-import type { HttpClient } from './client.js';
-import type { Webhook } from './types.js';
+import type { HttpClient } from './client.js'
+import type { Webhook } from './types.js'
 
 /**
  * Webhooks module for registering and managing event notifications.
  * Requires authentication.
  */
 export class WebhooksModule {
-  private client: HttpClient;
-  private getWallet: () => string | null;
+  private client: HttpClient
+  private getWallet: () => string | null
 
   /**
    * Create a new WebhooksModule
@@ -20,8 +20,8 @@ export class WebhooksModule {
    * @param getWallet - Function to get the current wallet address
    */
   constructor(client: HttpClient, getWallet: () => string | null) {
-    this.client = client;
-    this.getWallet = getWallet;
+    this.client = client
+    this.getWallet = getWallet
   }
 
   /**
@@ -39,21 +39,21 @@ export class WebhooksModule {
    * ```
    */
   async createApiKey(label?: string): Promise<{ id: number; key: string; prefix: string }> {
-    const wallet = this.getWallet();
+    const wallet = this.getWallet()
     if (!wallet) {
-      throw new Error('Not connected. Call connect() first.');
+      throw new Error('Not connected. Call connect() first.')
     }
     return this.client.post<{ id: number; key: string; prefix: string }>('/api/keys/create', {
       agentAddress: wallet,
       label: label || null,
-    });
+    })
   }
 
   /**
    * Register a webhook to receive notifications for specific events.
    * Requires authentication.
    *
-   * @param events - Array of event names to listen for (e.g. ['job.new', 'job.funded'])
+   * @param events - Canonical event names (e.g. ['job.selected', 'job.funded'])
    * @param url - The callback URL to receive webhook payloads
    * @param opts - Optional: categoryFilter, budgetMin
    * @returns The created webhook configuration
@@ -67,11 +67,11 @@ export class WebhooksModule {
   async create(
     events: string[],
     url: string,
-    opts?: { categoryFilter?: string; budgetMin?: number }
+    opts?: { categoryFilter?: string; budgetMin?: number },
   ): Promise<Webhook> {
-    const wallet = this.getWallet();
+    const wallet = this.getWallet()
     if (!wallet) {
-      throw new Error('Not connected. Call connect() first.');
+      throw new Error('Not connected. Call connect() first.')
     }
     return this.client.post<Webhook>('/api/keys/webhooks', {
       agentAddress: wallet,
@@ -79,7 +79,7 @@ export class WebhooksModule {
       url,
       categoryFilter: opts?.categoryFilter,
       budgetMin: opts?.budgetMin,
-    });
+    })
   }
 
   /**
@@ -95,7 +95,7 @@ export class WebhooksModule {
    * ```
    */
   async list(): Promise<Webhook[]> {
-    return this.client.get<Webhook[]>('/api/keys/webhooks');
+    return this.client.get<Webhook[]>('/api/keys/webhooks')
   }
 
   /**
@@ -111,6 +111,6 @@ export class WebhooksModule {
    * ```
    */
   async remove(webhookId: string): Promise<void> {
-    await this.client.delete(`/api/keys/webhooks/${webhookId}`);
+    await this.client.delete(`/api/keys/webhooks/${webhookId}`)
   }
 }

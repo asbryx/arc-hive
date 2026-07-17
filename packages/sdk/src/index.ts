@@ -21,17 +21,17 @@
  * ```
  */
 
-import { HttpClient } from './client.js';
-import { AuthModule } from './auth.js';
-import { JobsModule } from './jobs.js';
-import { AgentsModule } from './agents.js';
-import { ReputationModule } from './reputation.js';
-import { EarningsModule } from './earnings.js';
-import { WebhooksModule } from './webhooks.js';
-import type { ArcHiveConfig, AuthResult } from './types.js';
+import { HttpClient } from './client.js'
+import { AuthModule } from './auth.js'
+import { JobsModule } from './jobs.js'
+import { AgentsModule } from './agents.js'
+import { ReputationModule } from './reputation.js'
+import { EarningsModule } from './earnings.js'
+import { WebhooksModule } from './webhooks.js'
+import type { ArcHiveConfig, AuthResult } from './types.js'
 
 /** Default API URL for ArcHive */
-const DEFAULT_API_URL = 'https://arcs-hive.vercel.app';
+const DEFAULT_API_URL = 'https://arcs-hive.vercel.app'
 
 /**
  * Main ArcHive SDK class.
@@ -59,20 +59,20 @@ const DEFAULT_API_URL = 'https://arcs-hive.vercel.app';
  */
 export class ArcHive {
   /** Authentication module */
-  readonly auth: AuthModule;
+  readonly auth: AuthModule
   /** Jobs module */
-  readonly jobs: JobsModule;
+  readonly jobs: JobsModule
   /** Agents module */
-  readonly agents: AgentsModule;
+  readonly agents: AgentsModule
   /** Reputation module */
-  readonly reputation: ReputationModule;
+  readonly reputation: ReputationModule
   /** Earnings module */
-  readonly earnings: EarningsModule;
+  readonly earnings: EarningsModule
   /** Webhooks module */
-  readonly webhooks: WebhooksModule;
+  readonly webhooks: WebhooksModule
 
-  private client: HttpClient;
-  private config: ArcHiveConfig;
+  private client: HttpClient
+  private config: ArcHiveConfig
 
   /**
    * Create a new ArcHive SDK instance.
@@ -90,16 +90,16 @@ export class ArcHive {
    * ```
    */
   constructor(config: ArcHiveConfig) {
-    const apiUrl = config.apiUrl || DEFAULT_API_URL;
-    this.config = { ...config, apiUrl };
+    const apiUrl = config.apiUrl || DEFAULT_API_URL
+    this.config = { ...config, apiUrl }
 
-    this.client = new HttpClient(apiUrl);
-    this.auth = new AuthModule(this.client, apiUrl);
-    this.jobs = new JobsModule(this.client, () => this.auth.getWallet());
-    this.agents = new AgentsModule(this.client);
-    this.reputation = new ReputationModule(this.client, () => this.auth.getWallet());
-    this.earnings = new EarningsModule(this.client, () => this.auth.getWallet());
-    this.webhooks = new WebhooksModule(this.client, () => this.auth.getWallet());
+    this.client = new HttpClient(apiUrl)
+    this.auth = new AuthModule(this.client, apiUrl)
+    this.jobs = new JobsModule(this.client, () => this.auth.getWallet())
+    this.agents = new AgentsModule(this.client)
+    this.reputation = new ReputationModule(this.client, () => this.auth.getWallet())
+    this.earnings = new EarningsModule(this.client, () => this.auth.getWallet())
+    this.webhooks = new WebhooksModule(this.client, () => this.auth.getWallet())
   }
 
   /**
@@ -116,18 +116,14 @@ export class ArcHive {
    * ```
    */
   async connect(): Promise<AuthResult> {
-    return this.auth.connect(
-      this.config.wallet,
-      this.config.privateKey,
-      this.config.apiUrl
-    );
+    return this.auth.connect(this.config.wallet, this.config.privateKey, this.config.apiUrl)
   }
 
   /**
    * Disconnect from ArcHive by clearing the stored token.
    */
   disconnect(): void {
-    this.auth.disconnect();
+    this.auth.disconnect()
   }
 }
 
@@ -151,7 +147,7 @@ export class ArcHive {
  * ```
  */
 export function createArcHive(config: ArcHiveConfig): ArcHive {
-  return new ArcHive(config);
+  return new ArcHive(config)
 }
 
 // Re-export all types
@@ -165,6 +161,8 @@ export type {
   ReputationEvent,
   Deliverable,
   DeliverableFile,
+  SubmittedFile,
+  SubmitResult,
   Evaluation,
   Stats,
   Webhook,
@@ -175,13 +173,13 @@ export type {
   JobFilters,
   AgentFilters,
   WaitOptions,
-} from './types.js';
+} from './types.js'
 
 // Re-export modules for advanced usage
-export { HttpClient } from './client.js';
-export { AuthModule } from './auth.js';
-export { JobsModule } from './jobs.js';
-export { AgentsModule } from './agents.js';
-export { ReputationModule } from './reputation.js';
-export { EarningsModule } from './earnings.js';
-export { WebhooksModule } from './webhooks.js';
+export { HttpClient } from './client.js'
+export { AuthModule } from './auth.js'
+export { JobsModule } from './jobs.js'
+export { AgentsModule } from './agents.js'
+export { ReputationModule } from './reputation.js'
+export { EarningsModule } from './earnings.js'
+export { WebhooksModule } from './webhooks.js'
