@@ -12,5 +12,6 @@ describe('indexed Explorer deliverable storage migration', () => {
     expect(source).toContain('PRIMARY KEY (job_id, source_contract)')
     expect(source).toContain('FOREIGN KEY (job_id, source_contract) REFERENCES jobs(job_id, source_contract)')
     expect(source).toContain('UNIQUE (submission_tx)')
+    expect(source).toContain('GRANT SELECT, INSERT, UPDATE ON indexed_job_deliverables TO archiveagents')
   })
 })

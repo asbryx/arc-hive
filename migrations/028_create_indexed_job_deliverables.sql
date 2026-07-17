@@ -24,3 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_indexed_job_deliverables_provider
 -- request for the same verified transaction updates only the same row.
 COMMENT ON TABLE indexed_job_deliverables IS
   'Off-chain content for direct indexed on-chain jobs; distinct from marketplace job_deliverables.';
+
+-- API runtime role from DATABASE_URL needs only read/write access to direct
+-- deliverable content; schema ownership remains with the migration role.
+GRANT SELECT, INSERT, UPDATE ON indexed_job_deliverables TO archiveagents;
