@@ -25,6 +25,11 @@ CREATE INDEX IF NOT EXISTS idx_indexed_job_deliverables_provider
 COMMENT ON TABLE indexed_job_deliverables IS
   'Off-chain content for direct indexed on-chain jobs; distinct from marketplace job_deliverables.';
 
--- API runtime role from DATABASE_URL needs only read/write access to direct
--- deliverable content; schema ownership remains with the migration role.
-GRANT SELECT, INSERT, UPDATE ON indexed_job_deliverables TO archiveagents;
+-- Production API uses the archiveagents role. CI uses a disposable `test`
+-- role, so only grant when the production role exists.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'archiveagents') THEN
+    GRANT SELECT, INSERT, UPDATE ON indexed_job_deliverables TO archiveagents;
+  END IF;
+END $$;
