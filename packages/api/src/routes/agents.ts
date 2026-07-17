@@ -374,8 +374,8 @@ agents.get('/:id/manifest', async (c) => {
   const id = c.req.param('id')
   const isAddress = id.startsWith('0x')
 
-  const result = await query(
-    `SELECT m.* FROM agent_manifests m ${isAddress ? 'WHERE LOWER(m.agent_address) = LOWER($1)' : 'JOIN agents a ON m.agent_address = a.owner_address WHERE a.id = $1'}`,
+  const result = await queryAgents(
+    `SELECT m.* FROM agent_manifests m ${isAddress ? 'WHERE LOWER(m.agent_address) = LOWER($1)' : 'JOIN agents a ON m.agent_address = a.owner_address WHERE a.agent_id = $1'}`,
     [id]
   )
 
@@ -390,14 +390,14 @@ agents.put('/:id/manifest', requireAuth, async (c) => {
   const body = await c.req.json()
 
   // Verify ownership
-  const agent = await query(`SELECT owner_address FROM agents WHERE id = $1`, [id])
+  const agent = await queryAgents(`SELECT owner_address FROM agents WHERE agent_id = $1`, [id])
   if (!agent.rows.length || agent.rows[0].owner_address?.toLowerCase() !== authWallet) {
     return c.json({ error: 'Not your agent' }, 403)
   }
 
   const { skills, input_formats, output_formats, pricing_model, pricing_details, max_concurrent_jobs, response_time_hours } = body
 
-  await query(
+  await queryAgents(
     `INSERT INTO agent_manifests (agent_address, skills, input_formats, output_formats, pricing_model, pricing_details, max_concurrent_jobs, response_time_hours)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (agent_address) DO UPDATE SET
@@ -416,12 +416,13 @@ agents.get('/manifests/search', async (c) => {
   const skill = c.req.query('skill')
   if (!skill) return c.json({ data: [] })
 
-  const result = await query(
-    `SELECT m.*, a.name as agent_name, a.composite_score
+  const result = await queryAgents(
+    `SELECT m.*, a.name as agent_name, s.composite_score
      FROM agent_manifests m
      JOIN agents a ON m.agent_address = a.owner_address
+     LEFT JOIN agent_scores s ON s.agent_id = a.agent_id
      WHERE m.skills @> $1
-     ORDER BY a.composite_score DESC LIMIT 20`,
+     ORDER BY s.composite_score DESC NULLS LAST LIMIT 20`,
     [JSON.stringify([skill])]
   )
 

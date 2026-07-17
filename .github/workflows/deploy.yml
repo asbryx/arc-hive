@@ -1,8 +1,8 @@
 name: Deploy Backend
 
-# Self-hosted-runner deploy. Pushes to main that touch backend code or
-# migrations run scripts/deploy-host.sh directly ON the ThinkPad — no SSH,
-# no Tailscale, no remote-shell quoting.
+# Legacy ThinkPad deploy. The production backend now runs on the VPS, so this
+# workflow is deliberately manual-only and can no longer deploy a push to the
+# retired ThinkPad runtime.
 #
 # Runner setup (one-time, already done): `scripts/_install-gh-runner.sh`
 # registered a runner tagged [self-hosted, archive-wsl] under PM2 as
@@ -16,19 +16,7 @@ name: Deploy Backend
 # inbound auth surface, jobs execute locally where they need to run anyway.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'packages/api/**'
-      - 'packages/indexer/**'
-      - 'packages/evaluator/**'
-      - 'packages/shared/**'
-      - 'migrations/**'
-      - 'migrations-archiveagents/**'
-      - 'scripts/**'
-      - 'ecosystem.thinkpad.config.cjs'
-      - 'pnpm-lock.yaml'
-  workflow_dispatch: # manual trigger from the Actions tab
+  workflow_dispatch: # emergency/manual ThinkPad recovery only
 
 concurrency:
   # Serialize deploys — never two pulling+building the same checkout
@@ -40,7 +28,7 @@ jobs:
   deploy:
     runs-on: [self-hosted, archive-wsl]
     timeout-minutes: 15
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
 
     env:
       DEPLOY_PATH: /home/asbryx/building-arc/agent-hub

@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from './client'
 
-/** useStats — live API stats (agents, jobs, volume). */
 export function useStats() {
   return useQuery({
     queryKey: ['stats'],

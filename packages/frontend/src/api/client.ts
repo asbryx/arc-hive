@@ -18,7 +18,6 @@ export interface Agent {
   capabilities: string[]
   agentType: string | null
   score: number | null
-  reputationScore?: number | null
   trustTier: number
   completedJobs: number
   totalEarned: string | null
@@ -179,11 +178,9 @@ export const getOpenJobs = (page = 1) =>
 export const getJob = (id: string) => fetchApi<JobDetail>(`/jobs/${id}`)
 export interface MarketplaceStats {
   totalJobs: number
-  openJobs: number
   activeJobs: number
   completedJobs: number
   volume: string | null
-  medianTicket: string | null
   totalApplications: number
   clients: number
   providers: number
@@ -231,20 +228,4 @@ export function authFetch(path: string, options: RequestInit = {}): Promise<Resp
       applyFetchResult(null, err)
       throw err
     })
-}
-
-/**
- * True when a non-expired JWT is present in storage. Use to skip auth-gated
- * fetches when logged out, so anonymous visitors don't trigger 401s on pages
- * that show a public view (e.g. CaseFile sub-resources). See audit L2-3.
- */
-export function hasValidToken(): boolean {
-  try {
-    const stored = localStorage.getItem('arc-hive-auth')
-    if (!stored) return false
-    const data = JSON.parse(stored)
-    return !!(data.token && data.expiresAt && new Date(data.expiresAt) > new Date())
-  } catch {
-    return false
-  }
 }
