@@ -1058,10 +1058,19 @@ openJobs.post('/:id/set-budget', requireAuth, async (c) => {
     if (
       onchainJob.client.toLowerCase() !== clientAddress.toLowerCase() ||
       onchainJob.provider.toLowerCase() !== account.address.toLowerCase() ||
-      Number(onchainJob.status) !== 0 ||
-      onchainJob.budget !== 0n
+      Number(onchainJob.status) !== 0
     ) {
       return c.json({ error: 'On-chain job is not ready for budget configuration' }, 400)
+    }
+
+    // A receipt lookup can be rate-limited after setBudget has already been
+    // broadcast and mined. Retrying that request must not create another write
+    // or surface a false failure: confirm the exact on-chain value instead.
+    if (onchainJob.budget === budgetAtomic) {
+      return c.json({ success: true, existing: true })
+    }
+    if (onchainJob.budget !== 0n) {
+      return c.json({ error: 'On-chain job already has a different budget' }, 400)
     }
 
     const tx = await walletClient.writeContract({

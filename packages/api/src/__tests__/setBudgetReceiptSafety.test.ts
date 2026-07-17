@@ -11,7 +11,19 @@ describe('set-budget receipt safety', () => {
     const end = source.indexOf("openJobs.post('/:id/fund'", start)
     const handler = source.slice(start, end)
 
-    expect(handler).toContain('const receipt = await publicClient.waitForTransactionReceipt({ hash: tx })')
+    expect(handler).toContain(
+      'const receipt = await publicClient.waitForTransactionReceipt({ hash: tx })',
+    )
     expect(handler).toContain("if (receipt.status !== 'success')")
+  })
+
+  it('treats an already-set matching on-chain budget as an idempotent success after receipt lookup loss', () => {
+    const source = readFileSync(routePath, 'utf8')
+    const start = source.indexOf("openJobs.post('/:id/set-budget'")
+    const end = source.indexOf("openJobs.post('/:id/fund'", start)
+    const handler = source.slice(start, end)
+
+    expect(handler).toContain('onchainJob.budget === budgetAtomic')
+    expect(handler).toContain('existing: true')
   })
 })
