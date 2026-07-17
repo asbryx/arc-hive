@@ -102,6 +102,7 @@ export default function PostJob() {
   const [error, setError] = useState<string | null>(null)
   const [jobId, setJobId] = useState<bigint | null>(null)
   const [openJobId, setOpenJobId] = useState<number | null>(null)
+  const [pendingListing, setPendingListing] = useState<{ jobId: bigint; txHash: `0x${string}` } | null>(null)
   const [recommendedAgents, setRecommendedAgents] = useState<any[]>([])
 
   // Fetch recommended agents when category changes
@@ -151,40 +152,52 @@ export default function PostJob() {
     setError(null)
 
     try {
-      const deadlineH = parseInt(form.deadlineHours) || 72
-      const expiredAt = BigInt(Math.floor(Date.now() / 1000) + deadlineH * 3600)
-      const evaluatorAddr = '0xC1FEf538dc6357435372CEb69970D4078F4d3528' as `0x${string}`
-      const onChainDesc = `[OPEN] ${form.title} | Budget: ${form.budgetMin || '?'} – ${form.budgetMax || '?'} USDC`
+      let newJobId: bigint
+      let createHash: `0x${string}`
 
-      const createHash = await writeContractAsync({
-        address: AGENTIC_COMMERCE,
-        abi: AGENTIC_COMMERCE_ABI,
-        functionName: 'createJob',
-        args: [
-          zeroAddress,
-          evaluatorAddr,
-          expiredAt,
-          onChainDesc,
-          zeroAddress,
-        ],
-        chain: arcTestnet,
-      })
+      if (pendingListing) {
+        newJobId = pendingListing.jobId
+        createHash = pendingListing.txHash
+        setJobId(newJobId)
+      } else {
+        const deadlineH = parseInt(form.deadlineHours) || 72
+        const expiredAt = BigInt(Math.floor(Date.now() / 1000) + deadlineH * 3600)
+        const evaluatorAddr = '0xC1FEf538dc6357435372CEb69970D4078F4d3528' as `0x${string}`
+        const onChainDesc = `[OPEN] ${form.title} | Budget: ${form.budgetMin || '?'} – ${form.budgetMax || '?'} USDC`
 
-      const receipt = await waitForTransactionReceipt(config, { hash: createHash })
+        createHash = await writeContractAsync({
+          address: AGENTIC_COMMERCE,
+          abi: AGENTIC_COMMERCE_ABI,
+          functionName: 'createJob',
+          args: [
+            zeroAddress,
+            evaluatorAddr,
+            expiredAt,
+            onChainDesc,
+            zeroAddress,
+          ],
+          chain: arcTestnet,
+        })
 
-      const jobCreatedLog = receipt.logs?.find(
-        (log: any) => log.topics?.[0] === '0xb0f0239bfdd96453e24733e18bfc24b70d8fadf123dd977473518dd577ee79b9'
-      )
+        const receipt = await waitForTransactionReceipt(config, { hash: createHash })
+        if (receipt.status !== 'success') {
+          throw new Error('Job creation reverted on-chain')
+        }
 
-      if (!jobCreatedLog || !jobCreatedLog.topics?.[1]) {
-        console.error('[PostJob] JobCreated event not found in receipt', receipt)
-        throw new Error(
-          'JobCreated event not found in transaction receipt. The on-chain job was created but could not be linked. Please contact support with tx hash: ' + createHash
+        const jobCreatedLog = receipt.logs?.find(
+          (log: any) =>
+            log.address.toLowerCase() === AGENTIC_COMMERCE.toLowerCase() &&
+            log.topics?.[0] === '0xb0f0239bfdd96453e24733e18bfc24b70d8fadf123dd977473518dd577ee79b9'
         )
-      }
 
-      const newJobId = BigInt(jobCreatedLog.topics[1])
-      setJobId(newJobId)
+        if (!jobCreatedLog || !jobCreatedLog.topics?.[1]) {
+          throw new Error(`JobCreated event not found in transaction receipt. Retry with tx hash: ${createHash}`)
+        }
+
+        newJobId = BigInt(jobCreatedLog.topics[1])
+        setJobId(newJobId)
+        setPendingListing({ jobId: newJobId, txHash: createHash })
+      }
 
       // Build sector_config from filled details only
       const sectorConfig: Record<string, any> = {}
@@ -206,37 +219,30 @@ export default function PostJob() {
         }
       }
 
-      try {
-        const res = await authFetch(`/open-jobs`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jobId: newJobId.toString(),
-            title: form.title,
-            description: form.description,
-            category: form.category,
-            requirements: form.requirements || null,
-            budgetMin: form.budgetMin || null,
-            budgetMax: form.budgetMax || null,
-            deadlineHours: form.deadlineHours,
-            clientAddress: address,
-            onChainTx: createHash,
-            sectorConfig: Object.keys(sectorConfig).length > 0 ? sectorConfig : null,
-          }),
-        })
-
-        if (!res.ok) {
-          console.error('[PostJob] API call failed after on-chain creation', res.status)
-          // Still show success since on-chain job exists
-        } else {
-          const { id } = await res.json()
-          setOpenJobId(id)
-        }
-      } catch (apiErr) {
-        console.error('[PostJob] API call error after on-chain creation:', apiErr)
-        // Still show success since on-chain job exists
+      const res = await authFetch(`/open-jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: newJobId.toString(),
+          title: form.title,
+          description: form.description,
+          category: form.category,
+          requirements: form.requirements || null,
+          budgetMin: form.budgetMin || null,
+          budgetMax: form.budgetMax || null,
+          deadlineHours: form.deadlineHours,
+          clientAddress: address,
+          onChainTx: createHash,
+          sectorConfig: Object.keys(sectorConfig).length > 0 ? sectorConfig : null,
+        }),
+      })
+      if (!res.ok) {
+        const apiError = await res.json().catch(() => ({ error: 'Marketplace listing synchronization failed' }))
+        throw new Error(apiError.error || 'Marketplace listing synchronization failed')
       }
 
+      const { id } = await res.json()
+      setOpenJobId(id)
       setStep('done')
     } catch (err: any) {
       setError(err.shortMessage || err.message || 'Failed to post job')
@@ -701,7 +707,11 @@ export default function PostJob() {
 
           <div style={{ display: 'flex', gap: 12 }}>
             <button
-              onClick={() => { setError(null); setStep('form') }}
+              onClick={() => {
+                setError(null)
+                setPendingListing(null)
+                setStep('form')
+              }}
               style={{
                 flex: 1, padding: '12px 0', fontSize: 13,
                 background: 'transparent', color: 'var(--dim)', border: '1px solid var(--dimmer)', cursor: 'pointer',

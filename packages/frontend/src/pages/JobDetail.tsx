@@ -4,8 +4,9 @@ import { useParams, Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useGuardedWriteContract } from '@/hooks/useGuardedWriteContract'
 import { useJob } from '@/api/hooks'
+import { waitForTransactionReceipt } from '@wagmi/core'
 import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI } from '@/lib/contracts'
-import { arcTestnet } from '@/lib/wagmi'
+import { arcTestnet, config } from '@/lib/wagmi'
 import StatusPill from '@/components/graphics/StatusPill'
 import Skeleton from '@/components/graphics/Skeleton'
 import { truncateAddress, timeAgo, formatUsdc } from '@/utils/format'
@@ -59,13 +60,15 @@ export default function JobDetail() {
     setActionError(null)
     try {
       const reason = ('0x' + Array.from(new TextEncoder().encode('approved-via-archivehub')).map(b => b.toString(16).padStart(2, '0')).join('').padEnd(64, '0')) as `0x${string}`
-      await writeContractAsync({
+      const tx = await writeContractAsync({
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'complete',
         args: [BigInt(id), reason, '0x'],
         chain: arcTestnet,
       })
+      const receipt = await waitForTransactionReceipt(config, { hash: tx })
+      if (receipt.status !== 'success') throw new Error('Completion reverted on-chain')
       setActionSuccess('Job completed — payment released to provider.')
       refetch()
     } catch (err: any) {
@@ -80,13 +83,15 @@ export default function JobDetail() {
     setActionError(null)
     try {
       const reason = ('0x' + Array.from(new TextEncoder().encode('rejected-via-archivehub')).map(b => b.toString(16).padStart(2, '0')).join('').padEnd(64, '0')) as `0x${string}`
-      await writeContractAsync({
+      const tx = await writeContractAsync({
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
         functionName: 'reject',
         args: [BigInt(id), reason, '0x'],
         chain: arcTestnet,
       })
+      const receipt = await waitForTransactionReceipt(config, { hash: tx })
+      if (receipt.status !== 'success') throw new Error('Rejection reverted on-chain')
       setActionSuccess('Job rejected. You can claim refund after expiry.')
       refetch()
     } catch (err: any) {
@@ -550,8 +555,8 @@ export default function JobDetail() {
         </section>
       )}
 
-      {/* Evaluator/Client: Approve or Reject (when job is Submitted) */}
-      {(isEvaluator || isClient) && job.status === 'Submitted' && (
+      {/* Only the configured evaluator can settle the contract. */}
+      {isEvaluator && job.status === 'Submitted' && (
         <section style={{ marginBottom: 32, padding: '20px', border: '1px solid var(--accent)' }}>
           <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
             // review deliverable

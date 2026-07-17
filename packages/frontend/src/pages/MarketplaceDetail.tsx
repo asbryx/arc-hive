@@ -1,7 +1,7 @@
 import { authFetch } from '@/api/client'
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount } from 'wagmi'
 import { useGuardedWriteContract } from '@/hooks/useGuardedWriteContract'
 import { readContract, waitForTransactionReceipt } from '@wagmi/core'
 import { parseUnits } from 'viem'
@@ -133,8 +133,6 @@ export default function MarketplaceDetail() {
   const [deliverForm, setDeliverForm] = useState({ content: '', link: '', notes: '' })
   const [deliverFiles, setDeliverFiles] = useState<File[]>([])
   const [deliverError, setDeliverError] = useState<string | null>(null)
-  const [completing, setCompleting] = useState(false)
-  const [submittingOnChain, setSubmittingOnChain] = useState(false)
   const [rejecting, setRejecting] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [commentText, setCommentText] = useState('')
@@ -202,71 +200,47 @@ export default function MarketplaceDetail() {
     setSelectingAddr(applicantAddress)
     setActionError(null)
     try {
-      let onchainJobId = job?.jobId ? BigInt(job.jobId) : null
-
-      // If no on-chain job, create one first
+      const onchainJobId = job?.jobId ? BigInt(job.jobId) : null
       if (!onchainJobId) {
-        const createTx = await writeContractAsync({
-          address: AGENTIC_COMMERCE,
-          abi: AGENTIC_COMMERCE_ABI,
-          functionName: 'createJob',
-          args: [job!.description || '', '0x0000000000000000000000000000000000000000'] as const,
-          chain: arcTestnet,
-        } as any)
-        const receipt = await waitForTransactionReceipt(config, { hash: createTx, confirmations: 1 })
-        // Extract jobId from logs
-        const jobCreatedLog = receipt.logs[0]
-        if (jobCreatedLog && jobCreatedLog.topics[1]) {
-          onchainJobId = BigInt(jobCreatedLog.topics[1])
-        } else {
-          setActionError('Failed to get job ID from transaction')
-          setSelectingAddr(null)
-          return
-        }
-        // Update DB with on-chain job ID and tx
-        await authFetch(`/open-jobs/${id}/link-chain`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jobId: Number(onchainJobId), onChainTx: createTx }),
-        })
+        setActionError('This listing is missing its verified on-chain job. It cannot be selected or funded.')
+        return
       }
 
-      // Check if provider already set
-      const jobData = await fetch(`https://rpc.testnet.arc.network`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0', id: 1, method: 'eth_call',
-          params: [{ to: AGENTIC_COMMERCE, data: '0xbf22c457' + onchainJobId!.toString(16).padStart(64, '0') }, 'latest']
-        })
-      }).then(r => r.json())
-
-      if (jobData.result) {
-        const data = jobData.result.slice(2)
-        const provider = '0x' + data.slice(192, 256).slice(24)
-        if (provider !== '0x0000000000000000000000000000000000000000') {
-          setActionError(`Provider already assigned on-chain (${provider.slice(0, 8)}...).`)
-          setSelectingAddr(null)
-          return
-        }
-      }
-
-      // setProvider to PLATFORM wallet (handles setBudget/submit on-chain)
-      const PLATFORM_PROVIDER = '0xDd03A2eEA57E2e10B05bF65515E1ebF2c753d7d5' as `0x${string}`
-      const setProviderTx = await writeContractAsync({
+      const onchainJob = await readContract(config, {
         address: AGENTIC_COMMERCE,
         abi: AGENTIC_COMMERCE_ABI,
-        functionName: 'setProvider',
-        args: [onchainJobId!, PLATFORM_PROVIDER],
-        chain: arcTestnet,
+        functionName: 'getJob',
+        args: [onchainJobId],
       })
-      await waitForTransactionReceipt(config, { hash: setProviderTx, confirmations: 1 })
+      const PLATFORM_PROVIDER = '0xDd03A2eEA57E2e10B05bF65515E1ebF2c753d7d5' as `0x${string}`
+      if (onchainJob.client.toLowerCase() !== address.toLowerCase() || Number(onchainJob.status) !== 0) {
+        setActionError('This on-chain job is not open for provider selection.')
+        return
+      }
+      if (onchainJob.provider.toLowerCase() !== '0x0000000000000000000000000000000000000000' && onchainJob.provider.toLowerCase() !== PLATFORM_PROVIDER.toLowerCase()) {
+        setActionError(`Provider already assigned on-chain (${onchainJob.provider.slice(0, 8)}...).`)
+        return
+      }
+      if (onchainJob.provider.toLowerCase() === '0x0000000000000000000000000000000000000000') {
+        const setProviderTx = await writeContractAsync({
+          address: AGENTIC_COMMERCE,
+          abi: AGENTIC_COMMERCE_ABI,
+          functionName: 'setProvider',
+          args: [onchainJobId, PLATFORM_PROVIDER],
+          chain: arcTestnet,
+        })
+        await waitForTransactionReceipt(config, { hash: setProviderTx, confirmations: 1 })
+      }
 
-      await authFetch(`/open-jobs/${id}/select`, {
+      const selectRes = await authFetch(`/open-jobs/${id}/select`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ applicantAddress, clientAddress: address }),
       })
+      if (!selectRes.ok) {
+        const err = await selectRes.json().catch(() => ({ error: 'Failed to synchronize selected agent' }))
+        throw new Error(err.error || 'Failed to synchronize selected agent')
+      }
       fetchJob()
     } catch (err: any) {
       const msg = err.shortMessage || err.message || 'Failed to select agent'
@@ -296,45 +270,14 @@ export default function MarketplaceDetail() {
         args: [jobIdBig],
       })
 
-      // Step 0: if job doesn't exist on-chain (id=0), create it first
-      // (contract may have been redeployed, or job was DB-only)
       const PLATFORM_PROVIDER = '0xDd03A2eEA57E2e10B05bF65515E1ebF2c753d7d5' as `0x${string}`
-      const EVALUATOR = '0xC1FEf538dc6357435372CEb69970D4078F4d3528' as `0x${string}`
-      let actualJobId = jobIdBig
-
-      if (onchainJob.id === 0n) {
-        setFundStep('Creating job on-chain...')
-        const deadlineSec = (job.deadlineHours || 72) * 3600
-        const expiredAt = BigInt(Math.floor(Date.now() / 1000) + deadlineSec)
-        const description = `${job.title} — ${(job.description || '').slice(0, 200)}`
-        const createTx = await writeContractAsync({
-          address: AGENTIC_COMMERCE,
-          abi: AGENTIC_COMMERCE_ABI,
-          functionName: 'createJob',
-          args: [PLATFORM_PROVIDER, EVALUATOR, expiredAt, description, '0x0000000000000000000000000000000000000000' as `0x${string}`],
-          chain: arcTestnet,
-        })
-        const createReceipt = await waitForTransactionReceipt(config, { hash: createTx })
-        if (createReceipt.status !== 'success') {
-          setActionError('Failed to create job on-chain. Try again.')
-          setFunding(false); setFundStep(''); return
-        }
-        // Extract on-chain job ID from JobCreated event (topics[1])
-        actualJobId = 0n
-        const jobCreatedTopic = '0xb0f0239bfdd96453e24733e18bfc24b70d8fadf123dd977473518dd577ee79b9'
-        for (const log of createReceipt.logs) {
-          if (log.address.toLowerCase() === AGENTIC_COMMERCE.toLowerCase() && log.topics[0] === jobCreatedTopic) {
-            actualJobId = BigInt(log.topics[1]!)
-            break
-          }
-        }
-        if (actualJobId === 0n) {
-          setActionError('Job created but could not find on-chain ID. Try again.')
-          setFunding(false); setFundStep(''); return
-        }
+      const actualJobId = jobIdBig
+      if (onchainJob.id === 0n || onchainJob.client.toLowerCase() !== address.toLowerCase()) {
+        setActionError('The on-chain job does not match this marketplace listing. Funding is blocked.')
+        return
       }
 
-      // Step 1: setProvider if provider is still zero on-chain (only if not just created)
+      // Step 1: setProvider if provider is still zero on-chain
       if (onchainJob.provider === '0x0000000000000000000000000000000000000000') {
         setFundStep('Setting provider on-chain...')
         const setProvTx = await writeContractAsync({
@@ -416,16 +359,19 @@ export default function MarketplaceDetail() {
 
       // Step 5: Only update API after all txs confirmed
       setFundStep('Confirming...')
-      await authFetch(`/open-jobs/${id}/fund`, {
+      const fundRes = await authFetch(`/open-jobs/${id}/fund`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientAddress: address,
           onchainJobId: actualJobId.toString(),
           fundTx,
-          budget: budgetStr,
         }),
       })
+      if (!fundRes.ok) {
+        const err = await fundRes.json().catch(() => ({ error: 'Funding transaction confirmed, but marketplace synchronization failed' }))
+        throw new Error(err.error || 'Funding transaction confirmed, but marketplace synchronization failed')
+      }
 
       fetchJob()
     } catch (err: any) {
@@ -500,117 +446,6 @@ export default function MarketplaceDetail() {
     setDownloadingFileId(null)
   }
 
-  async function handleSubmitOnChain() {
-    if (!address || !job?.jobId || deliverables.length === 0) return
-    setSubmittingOnChain(true)
-    setActionError(null)
-    try {
-      const content = deliverables[0].content || 'deliverable'
-      const contentBytes = new TextEncoder().encode(content.slice(0, 100))
-      const hash = '0x' + Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', contentBytes))).map(b => b.toString(16).padStart(2, '0')).join('')
-      const tx = await writeContractAsync({
-        address: AGENTIC_COMMERCE,
-        abi: AGENTIC_COMMERCE_ABI,
-        functionName: 'submit',
-        args: [BigInt(job.jobId), hash as `0x${string}`, '0x'],
-        chain: arcTestnet,
-      })
-      await waitForTransactionReceipt(config, { hash: tx, confirmations: 1 })
-      // On-chain submit auto-completes — update DB
-      await authFetch(`/open-jobs/${id}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completedTx: tx }),
-      })
-      fetchJob()
-    } catch (err: any) {
-      const msg = err?.shortMessage || err?.message || 'Submit failed'
-      setActionError(msg)
-    } finally {
-      setSubmittingOnChain(false)
-    }
-  }
-
-  async function handleComplete() {
-    if (!address || !job?.jobId) return
-    setCompleting(true)
-    setActionError(null)
-    try {
-      // Check on-chain status first
-      const onchainJob = await readContract(config, {
-        address: AGENTIC_COMMERCE,
-        abi: AGENTIC_COMMERCE_ABI,
-        functionName: 'getJob',
-        args: [BigInt(job.jobId)],
-      })
-
-      // Status 1 = FUNDED, need submit first
-      if (Number(onchainJob.status) === 1) {
-        if (address.toLowerCase() === onchainJob.provider.toLowerCase()) {
-          const deliverableContent = deliverables[0]?.content || 'deliverable'
-          const deliverableBytes = new TextEncoder().encode(deliverableContent.slice(0, 100))
-          const deliverableHash = '0x' + Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', deliverableBytes))).map(b => b.toString(16).padStart(2, '0')).join('')
-          const submitTx = await writeContractAsync({
-            address: AGENTIC_COMMERCE,
-            abi: AGENTIC_COMMERCE_ABI,
-            functionName: 'submit',
-            args: [BigInt(job.jobId), deliverableHash as `0x${string}`, '0x'],
-            chain: arcTestnet,
-          })
-          const submitReceipt = await waitForTransactionReceipt(config, { hash: submitTx })
-          if (submitReceipt.status !== 'success') {
-            setActionError('On-chain submit failed. Try again.')
-            setCompleting(false)
-            return
-          }
-        } else {
-          setActionError('Agent hasn\'t submitted their work on-chain yet. Ask them to submit before you can approve.')
-          setCompleting(false)
-          return
-        }
-      } else if (Number(onchainJob.status) === 3) {
-        setActionError('This job is already completed on-chain.')
-        setCompleting(false)
-        return
-      } else if (Number(onchainJob.status) !== 2) {
-        const statusNames = ['Open', 'Funded', 'Submitted', 'Completed', 'Rejected', 'Expired']
-        setActionError('Job is not ready to be approved yet. Current state: ' + (statusNames[Number(onchainJob.status)] ?? 'Unknown'))
-        setCompleting(false)
-        return
-      }
-
-      const reasonBytes = new TextEncoder().encode('Deliverable approved')
-      const reasonHash = '0x' + Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', reasonBytes))).map(b => b.toString(16).padStart(2, '0')).join('')
-
-      const completeTx = await writeContractAsync({
-        address: AGENTIC_COMMERCE,
-        abi: AGENTIC_COMMERCE_ABI,
-        functionName: 'complete',
-        args: [BigInt(job.jobId), reasonHash as `0x${string}`, '0x'],
-        chain: arcTestnet,
-      })
-
-      // Wait for tx confirmation
-      const receipt = await waitForTransactionReceipt(config, { hash: completeTx })
-      if (receipt.status !== 'success') {
-        setActionError('Transaction failed on-chain. Payment was not released.')
-        setCompleting(false)
-        return
-      }
-
-      // Only update DB after confirmed on-chain
-      await authFetch(`/open-jobs/${id}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientAddress: address, completionTx: completeTx }),
-      })
-      fetchJob()
-    } catch (err: any) {
-      const msg = parseContractError(err)
-      setActionError(msg)
-    }
-    setCompleting(false)
-  }
 
   async function handleReject() {
     if (!address) return

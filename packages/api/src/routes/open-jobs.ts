@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { createWalletClient, createPublicClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { requireAuth, verifyToken } from '../middleware/auth.js'
+import { hasCommerceEvent } from '../lib/commerce-receipt.js'
 import { formatUsdc } from '../lib/format.js'
 import { dispatchWebhooks } from '../lib/webhooks.js'
 
@@ -37,6 +38,19 @@ const USDC = '0x3600000000000000000000000000000000000000'
 const arcChain = { id: 5042002, name: 'Arc Testnet', nativeCurrency: { name: 'ARC', symbol: 'ARC', decimals: 18 }, rpcUrls: { default: { http: [ARC_RPC] } } } as const
 
 const SET_BUDGET_ABI = [{ inputs: [{ name: 'jobId', type: 'uint256' }, { name: 'amount', type: 'uint256' }, { name: 'optParams', type: 'bytes' }], name: 'setBudget', outputs: [], stateMutability: 'nonpayable', type: 'function' }]
+const GET_JOB_ABI = [{
+  inputs: [{ name: 'jobId', type: 'uint256' }],
+  name: 'getJob',
+  outputs: [{
+    components: [
+      { name: 'id', type: 'uint256' }, { name: 'client', type: 'address' },
+      { name: 'provider', type: 'address' }, { name: 'evaluator', type: 'address' },
+      { name: 'description', type: 'string' }, { name: 'budget', type: 'uint256' },
+      { name: 'expiredAt', type: 'uint256' }, { name: 'status', type: 'uint8' },
+      { name: 'hook', type: 'address' },
+    ], name: '', type: 'tuple',
+  }], stateMutability: 'view', type: 'function',
+}] as const
 
 const FIELD_LIMITS = {
   title: 200,
@@ -77,6 +91,22 @@ openJobs.post('/', requireAuth, async (c) => {
   if (authWallet !== clientAddress.toLowerCase()) {
     return c.json({ error: 'Can only create jobs for your own wallet' }, 403)
   }
+  if (!jobId || !onChainTx || !/^0x[a-fA-F0-9]{64}$/.test(onChainTx)) {
+    return c.json({ error: 'A verified on-chain job ID and creation transaction are required' }, 400)
+  }
+
+  let verifiedJobId: bigint
+  try {
+    verifiedJobId = BigInt(jobId)
+    if (verifiedJobId <= 0n) throw new Error('invalid job ID')
+    const receipt = await createPublicClient({ chain: arcChain, transport: http(ARC_RPC) })
+      .getTransactionReceipt({ hash: onChainTx as `0x${string}` })
+    if (!hasCommerceEvent(receipt, 'JobCreated', verifiedJobId, clientAddress)) {
+      return c.json({ error: 'Creation transaction is not a successful JobCreated event for this wallet and job' }, 400)
+    }
+  } catch {
+    return c.json({ error: 'Creation transaction was not found on Arc Testnet' }, 400)
+  }
 
   if (!budgetMin && !budgetMax) {
     return c.json({ error: 'Budget is required (set at least budgetMin or budgetMax)' }, 400)
@@ -109,16 +139,23 @@ openJobs.post('/', requireAuth, async (c) => {
   const budgetMinRaw = budgetMin ? BigInt(Math.round(parseFloat(budgetMin) * 1_000_000)).toString() : null
   const budgetMaxRaw = budgetMax ? BigInt(Math.round(parseFloat(budgetMax) * 1_000_000)).toString() : null
 
+  // Idempotent retry: a valid on-chain JobCreated receipt may outlive a lost
+  // browser/API response. Let the unique job_id constraint arbitrate concurrent
+  // retries and emit the creation webhook only for the inserting request.
   const result = await query(
     `INSERT INTO open_jobs (job_id, title, description, category, requirements, budget_min, budget_max, deadline_hours, client_address, on_chain_tx, sector_config)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     ON CONFLICT (job_id) DO NOTHING
      RETURNING id`,
-    [jobId || null, title, description, category || null, requirements || null, budgetMinRaw, budgetMaxRaw, deadlineNum, clientAddress.toLowerCase(), onChainTx || null, sectorConfig ? JSON.stringify(sectorConfig) : '{}']
+    [verifiedJobId.toString(), title, description, category || null, requirements || null, budgetMinRaw, budgetMaxRaw, deadlineNum, clientAddress.toLowerCase(), onChainTx, sectorConfig ? JSON.stringify(sectorConfig) : '{}']
   )
 
-  const newJob = result.rows[0]
+  if (result.rows.length === 0) {
+    const existing = await query(`SELECT id FROM open_jobs WHERE job_id = $1`, [verifiedJobId.toString()])
+    return c.json({ id: existing.rows[0].id, jobId: verifiedJobId.toString(), existing: true }, 200)
+  }
 
-  // Fan out job.created to subscribed agents (category/budget matched).
+  const newJob = result.rows[0]
   await dispatchWebhooks('job.created', {
     category,
     budget: budgetMax || budgetMin || null,
@@ -705,8 +742,24 @@ openJobs.post('/:id/link-chain', requireAuth, async (c) => {
 
   if (!jobId) return c.json({ error: 'jobId required' }, 400)
   if (!clientAddress) return c.json({ error: 'clientAddress required' }, 400)
+  if (!onChainTx || !/^0x[a-fA-F0-9]{64}$/.test(onChainTx)) {
+    return c.json({ error: 'A creation transaction hash is required' }, 400)
+  }
   if (authWallet !== clientAddress.toLowerCase()) {
     return c.json({ error: 'Can only link your own jobs' }, 403)
+  }
+
+  let verifiedJobId: bigint
+  try {
+    verifiedJobId = BigInt(jobId)
+    if (verifiedJobId <= 0n) throw new Error('invalid job ID')
+    const receipt = await createPublicClient({ chain: arcChain, transport: http(ARC_RPC) })
+      .getTransactionReceipt({ hash: onChainTx as `0x${string}` })
+    if (!hasCommerceEvent(receipt, 'JobCreated', verifiedJobId, clientAddress)) {
+      return c.json({ error: 'Creation transaction is not a successful JobCreated event for this wallet and job' }, 400)
+    }
+  } catch {
+    return c.json({ error: 'Creation transaction was not found on Arc Testnet' }, 400)
   }
 
   // Verify job ownership
@@ -718,7 +771,7 @@ openJobs.post('/:id/link-chain', requireAuth, async (c) => {
 
   await query(
     `UPDATE open_jobs SET job_id = $2, on_chain_tx = $3, updated_at = NOW() WHERE id = $1`,
-    [id, jobId, onChainTx || null]
+    [id, verifiedJobId.toString(), onChainTx]
   )
   return c.json({ success: true })
 })
@@ -745,11 +798,37 @@ openJobs.post('/:id/select', requireAuth, async (c) => {
     return c.json({ error: 'Job not found or not your job' }, 404)
   }
 
-  // Update application status
-  await query(
-    `UPDATE job_applications SET status = 'selected' WHERE job_id = $1 AND lower(applicant_address) = lower($2)`,
+  const job = jobResult.rows[0]
+  if (job.status !== 'open' || !job.job_id) {
+    return c.json({ error: 'Job is not open for provider selection' }, 400)
+  }
+  try {
+    const relay = privateKeyToAccount(PROVIDER_KEY as `0x${string}`).address
+    const onchainJob = await createPublicClient({ chain: arcChain, transport: http(ARC_RPC) }).readContract({
+      address: AGENTIC_COMMERCE as `0x${string}`,
+      abi: GET_JOB_ABI,
+      functionName: 'getJob',
+      args: [BigInt(job.job_id)],
+    })
+    if (onchainJob.client.toLowerCase() !== clientAddress.toLowerCase() || Number(onchainJob.status) !== 0 || onchainJob.provider.toLowerCase() !== relay.toLowerCase()) {
+      return c.json({ error: 'On-chain job is not ready for this provider selection' }, 400)
+    }
+  } catch {
+    return c.json({ error: 'On-chain job could not be verified' }, 400)
+  }
+
+  // Select only an actual pending application. Without this guard, a client
+  // could assign an arbitrary wallet and later route marketplace notifications
+  // and payout metadata to a non-applicant.
+  const selected = await query(
+    `UPDATE job_applications SET status = 'selected'
+     WHERE job_id = $1 AND lower(applicant_address) = lower($2) AND status = 'pending'
+     RETURNING id`,
     [jobResult.rows[0].id, applicantAddress]
   )
+  if (selected.rows.length === 0) {
+    return c.json({ error: 'Applicant has no pending application for this job' }, 400)
+  }
   // Reject others
   await query(
     `UPDATE job_applications SET status = 'rejected' WHERE job_id = $1 AND lower(applicant_address) != lower($2) AND status = 'pending'`,
@@ -762,7 +841,6 @@ openJobs.post('/:id/select', requireAuth, async (c) => {
   )
 
   // Notify selected agent — in-app + webhook push
-  const job = jobResult.rows[0]
   await query(
     `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
      VALUES ($1, 'application_selected', $2, $3)`,
@@ -815,9 +893,15 @@ openJobs.post('/:id/set-budget', requireAuth, async (c) => {
   if (jobResult.rows.length === 0) return c.json({ error: 'Job not found or not yours' }, 404)
 
   const job = jobResult.rows[0]
-  // Use onchainJobId from frontend if provided (for newly created on-chain jobs)
-  const actualOnchainJobId = onchainJobId || job.job_id
+  if (job.status !== 'assigned') return c.json({ error: 'Job must have a selected agent before setting budget' }, 400)
+  // A browser may not substitute a different contract job than the one this
+  // listing was created from. The provider relay would otherwise fund/set
+  // budget on arbitrary jobs with platform funds.
+  const actualOnchainJobId = job.job_id
   if (!actualOnchainJobId) return c.json({ error: 'No on-chain job ID' }, 400)
+  if (onchainJobId && BigInt(onchainJobId) !== BigInt(actualOnchainJobId)) {
+    return c.json({ error: 'onchainJobId does not match this job listing' }, 400)
+  }
 
   const budgetAtomic = BigInt(Math.round(budgetNum * 1_000_000))
 
@@ -825,6 +909,20 @@ openJobs.post('/:id/set-budget', requireAuth, async (c) => {
     const account = privateKeyToAccount(PROVIDER_KEY as `0x${string}`)
     const walletClient = createWalletClient({ account, chain: arcChain, transport: http(ARC_RPC) })
     const publicClient = createPublicClient({ chain: arcChain, transport: http(ARC_RPC) })
+    const onchainJob = await publicClient.readContract({
+      address: AGENTIC_COMMERCE as `0x${string}`,
+      abi: GET_JOB_ABI,
+      functionName: 'getJob',
+      args: [BigInt(actualOnchainJobId)],
+    })
+    if (
+      onchainJob.client.toLowerCase() !== clientAddress.toLowerCase() ||
+      onchainJob.provider.toLowerCase() !== account.address.toLowerCase() ||
+      Number(onchainJob.status) !== 0 ||
+      onchainJob.budget !== 0n
+    ) {
+      return c.json({ error: 'On-chain job is not ready for budget configuration' }, 400)
+    }
 
     const tx = await walletClient.writeContract({
       address: AGENTIC_COMMERCE as `0x${string}`,
@@ -832,7 +930,10 @@ openJobs.post('/:id/set-budget', requireAuth, async (c) => {
       functionName: 'setBudget',
       args: [BigInt(actualOnchainJobId), budgetAtomic, '0x'],
     })
-    await publicClient.waitForTransactionReceipt({ hash: tx })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: tx })
+    if (receipt.status !== 'success') {
+      return c.json({ error: 'setBudget transaction reverted on Arc Testnet' }, 400)
+    }
 
     return c.json({ success: true, tx })
   } catch (e: any) {
@@ -845,11 +946,14 @@ openJobs.post('/:id/set-budget', requireAuth, async (c) => {
 openJobs.post('/:id/fund', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
-  const { clientAddress, onchainJobId, fundTx, budget } = body
+  const { clientAddress, onchainJobId, fundTx } = body
   const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
 
   if (!clientAddress || !fundTx) {
     return c.json({ error: 'clientAddress and fundTx required' }, 400)
+  }
+  if (!/^0x[a-fA-F0-9]{64}$/.test(fundTx)) {
+    return c.json({ error: 'fundTx must be a transaction hash' }, 400)
   }
   if (authWallet !== clientAddress.toLowerCase()) {
     return c.json({ error: 'Can only fund your own jobs' }, 403)
@@ -863,15 +967,45 @@ openJobs.post('/:id/fund', requireAuth, async (c) => {
     return c.json({ error: 'Job not found or not your job' }, 404)
   }
 
-  const budgetRaw = budget ? BigInt(Math.round(parseFloat(budget) * 1_000_000)).toString() : null
+  const job = jobResult.rows[0]
+  if (job.status !== 'assigned' || !job.selected_applicant) {
+    return c.json({ error: 'Job must have a selected agent before funding' }, 400)
+  }
+  if (!job.job_id) {
+    return c.json({ error: 'No on-chain job ID' }, 400)
+  }
+  if (onchainJobId && BigInt(onchainJobId) !== BigInt(job.job_id)) {
+    return c.json({ error: 'onchainJobId does not match this job listing' }, 400)
+  }
+
+  const actualOnchainJobId = BigInt(job.job_id)
+  let fundedBudget: string
+  try {
+    const publicClient = createPublicClient({ chain: arcChain, transport: http(ARC_RPC) })
+    const receipt = await publicClient.getTransactionReceipt({ hash: fundTx as `0x${string}` })
+    if (!hasCommerceEvent(receipt, 'JobFunded', actualOnchainJobId, clientAddress)) {
+      return c.json({ error: 'fundTx is not a successful funding transaction for this job and client' }, 400)
+    }
+    const onchainJob = await publicClient.readContract({
+      address: AGENTIC_COMMERCE as `0x${string}`,
+      abi: GET_JOB_ABI,
+      functionName: 'getJob',
+      args: [actualOnchainJobId],
+    })
+    if (onchainJob.client.toLowerCase() !== clientAddress.toLowerCase() || Number(onchainJob.status) !== 1) {
+      return c.json({ error: 'On-chain job is not funded by this client' }, 400)
+    }
+    fundedBudget = onchainJob.budget.toString()
+  } catch {
+    return c.json({ error: 'fundTx was not found or could not be verified on Arc Testnet' }, 400)
+  }
 
   await query(
-    `UPDATE open_jobs SET status = 'funded', onchain_job_id = $2, funded_tx = $3, funded_at = NOW(), final_budget = $4, updated_at = NOW()
-     WHERE id = $1`,
-    [jobResult.rows[0].id, onchainJobId || null, fundTx, budgetRaw]
+    `UPDATE open_jobs SET status = 'funded', onchain_job_id = $2, funded_tx = $3, funded_at = NOW(), final_budget = $4, updated_at = NOW() WHERE id = $1`,
+    [job.id, actualOnchainJobId.toString(), fundTx, fundedBudget]
   )
 
-  // Notify agent that job is funded — in-app + webhook push
+  // Notify agent
   if (jobResult.rows[0].selected_applicant) {
     await query(
       `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
@@ -908,7 +1042,7 @@ openJobs.post('/:id/start', requireAuth, async (c) => {
   if (jobResult.rows.length === 0) {
     return c.json({ error: 'Job not found or not assigned to you' }, 404)
   }
-  if (!['funded', 'assigned'].includes(jobResult.rows[0].status)) {
+  if (jobResult.rows[0].status !== 'funded') {
     return c.json({ error: 'Job must be funded before starting work' }, 400)
   }
 
@@ -1067,55 +1201,13 @@ openJobs.get('/:id/suggested-agents', async (c) => {
   })
 })
 
-// POST /api/open-jobs/:id/complete — client approves and confirms on-chain completion
-openJobs.post('/:id/complete', requireAuth, async (c) => {
-  const id = c.req.param('id')
-  const body = await c.req.json()
-  const { clientAddress, completionTx, completedTx } = body
-  const authWallet = ((c as any).get('wallet') as string)?.toLowerCase()
-
-  if (!clientAddress) return c.json({ error: 'clientAddress required' }, 400)
-  if (authWallet !== clientAddress.toLowerCase()) return c.json({ error: 'Can only complete your own jobs' }, 403)
-
-  const jobResult = await query(
-    `SELECT * FROM open_jobs WHERE (id = $1 OR job_id = $1::bigint) AND lower(client_address) = lower($2)`,
-    [id, clientAddress]
-  )
-  if (jobResult.rows.length === 0) {
-    return c.json({ error: 'Job not found or not your job' }, 404)
-  }
-  // revision_requested is included so the client can OVERRIDE the evaluator
-  // and approve anyway — the CaseFile UI shows the Approve button in that
-  // state, so the API must accept it (audit: UI/API state-machine mismatch).
-  if (!['delivered', 'funded', 'in_progress', 'evaluating', 'revision_requested'].includes(jobResult.rows[0].status)) {
-    return c.json({ error: 'Job not in a completable state' }, 400)
-  }
-
-  await query(
-    `UPDATE open_jobs SET status = 'completed', completed_tx = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
-    [jobResult.rows[0].id, completionTx || completedTx || null]
-  )
-
-  // Mark deliverable as approved
-  await query(
-    `UPDATE marketplace_deliverables SET status = 'approved' WHERE open_job_id = $1 AND status = 'submitted'`,
-    [jobResult.rows[0].id]
-  )
-
-  // Notify agent — in-app + webhook push
-  if (jobResult.rows[0].selected_applicant) {
-    await query(
-      `INSERT INTO agent_notifications (agent_address, type, reference_id, message)
-       VALUES ($1, 'deliverable_approved', $2, $3)`,
-      [jobResult.rows[0].selected_applicant, jobResult.rows[0].id, `"${jobResult.rows[0].title}" approved! Payment released.`]
-    )
-    await dispatchWebhooks('job.completed', {
-      agentAddress: jobResult.rows[0].selected_applicant,
-      job: { id: jobResult.rows[0].id, jobId: jobResult.rows[0].job_id, title: jobResult.rows[0].title, status: 'completed' },
-    })
-  }
-
-  return c.json({ success: true })
+// Legacy browser settlement endpoint. The evaluator service is the only actor
+// that can settle the contract; it writes the DB only after its own confirmed
+// JobCompleted receipt. A wallet JWT is proof of identity, not proof of escrow.
+openJobs.post('/:id/complete', requireAuth, (c) => {
+  return c.json({
+    error: 'Settlement is performed by the evaluator service after on-chain verification',
+  }, 410)
 })
 
 // POST /api/open-jobs/:id/reject — client rejects deliverable (request revision)
