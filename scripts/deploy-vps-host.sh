@@ -28,4 +28,15 @@ pnpm -r build
 # First VPS deploy has no PM2 app yet; later deploys reload the same config.
 pm2 startOrReload ecosystem.vps.config.cjs --update-env
 pm2 save
-curl -fsS --max-time 15 http://127.0.0.1:3000/api/health
+
+# PM2 reports reload completion before Node has necessarily bound the API port.
+# Poll locally so a deploy only succeeds once the replacement process is ready.
+for attempt in {1..20}; do
+  if curl -fsS --max-time 15 http://127.0.0.1:3000/api/health; then
+    exit 0
+  fi
+  sleep 3
+done
+
+echo "API did not become healthy after PM2 reload" >&2
+exit 1
