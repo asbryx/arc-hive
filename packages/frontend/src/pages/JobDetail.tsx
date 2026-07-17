@@ -5,6 +5,7 @@ import { useAccount } from 'wagmi'
 import { useGuardedWriteContract } from '@/hooks/useGuardedWriteContract'
 import { useJob } from '@/api/hooks'
 import { waitForTransactionReceipt } from '@wagmi/core'
+import { keccak256, toBytes } from 'viem'
 import { AGENTIC_COMMERCE, AGENTIC_COMMERCE_ABI } from '@/lib/contracts'
 import { arcTestnet, config } from '@/lib/wagmi'
 import StatusPill from '@/components/graphics/StatusPill'
@@ -53,6 +54,7 @@ export default function JobDetail() {
   const isClient = address?.toLowerCase() === job.client?.toLowerCase()
   const isProvider = address?.toLowerCase() === job.provider?.toLowerCase()
   const isEvaluator = address?.toLowerCase() === job.evaluator?.toLowerCase()
+  const isExplorerCommerceJob = job.sourceContract?.toLowerCase() === AGENTIC_COMMERCE.toLowerCase()
 
   async function handleComplete() {
     if (!id) return
@@ -101,11 +103,21 @@ export default function JobDetail() {
   }
 
   async function handleSubmitDeliverable() {
-    if (!id || !address) return
+    if (!id || !address || !isExplorerCommerceJob) return
     setActionLoading('deliver')
     setActionError(null)
     try {
-      // Save to API
+      const deliverableHash = keccak256(toBytes(deliverForm.content))
+      const submissionTx = await writeContractAsync({
+        address: AGENTIC_COMMERCE,
+        abi: AGENTIC_COMMERCE_ABI,
+        functionName: 'submit',
+        args: [BigInt(id), deliverableHash, '0x'],
+        chain: arcTestnet,
+      })
+      const receipt = await waitForTransactionReceipt(config, { hash: submissionTx })
+      if (receipt.status !== 'success') throw new Error('Deliverable submission reverted on-chain')
+
       const res = await authFetch(`/jobs/${id}/deliverable`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,24 +126,15 @@ export default function JobDetail() {
           content: deliverForm.content,
           link: deliverForm.link || null,
           notes: deliverForm.notes || null,
+          submissionTx,
         }),
       })
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to save')
+        const err = await res.json().catch(() => ({ error: 'Deliverable on-chain, but API synchronization failed' }))
+        throw new Error(err.error || 'Deliverable on-chain, but API synchronization failed')
       }
 
-      // Submit on-chain
-      const hash = ('0x' + Array.from(new TextEncoder().encode(deliverForm.content.slice(0, 31))).map(b => b.toString(16).padStart(2, '0')).join('').padEnd(64, '0')) as `0x${string}`
-      await writeContractAsync({
-        address: AGENTIC_COMMERCE,
-        abi: AGENTIC_COMMERCE_ABI,
-        functionName: 'submit',
-        args: [BigInt(id), hash, '0x'],
-        chain: arcTestnet,
-      })
-
-      setActionSuccess('Deliverable submitted. Waiting for client review.')
+      setActionSuccess('Deliverable submitted on-chain. Waiting for evaluator review.')
       setShowDeliverForm(false)
       refetch()
     } catch (err: any) {
@@ -472,7 +475,7 @@ export default function JobDetail() {
 
       {/* ═══ ACTION BUTTONS ═══ */}
       {/* Provider: Submit deliverable (when job is Funded) */}
-      {isProvider && job.status === 'Funded' && (
+      {isProvider && job.status === 'Funded' && isExplorerCommerceJob && (
         <section style={{ marginBottom: 32, padding: '20px', border: '1px solid var(--accent)' }}>
           <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
             // submit your work
@@ -556,7 +559,7 @@ export default function JobDetail() {
       )}
 
       {/* Only the configured evaluator can settle the contract. */}
-      {isEvaluator && job.status === 'Submitted' && (
+      {isEvaluator && job.status === 'Submitted' && isExplorerCommerceJob && (
         <section style={{ marginBottom: 32, padding: '20px', border: '1px solid var(--accent)' }}>
           <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
             // review deliverable

@@ -71,6 +71,7 @@ export interface Job {
   createdAt: string
   completedAt: string | null
   txHash: string | null
+  sourceContract: string | null
 }
 
 export interface JobDetail extends Job {

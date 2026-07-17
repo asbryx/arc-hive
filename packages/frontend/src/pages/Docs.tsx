@@ -523,8 +523,10 @@ console.log(key.id) // 'key_abc123'
           <P>Base URL: <code style={{ color: 'var(--code-green)', background: 'var(--code-bg)', padding: '2px 6px', fontFamily: FONT }}>https://arcs-hive.vercel.app/api</code></P>
 
           <SubHeader>Authentication</SubHeader>
-          <EndpointBlock method="GET" path="/auth/nonce?wallet=0x..." desc="Get a message to sign with your wallet" auth={false}
-            example={`curl https://arcs-hive.vercel.app/api/auth/nonce?wallet=0x1234...`} />
+          <EndpointBlock method="POST" path="/auth/nonce" desc="Get a wallet-specific message to sign" auth={false}
+            example={`curl -X POST https://arcs-hive.vercel.app/api/auth/nonce \\
+  -H "Content-Type: application/json" \\
+  -d '{"wallet":"0x1234..."}'`} />
           <EndpointBlock method="POST" path="/auth/verify" desc="Submit signed message to get auth token" auth={false}
             example={`curl -X POST https://arcs-hive.vercel.app/api/auth/verify \\
   -H "Content-Type: application/json" \\

@@ -1,9 +1,20 @@
 import { Hono } from 'hono'
+import { createPublicClient, http, keccak256, toBytes } from 'viem'
 import { query } from '../db.js'
 import { requireAuth } from '../middleware/auth.js'
+import { hasSubmittedDeliverable } from '../lib/commerce-receipt.js'
 import { formatUsdc } from '../lib/format.js'
 
 export const jobs = new Hono()
+
+const ARC_RPC = 'https://rpc.testnet.arc.network'
+const AGENTIC_COMMERCE = '0x0747eef0706327138c69792bf28cd525089e4583'
+const arcChain = {
+  id: 5042002,
+  name: 'Arc Testnet',
+  nativeCurrency: { name: 'ARC', symbol: 'ARC', decimals: 18 },
+  rpcUrls: { default: { http: [ARC_RPC] } },
+} as const
 
 function paginate(c: any) {
   const rawPage = parseInt(c.req.query('page') || '1')
@@ -164,20 +175,28 @@ jobs.get('/:id', async (c) => {
     return c.json({ error: 'Invalid job ID. Must be numeric.' }, 400)
   }
 
-  const jobResult = await query(`SELECT * FROM jobs WHERE job_id = $1`, [id])
+  const jobResult = await query(
+    `SELECT * FROM jobs WHERE job_id = $1 AND lower(source_contract) = $2`,
+    [id, AGENTIC_COMMERCE]
+  )
   if (jobResult.rows.length === 0) {
-    return c.json({ error: 'Job not found' }, 404)
+    return c.json({ error: 'Commerce job not found' }, 404)
   }
 
   const eventsResult = await query(
-    `SELECT event_name, event_data, block_timestamp, tx_hash FROM job_events WHERE job_id = $1 ORDER BY block_number, log_index`,
-    [id]
+    `SELECT event_name, event_data, block_timestamp, tx_hash
+     FROM job_events
+     WHERE job_id = $1 AND lower(source_contract) = $2 ORDER BY block_number, log_index`,
+    [id, AGENTIC_COMMERCE]
   )
 
-  // Get deliverable content if exists
+  // Direct Explorer deliverables are keyed by the indexed chain identity.
+  // Marketplace job_deliverables use local open_jobs.id and must never be read here.
   const deliverableResult = await query(
-    `SELECT content, link, notes, created_at FROM job_deliverables WHERE job_id = $1`,
-    [id]
+    `SELECT content, link, notes, created_at, submission_tx
+     FROM indexed_job_deliverables
+     WHERE job_id = $1 AND source_contract = $2`,
+    [id, jobResult.rows[0].source_contract]
   )
 
   // Check if there's a matching open_jobs entry (marketplace metadata)
@@ -237,6 +256,7 @@ jobs.get('/:id', async (c) => {
     refundAmount: formatUsdc(job.refund_amount),
     createdAt: job.created_timestamp,
     createdTx: job.created_tx,
+    sourceContract: job.source_contract,
     marketplace: marketplace ? {
       title: marketplace.title,
       description: marketplace.description,
@@ -273,45 +293,85 @@ jobs.get('/:id', async (c) => {
 jobs.post('/:id/deliverable', requireAuth, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
-  const { providerAddress, content, link, notes } = body
+  const { providerAddress, content, link, notes, submissionTx } = body
   const authWallet = (c as any).get('wallet')?.toLowerCase()
 
-  if (!providerAddress || !content) {
-    return c.json({ error: 'providerAddress and content required' }, 400)
+  if (!id || !/^\d+$/.test(id)) {
+    return c.json({ error: 'Invalid job ID. Must be numeric.' }, 400)
   }
+  if (typeof providerAddress !== 'string' || typeof content !== 'string' || typeof submissionTx !== 'string') {
+    return c.json({ error: 'providerAddress, content, and submissionTx required' }, 400)
+  }
+  if (!/^0x[a-fA-F0-9]{40}$/.test(providerAddress)) {
+    return c.json({ error: 'Invalid provider address' }, 400)
+  }
+  if (!/^0x[a-fA-F0-9]{64}$/.test(submissionTx)) {
+    return c.json({ error: 'submissionTx must be a transaction hash' }, 400)
+  }
+  const jobId = id
+  const provider = providerAddress
+  const deliverableContent = content
+  const txHash = submissionTx as `0x${string}`
 
   // Verify authenticated wallet matches claimed provider
-  if (authWallet && authWallet !== providerAddress.toLowerCase()) {
+  if (authWallet && authWallet !== provider.toLowerCase()) {
     return c.json({ error: 'Authenticated wallet does not match provider' }, 403)
   }
 
-  // Verify job exists and caller is provider
-  const jobResult = await query(`SELECT provider_address, status FROM jobs WHERE job_id = $1`, [id])
+  // Explorer is an indexed on-chain surface. Restrict this route to the known
+  // commerce contract and bind the row to its composite on-chain identity.
+  const jobResult = await query(
+    `SELECT provider_address, status, source_contract
+     FROM jobs
+     WHERE job_id = $1 AND lower(source_contract) = $2`,
+    [jobId, AGENTIC_COMMERCE]
+  )
   if (jobResult.rows.length === 0) {
-    return c.json({ error: 'Job not found' }, 404)
+    return c.json({ error: 'Commerce job not found' }, 404)
   }
-  if (jobResult.rows[0].provider_address?.toLowerCase() !== providerAddress.toLowerCase()) {
+  const job = jobResult.rows[0]
+  if (job.provider_address?.toLowerCase() !== provider.toLowerCase()) {
     return c.json({ error: 'Only the provider can submit deliverables' }, 403)
   }
 
-  // Prevent status regression — only allow submission from valid states
-  const currentStatus = jobResult.rows[0].status
-  if (![1, '1', 'Funded', 'funded'].includes(currentStatus)) {
-    return c.json({ error: `Cannot submit deliverable for job in status: ${currentStatus}` }, 400)
+  // Receipt validation is authoritative. The indexer may process JobSubmitted
+  // before this request arrives, so both pre- and post-indexer states are valid.
+  const currentStatus = job.status
+  if (![1, 2, '1', '2', 'Funded', 'funded', 'Submitted', 'submitted'].includes(currentStatus)) {
+    return c.json({ error: `Cannot synchronize deliverable for job in status: ${currentStatus}` }, 400)
   }
 
   try {
-    await query(
-      `INSERT INTO job_deliverables (job_id, provider_address, content, link, notes)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (job_id) DO UPDATE SET content = $3, link = $4, notes = $5, created_at = NOW()`,
-      [id, providerAddress.toLowerCase(), content, link || null, notes || null]
+    const receipt = await createPublicClient({ chain: arcChain, transport: http(ARC_RPC) })
+      .getTransactionReceipt({ hash: txHash })
+    const deliverableHash = keccak256(toBytes(deliverableContent))
+    if (!hasSubmittedDeliverable(receipt, BigInt(jobId), provider, deliverableHash)) {
+      return c.json({ error: 'submissionTx is not a successful JobSubmitted transaction for this job, provider, and content' }, 400)
+    }
+
+    const sourceContract = job.source_contract.toLowerCase()
+    const inserted = await query(
+      `INSERT INTO indexed_job_deliverables
+         (job_id, source_contract, provider_address, content, link, notes, deliverable_hash, submission_tx)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (job_id, source_contract) DO NOTHING
+       RETURNING submission_tx`,
+      [jobId, sourceContract, provider.toLowerCase(), deliverableContent, link || null, notes || null, deliverableHash, txHash]
     )
-    // Update job status to Submitted (2 = Submitted in on-chain status map)
-    await query(`UPDATE jobs SET status = 2 WHERE job_id = $1 AND status = 1`, [id])
-    return c.json({ success: true }, 201)
-  } catch (e: any) {
-    return c.json({ error: 'Failed to save deliverable' }, 500)
+
+    if (inserted.rows.length === 0) {
+      const existing = await query(
+        `SELECT submission_tx FROM indexed_job_deliverables WHERE job_id = $1 AND source_contract = $2`,
+        [jobId, sourceContract]
+      )
+      if (existing.rows[0]?.submission_tx?.toLowerCase() !== txHash.toLowerCase()) {
+        return c.json({ error: 'A different on-chain deliverable is already synchronized for this job' }, 409)
+      }
+    }
+
+    return c.json({ success: true, submissionTx: txHash }, inserted.rows.length > 0 ? 201 : 200)
+  } catch {
+    return c.json({ error: 'submissionTx was not found or could not be verified on Arc Testnet' }, 400)
   }
 })
 
@@ -330,6 +390,7 @@ function formatJob(row: any) {
     createdAt: row.created_timestamp,
     completedAt: row.completed_at,
     txHash: row.completion_tx || null,
+    sourceContract: row.source_contract || null,
   }
 }
 
